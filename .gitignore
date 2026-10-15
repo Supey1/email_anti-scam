@@ -147,3 +147,18 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+# Secrets — never commit these
+.env
+.env.*
+config.local.js
+secrets.json
+
+# Chrome extension packaging
+*.pem
+*.crx
+*.zip
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
