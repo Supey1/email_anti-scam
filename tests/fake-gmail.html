@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fake Gmail test page</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f6f8fc; }
+    .bar { padding: 12px 16px; background: #fff; border-bottom: 1px solid #ddd; }
+    .bar button { margin: 4px; padding: 6px 10px; font-size: 14px; }
+    .mail { margin: 16px; padding: 16px 20px; background: #fff; border-radius: 8px; max-width: 640px; }
+    h2.hP { font-size: 22px; font-weight: normal; }
+  </style>
+</head>
+<body>
+  <!--
+    Practice page that copies the parts of Gmail our extension reads
+    (h2.hP = subject, span.gD = sender, div.a3s = message text).
+    Open this file in Chrome to try the panel without touching real email.
+    The links are fake and use made-up addresses. Don't change them to real scam links.
+  -->
+  <div class="bar">
+    <strong>Pick a test email:</strong>
+    <span id="buttons"></span>
+    <button id="close">Back to inbox (no email open)</button>
+  </div>
+  <div id="mail"></div>
+
+  <script>
+    const SAMPLES = [
+      {
+        label: 'Fake PayPal',
+        name: 'PayPal Security', email: 'alerts@paypa1-secure.xyz',
+        subject: 'Your account has been suspended',
+        body: 'Dear customer, we noticed unusual activity on your account. Verify your account within 24 hours or it will be closed.',
+        links: [['www.paypal.com', 'http://paypa1-secure.xyz/login']],
+      },
+      {
+        label: 'Grandparent scam',
+        name: 'Tommy', email: 'tommy83920@gmail.com',
+        subject: 'Grandma please help',
+        body: "Grandma, it's me. I was in an accident and need bail money. Please buy gift cards and don't tell mom.",
+        links: [],
+      },
+      {
+        label: 'Shipping (be careful)',
+        name: 'Delivery Notice', email: 'notice@parcel-update.example',
+        subject: 'Package on hold',
+        body: 'Your package could not be delivered. Click below to reschedule.',
+        links: [['Reschedule delivery', 'https://bit.ly/fake-test-link']],
+      },
+      {
+        label: 'Normal email',
+        name: 'Linda', email: 'linda.m@gmail.com',
+        subject: 'Lunch Saturday?',
+        body: 'Are you free for lunch on Saturday? The new diner opened on Main Street.',
+        links: [],
+      },
+    ];
+
+    function openSample(s) {
+      const mail = document.getElementById('mail');
+      mail.replaceChildren();
+      const box = document.createElement('div');
+      box.className = 'mail';
+      const subject = document.createElement('h2');
+      subject.className = 'hP';
+      subject.textContent = s.subject;
+      const sender = document.createElement('span');
+      sender.className = 'gD';
+      sender.setAttribute('name', s.name);
+      sender.setAttribute('email', s.email);
+      sender.textContent = `${s.name} <${s.email}>`;
+      const body = document.createElement('div');
+      body.className = 'a3s';
+      const p = document.createElement('p');
+      p.textContent = s.body;
+      body.append(p);
+      for (const [text, href] of s.links) {
+        const a = document.createElement('a');
+        a.textContent = text;
+        a.href = href;
+        a.addEventListener('click', e => e.preventDefault()); // never actually open test links
+        body.append(a);
+      }
+      box.append(subject, sender, body);
+      mail.append(box);
+    }
+
+    const buttons = document.getElementById('buttons');
+    SAMPLES.forEach(s => {
+      const b = document.createElement('button');
+      b.textContent = s.label;
+      b.onclick = () => openSample(s);
+      buttons.append(b);
+    });
+    document.getElementById('close').onclick = () => document.getElementById('mail').replaceChildren();
+  </script>
+
+  <!-- The same three files the extension loads into Gmail -->
+  <script src="../extension/rules.js"></script>
+  <script src="../extension/panel-styles.js"></script>
+  <script src="../extension/content.js"></script>
+</body>
+</html>

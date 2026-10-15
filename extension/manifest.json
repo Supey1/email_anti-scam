@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Email Anti-Scam",
+  "version": "0.1.0",
+  "description": "Helps older adults spot scam emails in Gmail with a big, plain-language warning panel.",
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["rules.js", "panel-styles.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
