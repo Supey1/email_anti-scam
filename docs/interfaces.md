@@ -188,37 +188,48 @@ Which actions go with which verdicts:
 
 ### Reason codes
 
-| Code | Strength | Used for | Meaning |
+| Code | Tier | Used for | Meaning |
 |---|---|---|---|
-| `KNOWN_THREAT` | block | all | The website is on the list of known dangerous websites. |
-| `LOOKALIKE_DOMAIN` | strong | all | The address imitates a company: its name with extra words, swapped characters (`paypa1`), letters from another alphabet, a misspelling, or the company's real website written in front (`paypal.com.fake-domain.example`). |
-| `HIDDEN_DESTINATION` | strong | email, link | The link's words show one website, but it goes to another. |
-| `BRAND_NAME_MISMATCH` | medium | email, link | The link or offer names a company, but goes somewhere else. |
-| `MISLEADING_URL` | strong | email, link | The address is written to look like a company's website (`paypal.com@evil.example`, or a company's website in the path) but goes elsewhere. |
-| `NUMBER_ADDRESS` | medium | all | A raw number address instead of a website name. |
+| `KNOWN_THREAT` | confirmed | all | The website, the exact address, or where a form sends what you type is on the list of known dangerous websites. From an untrusted source it is `strong` instead. |
+| `LOOKALIKE_DOMAIN` | moderate | all | The address imitates a company: its name with extra words, swapped characters (`paypa1`), letters from another alphabet, a misspelling, or the company's real website written in front (`paypal.com.fake-domain.example`, which is `strong`). |
+| `HIDDEN_DESTINATION` | moderate | email, link | The link's words show one website, but it goes to another. |
+| `BRAND_NAME_MISMATCH` | weak | email, link | The link or offer names a company, but goes somewhere else. |
+| `MISLEADING_URL` | moderate | email, link | The address is written to look like a company's website (`paypal.com@evil.example`, which is `strong`, or a company's website in the path) but goes elsewhere. A sign-in name or password hidden in a link without a website name is `weak`. |
+| `NUMBER_ADDRESS` | moderate | all | A raw number address instead of a website name. |
 | `SHORTENED_LINK` | weak | email, link | A shortened link hides where it really goes. |
 | `RISKY_DOMAIN_ENDING` | weak | all | A website ending often used by scam sites. |
 | `FAKE_SIGN_IN_PAGE` | strong | webpage | A company's sign-in page that isn't on the company's website. |
-| `CREDENTIALS_SENT_ELSEWHERE` | medium | webpage | A password or card form sends what you type to a different website. |
-| `SENDER_NAME_MISMATCH` | strong | email | The sender's name says a company, but the address isn't from it. |
-| `LOOKALIKE_SENDER` | strong | email | The sender's address imitates a company. |
-| `COMPANY_ON_FREE_EMAIL` | medium | email | Claims to be a company or department, but uses a free personal address. |
-| `PRIZE_CLAIM` | medium | all | Says you won a prize or are owed money. |
-| `UNVERIFIED_PRIZE_CLAIM` | info | link, webpage | Promises a prize, and we can't confirm the destination belongs to the company in the offer. |
-| `PRIZE_WITH_PRESSURE` | medium | all | A prize plus rushing: a classic scam combination. |
-| `PAY_TO_CLAIM` | medium | all | Asks you to pay a fee first, or pay with gift cards, crypto, or a wire transfer. |
-| `PAYMENT_METHOD_REQUEST` | medium | email | Mentions gift cards, wire transfers, or crypto. |
-| `ACCOUNT_PROBLEM_CLAIM` | medium | all | Says your account, card, or computer has a serious problem. |
-| `CALL_THIS_NUMBER` | medium | link, webpage | Tells you to call a number, or not to close the page. |
-| `TECH_SUPPORT_CLAIM` | medium | email | Talks about viruses or "tech support". |
-| `PERSONAL_INFO_REQUEST` | medium | email | Asks for account numbers, passwords, or similar. |
-| `DELIVERY_PROBLEM_CLAIM` | medium | email | Says a package couldn't be delivered. |
-| `SECRECY_REQUEST` | medium | email | Asks you to keep a secret. |
-| `FAMILY_EMERGENCY` | medium | email | Says a family member is in trouble and needs money fast. |
+| `SIGN_IN_ON_FREE_HOSTING` | moderate | link, webpage | A sign-in or payment page (or a sign-in link) on a free hosting website anyone can make. |
+| `INSECURE_FORM` | weak | webpage | A password or card form sends what you type without encryption (`http:`). |
+| `CREDENTIALS_SENT_ELSEWHERE` | moderate | webpage | A password or card form sends what you type to a different website. |
+| `SENDER_NAME_MISMATCH` | moderate | email | The sender's name says a company, but the address isn't from it. |
+| `LOOKALIKE_SENDER` | moderate | email | The sender's address imitates a company. |
+| `COMPANY_ON_FREE_EMAIL` | weak | email | Claims to be a company or department, but uses a free personal address. |
+| `PRIZE_CLAIM` | moderate | all | Says you won a prize or are owed money. |
+| `UNVERIFIED_PRIZE_CLAIM` | weak | link, webpage | Promises a prize, and we can't confirm the destination belongs to the company in the offer. |
+| `PRIZE_WITH_PRESSURE` | moderate | all | A prize plus rushing: a classic scam combination. |
+| `PAY_TO_CLAIM` | moderate | all | Asks you to pay a fee first, or pay with gift cards, crypto, or a wire transfer. |
+| `PAYMENT_METHOD_REQUEST` | moderate | email | Mentions gift cards, wire transfers, or crypto. |
+| `ACCOUNT_PROBLEM_CLAIM` | moderate | all | Says your account, card, or computer has a serious problem. |
+| `CALL_THIS_NUMBER` | moderate | link, webpage | Tells you to call a number, or not to close the page. |
+| `TECH_SUPPORT_CLAIM` | moderate | email | Talks about viruses or "tech support". |
+| `PERSONAL_INFO_REQUEST` | moderate | email | Asks for account numbers, passwords, or similar. |
+| `DELIVERY_PROBLEM_CLAIM` | moderate | email | Says a package couldn't be delivered. |
+| `SECRECY_REQUEST` | moderate | email | Asks you to keep a secret. |
+| `FAMILY_EMERGENCY` | moderate | email | Says a family member is in trouble and needs money fast. |
 | `PRESSURE_TACTICS` | weak | all | Tries to rush you. |
 | `INSIDE_SCAM_EMAIL` | strong | link | The clicked link is inside an email whose result was `warn` with `GO_BACK` (`context.surroundingResult`). |
 
-"Strength" is guidance for the engine only. It is not sent in the result.
+"Tier" comes from `extension/core/risk-policy.js` and is not sent in the result. It decides the verdict:
+
+| Evidence | Verdict | recommendedAction |
+|---|---|---|
+| Any `confirmed` sign (known dangerous, trusted source) | `block` | `GO_BACK` |
+| Any `strong` sign, or 5+ points including a `moderate` sign | `warn` | `GO_BACK`, or `DO_NOT_ENTER_INFO` on a page with a password or card box |
+| Anything else that counts (weak signs alone, however many) | `warn` | `VERIFY_INDEPENDENTLY` |
+| Nothing | `no_warning_signs` | `NONE` |
+
+On websites and around links, one scary phrase on its own doesn't count at all: it needs other evidence, or a second part of the scam story.
 
 ---
 

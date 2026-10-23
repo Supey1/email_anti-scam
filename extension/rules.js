@@ -44,10 +44,9 @@ function legacyResult(evaluation, extra) {
     text: explain(r.findings[0]).explanation,
     kind: r.code === 'FAKE_SIGN_IN_PAGE' ? 'page' : KIND[GranblockCore.riskPolicy.RULES[r.code].group] || 'wording',
   }));
-  const strong = decision.verdict === 'block' || decision.recommendedAction === 'GO_BACK' || decision.recommendedAction === 'DO_NOT_ENTER_INFO';
   return {
-    level: decision.confirmed || decision.score >= GranblockCore.riskPolicy.STOP_AT ? 'high' : decision.score >= 1 ? 'medium' : 'low',
-    action: decision.verdict === 'block' ? 'block' : strong ? 'warn' : 'allow',
+    level: decision.stops ? 'high' : decision.score >= 1 ? 'medium' : 'low',
+    action: decision.verdict === 'block' ? 'block' : decision.stops ? 'warn' : 'allow',
     confirmed: decision.confirmed,
     score: decision.score,
     reasons: evidence.map(e => e.text),

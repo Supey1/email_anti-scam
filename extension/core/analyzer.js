@@ -38,6 +38,7 @@
     const findings = [
       ...urlRules.checkAddress(parsed, 'link'),
       ...domainRules.checkAddress(parsed.hostname, 'link'),
+      ...urlRules.checkSignInLink(text, parsed),
     ];
     const shown = urlRules.checkShownDestination(text, parsed);
     findings.push(...shown);
@@ -69,7 +70,7 @@
     const { hostname, host } = parsed;
 
     // Moving around inside the same website is the page check's job, not ours.
-    if (page.ok && page.isWeb && sameSite(page.hostname, hostname) && !urlRules.isKnownThreat(hostname)) {
+    if (page.ok && page.isWeb && sameSite(page.hostname, hostname) && !urlRules.knownThreat(parsed)) {
       return { decision: NOTHING_FOUND, host, sameSite: true };
     }
 
@@ -103,7 +104,7 @@
     if (!page.ok || !page.isWeb) return { decision: NOTHING_FOUND, host: '' };
     const { hostname, host } = page;
     // The company's real website.
-    if (domainRules.officialBrandFor(hostname) && !urlRules.isKnownThreat(hostname)) return { decision: NOTHING_FOUND, host };
+    if (domainRules.officialBrandFor(hostname) && !urlRules.knownThreat(page)) return { decision: NOTHING_FOUND, host };
 
     const other = [
       ...urlRules.checkAddress(page, 'page'),
@@ -113,15 +114,8 @@
     const claim = `${input.pageTitle || ''}\n${(ctx.mainHeadings || []).join('\n')}`;
     const secretForms = (input.forms || []).filter(f => f.hasPassword || f.hasPaymentField);
     other.push(...domainRules.checkSignInPage(claim, hostname, secretForms.length > 0));
-
-    // The password or card number would be sent to a different website.
-    for (const form of secretForms) {
-      const action = parseUrl(form.action || '', page.href);
-      if (action.ok && action.isWeb && !sameSite(action.hostname, hostname)) {
-        other.push({ code: 'CREDENTIALS_SENT_ELSEWHERE', subject: 'page', data: { host, elsewhere: action.host }, evidence: { kind: 'form', value: action.href } });
-        break;
-      }
-    }
+    // Where the password or card number would be sent.
+    other.push(...urlRules.checkSecretForms(page, secretForms));
 
     const pageText = `${claim}\n${(input.visibleText || '').slice(0, 5000)}`;
     const text = keepText(textRules.checkWebText(pageText), other, 'webpage', textRules.looksLikeScamAdvice(pageText));

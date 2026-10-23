@@ -18,7 +18,7 @@ const path = require('path');
 const { analyze, analyzeEmail, analyzeLink, analyzePage } = require(path.join(__dirname, '..', 'extension', 'rules.js'));
 const norm = require(path.join(__dirname, '..', 'extension', 'core', 'url-normalizer.js'));
 const { EXPLANATIONS } = require(path.join(__dirname, '..', 'extension', 'core', 'explanations.js'));
-const { RULES } = require(path.join(__dirname, '..', 'extension', 'core', 'risk-policy.js'));
+const { RULES, decide } = require(path.join(__dirname, '..', 'extension', 'core', 'risk-policy.js'));
 const { validateResult, REASON_CODES } = require('./contract.js');
 
 // ---------- emails (Gmail panel) ----------
@@ -338,6 +338,16 @@ const normalizerChecks = [
   ['email address in text is not a website', norm.findDomainInText('Write to help@paypal.com'), ''],
   ['other-alphabet letters decoded (matches Node)', norm.toUnicodeHost('xn--pypal-4ve.com'), require('url').domainToUnicode('xn--pypal-4ve.com')],
   ['other-alphabet letters decoded (German)', norm.toUnicodeHost('xn--mnchen-3ya.de'), 'münchen.de'],
+  ['not followed: a fake Google pass-through', norm.normalizeUrl('https://google.evil.example/url?q=https://www.paypal.com/').hostname, 'google.evil.example'],
+  ['not followed: "google" on free hosting', norm.normalizeUrl('https://google.github.io/url?q=https://x.example/').hostname, 'google.github.io'],
+  ['followed: Google in another country', norm.normalizeUrl('https://www.google.co.uk/url?q=https://x.example/').hostname, 'x.example'],
+  ['followed: YouTube pass-through', norm.normalizeUrl('https://www.youtube.com/redirect?q=https://x.example/').hostname, 'x.example'],
+  ['not followed: an unknown website with ?next=', norm.normalizeUrl('https://site.example/go?next=https://x.example/').hostname, 'site.example'],
+  ['addresses written inside a link are found', norm.embeddedUrls(norm.parseUrl('https://site.example/go?next=https://x.example/&t=hi')).map(u => u.hostname), ['x.example']],
+  ['password before "@" is read', norm.parseUrl('https://user:secret@site.example/').password, 'secret'],
+  ['free hosting site', norm.isFreeHosting('bank-login.netlify.app'), true],
+  ['the hosting company itself is not "free hosting"', norm.isFreeHosting('github.io'), false],
+  ['normal website is not free hosting', norm.isFreeHosting('bank.example'), false],
   ['other-alphabet look-alike made plain', norm.toLookalikeAscii('xn--pypal-4ve.com'), 'paypal.com'],
   ['normal address has no look-alike letters', norm.toLookalikeAscii('paypal.com'), ''],
 ];
@@ -364,16 +374,21 @@ const BANK_SECURITY_ARTICLE = page({ url: 'https://news.example/bank-safety', ti
 
 const RULE_TESTS = [
   { code: 'KNOWN_THREAT',
-    triggers: [link('https://login.known-phish.example/x')],
-    doesNot: [link('https://known-phish-news.example/'), link('https://known-phish.example.other.example/')] },
+    triggers: [link('https://login.known-phish.example/x'),
+      link('https://hacked-blog.example/wp-content/uploads/secure/login.html'),
+      link('https://share.example/go?next=https://known-phish.example/start'),
+      page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('https://fake-bank-login.example/collect')] })],
+    doesNot: [link('https://known-phish-news.example/'), link('https://known-phish.example.other.example/'),
+      link('https://hacked-blog.example/2024/recipes'), link('https://hacked-blog.example/wp-content/uploads/secure-ish/')] },
   { code: 'LOOKALIKE_DOMAIN',
     triggers: [link('https://paypa1-secure.example/login'), link('https://paypal.com.fake-domain.example/'), link('https://xn--pypal-4ve.example/'), link('https://amazom.example/'), link('https://applesupport.example/')],
     doesNot: [link('https://www.paypal.com/signin'), link('https://www.paypal.co.uk/'), link('https://applebees.example/'), link('https://bucket.s3.amazonaws.com/file'), link('https://purchase-confirm.example/')] },
   { code: 'HIDDEN_DESTINATION',
-    triggers: [link('https://evil.example/', 'www.chase.com')],
-    doesNot: [link('https://secure.chase.com/x', 'www.chase.com'), link('https://news.bbc.co.uk/x', 'bbc.co.uk')] },
+    triggers: [link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
+    doesNot: [link('https://secure.chase.com/x', 'www.chase.com'), link('https://news.bbc.co.uk/x', 'bbc.co.uk'),
+      link('https://www.google.com/url?q=https://www.paypal.com/', 'www.paypal.com')] },
   { code: 'MISLEADING_URL',
-    triggers: [link('https://www.paypal.com@evil.example/'), link('https://evil.example/www.paypal.com/signin')],
+    triggers: [link('https://www.paypal.com@evil.example/'), link('https://evil.example/www.paypal.com/signin'), link('https://admin:secret@site.example/')],
     doesNot: [link('https://www.paypal.com/signin'), link('https://reviews.example/paypal-review')] },
   { code: 'NUMBER_ADDRESS',
     triggers: [link('http://192.168.4.20/login'), link('http://3232235777/')],
@@ -402,6 +417,15 @@ const RULE_TESTS = [
   { code: 'FAKE_SIGN_IN_PAGE',
     triggers: [FAKE_BANK_LOGIN],
     doesNot: [BANK_SECURITY_ARTICLE, page({ url: 'https://connect.secure.wellsfargo.com/auth', title: 'Wells Fargo Sign On', forms: [passwordForm('https://connect.secure.wellsfargo.com/auth')] })] },
+  { code: 'SIGN_IN_ON_FREE_HOSTING',
+    triggers: [page({ url: 'https://secure-account.netlify.app/', title: 'Sign in', forms: [passwordForm('https://secure-account.netlify.app/s')] }),
+      link('https://wellsfargo-verify.web.app/login'), link('https://someone.github.io/x', 'Sign in to your account')],
+    doesNot: [page({ url: 'https://my-recipes.netlify.app/', title: 'Soup recipes' }), link('https://someone.github.io/recipes', 'Soup recipes'),
+      link('https://login.example/x', 'Sign in')] },
+  { code: 'INSECURE_FORM',
+    triggers: [page({ url: 'http://library.example/login', title: 'Sign in', forms: [passwordForm('http://library.example/session')] })],
+    doesNot: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('/session')] }),
+      page({ url: 'http://library.example/', title: 'Opening hours' })] },
   { code: 'CREDENTIALS_SENT_ELSEWHERE',
     triggers: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('https://collect.example/p.php')] })],
     doesNot: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('https://library.example/session')] }),
@@ -445,6 +469,28 @@ const RULE_TESTS = [
   { code: 'INSIDE_SCAM_EMAIL',
     triggers: [link('https://plain.example/', 'Click here', '', { surroundingResult: { verdict: 'warn', recommendedAction: 'GO_BACK' } })],
     doesNot: [link('https://plain.example/', 'Click here', '', { surroundingResult: { verdict: 'warn', recommendedAction: 'VERIFY_INDEPENDENTLY' } })] },
+];
+
+// ---------- which combinations lead to which verdict (risk-policy.js) ----------
+// Made-up findings, so each row tests the policy alone.
+const f = (code, data = {}) => ({ code, subject: 'link', data, evidence: null });
+const POLICY_TESTS = [
+  ['known threat, trusted source', [f('KNOWN_THREAT', { trusted: true })], 'link', ['block', 'GO_BACK']],
+  ['known threat, untrusted source: stop, but no block', [f('KNOWN_THREAT', { trusted: false })], 'link', ['warn', 'GO_BACK']],
+  ['strange ending alone', [f('RISKY_DOMAIN_ENDING')], 'link', ['warn', 'VERIFY_INDEPENDENTLY']],
+  ['urgent wording alone (email)', [f('PRESSURE_TACTICS')], 'email', ['warn', 'VERIFY_INDEPENDENTLY']],
+  ['shortened link alone', [f('SHORTENED_LINK')], 'link', ['warn', 'VERIFY_INDEPENDENTLY']],
+  ['look-alike company address alone', [f('LOOKALIKE_DOMAIN', { technique: 'character_swap' })], 'link', ['warn', 'VERIFY_INDEPENDENTLY']],
+  ['look-alike + strange ending', [f('LOOKALIKE_DOMAIN', { technique: 'character_swap' }), f('RISKY_DOMAIN_ENDING')], 'link', ['warn', 'GO_BACK']],
+  ['company website written in front (strong alone)', [f('LOOKALIKE_DOMAIN', { technique: 'official_domain_in_front' })], 'link', ['warn', 'GO_BACK']],
+  ['paypal.com@ trick (strong alone)', [f('MISLEADING_URL', { trick: 'before_at' })], 'link', ['warn', 'GO_BACK']],
+  ['hidden sign-in name alone', [f('MISLEADING_URL', { trick: 'hidden_login' })], 'link', ['warn', 'VERIFY_INDEPENDENTLY']],
+  ['many weak signs (7 points) never stop', [f('SHORTENED_LINK'), f('RISKY_DOMAIN_ENDING'), f('PRESSURE_TACTICS'), f('BRAND_NAME_MISMATCH'), f('INSECURE_FORM')], 'link', ['warn', 'VERIFY_INDEPENDENTLY']],
+  ['two moderate signs', [f('HIDDEN_DESTINATION'), f('NUMBER_ADDRESS')], 'link', ['warn', 'GO_BACK']],
+  ['fake sign-in page with a password box', [f('FAKE_SIGN_IN_PAGE')], 'webpage', ['warn', 'GO_BACK'], { asksForSecrets: false }],
+  ['strong sign on a page with a password box', [f('FAKE_SIGN_IN_PAGE')], 'webpage', ['warn', 'DO_NOT_ENTER_INFO'], { asksForSecrets: true }],
+  ['prize + rushing adds the combination', [f('PRIZE_CLAIM'), f('PRESSURE_TACTICS')], 'link', ['warn', 'GO_BACK']],
+  ['nothing', [], 'link', ['no_warning_signs', 'NONE']],
 ];
 
 // ---------- the shared fixtures (tests/fixtures/inputs) ----------
@@ -496,12 +542,23 @@ for (const rule of RULE_TESTS) {
   }));
 }
 
+console.log('\n--- which combinations lead to which verdict ---');
+for (const [name, findings, source, expected, opts] of POLICY_TESTS) {
+  check(`[policy] ${name}`, () => {
+    const d = decide(findings, source, opts);
+    assert.deepStrictEqual([d.verdict, d.recommendedAction], expected);
+  });
+}
+
 console.log('\n--- every rule has tests, words, points, and a place in the contract ---');
+const contractTiers = Object.fromEntries([...fs.readFileSync(path.join(__dirname, '..', 'docs', 'interfaces.md'), 'utf8')
+  .matchAll(/^\| `([A-Z_]+)` \| ([a-z]+) \|/gm)].map(m => [m[1], m[2]]));
 const tested = new Set(RULE_TESTS.map(r => r.code));
 for (const code of Object.keys(EXPLANATIONS)) {
   check(`[coverage] ${code}`, () => {
     assert.ok(REASON_CODES.has(code), 'missing from the reason-code table in docs/interfaces.md');
     assert.ok(RULES[code], 'missing points in risk-policy.js');
+    assert.strictEqual(contractTiers[code], RULES[code].tier, 'tier in docs/interfaces.md differs from risk-policy.js');
     assert.ok(tested.has(code), 'no trigger / no-trigger test in RULE_TESTS');
   });
 }

@@ -20,9 +20,12 @@
   const EXPLANATIONS = {
     KNOWN_THREAT: {
       title: 'Known dangerous website',
-      explain: (d, s) => onPage(s)
-        ? `This website (${d.host}) is on a list of known dangerous websites.`
-        : `A link goes to ${d.host}, which is on a list of known dangerous websites.`,
+      explain: (d, s) => {
+        if (onPage(s)) return `This website (${d.host}) is on a list of known dangerous websites.`;
+        if (s === 'form') return `What you type on this page would be sent to ${d.host}, which is on a list of known dangerous websites.`;
+        if (d.via) return `A link passes through ${d.via} on its way to ${d.host}, which is on a list of known dangerous websites.`;
+        return `A link goes to ${d.host}, which is on a list of known dangerous websites.`;
+      },
       flag: () => 'known dangerous website',
     },
     LOOKALIKE_DOMAIN: {
@@ -50,9 +53,11 @@
     },
     MISLEADING_URL: {
       title: 'Misleading address',
-      explain: d => d.trick === 'before_at'
-        ? `A link is written to look like it goes to ${d.shown}, but it really goes to ${d.host}.`
-        : `A link's address includes ${d.shown}, but it really goes to ${d.host}.`,
+      explain: d => {
+        if (d.trick === 'before_at') return `A link is written to look like it goes to ${d.shown}, but it really goes to ${d.host}.`;
+        if (d.trick === 'hidden_login') return `A link has a hidden sign-in name or password written into it, and goes to ${d.host}. Normal links don't do this.`;
+        return `A link's address includes ${d.shown}, but it really goes to ${d.host}.`;
+      },
       flag: () => 'misleading address',
     },
     NUMBER_ADDRESS: {
@@ -100,6 +105,17 @@
     FAKE_SIGN_IN_PAGE: {
       title: 'Fake sign-in page',
       explain: d => `This page looks like a ${d.brand} sign-in page, but it is on ${d.host}, not ${d.brand}'s real website.`,
+    },
+    SIGN_IN_ON_FREE_HOSTING: {
+      title: 'Sign-in on a free website',
+      explain: (d, s) => onPage(s)
+        ? `This page asks for a password or card number, but it's on ${d.host}, a free website anyone can make. Real banks and companies never do this.`
+        : `A sign-in link goes to ${d.host}, a free website anyone can make. Real banks and companies never put their sign-in pages there.`,
+      flag: () => 'sign-in on a free website',
+    },
+    INSECURE_FORM: {
+      title: 'Not sent securely',
+      explain: () => 'What you type on this page would be sent without protection, so others could read it.',
     },
     CREDENTIALS_SENT_ELSEWHERE: {
       title: 'Details sent elsewhere',

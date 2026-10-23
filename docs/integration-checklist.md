@@ -31,6 +31,12 @@ The code was written before the contract. Today `rules.js` takes three different
 
 - [ ] **B:** Phase 1 split the engine into `extension/core/*.js`. Those files must load before `rules.js`, so A added them to the script lists in `extension/manifest.json`, `tests/fake-gmail.html`, and `tests/practice-*.html`. Nothing else in those files changed (separate commit). Check that you're happy with it, or move them where you prefer.
 
+## Phase 2: known threats (A changed `threat-list.js`; B's blocking needs to follow)
+
+- [ ] **B:** `threat-list.js` now has `KNOWN_THREAT_URLS` (single dangerous addresses on otherwise-normal websites). The engine already stops clicks on them, but `service-worker.js` only blocks `KNOWN_THREAT_DOMAINS` in Chrome, so a typed or redirected visit to a listed address isn't blocked yet. Add browser rules for these too, matching the address and everything below it, nothing else on the website.
+- [ ] **B:** `threat-list.js` now has `KNOWN_THREAT_SOURCE.trusted`. The engine only says `block` for a trusted source (otherwise a strong warning the person can go past). `service-worker.js` should only install hard-block rules when the source is trusted.
+- [ ] **B:** `page.js` should send `hasPaymentField` for card-number boxes, so payment pages get the same checks as sign-in pages (free hosting, sent elsewhere, sent without encryption).
+
 ## Tests
 
 - [ ] **B:** Commit a browser test proving a risky click is stopped before navigation, including a click inside an ad frame and a typed known-dangerous address. (This was checked by hand in Chromium, but the test isn't in the repo yet.)

@@ -29,12 +29,13 @@ It protects at three levels. The stronger the evidence, the stronger the respons
 
 **On every website** (new in 0.2):
 - **Before a click:** checks where the link really goes and what the words around it (like the rest of an ad) promise
-  - links that pretend to be a company (`paypa1-secure.xyz`), or whose words say one website but really go to another
+  - links that pretend to be a company (`paypa1-secure.xyz`, `paypal.com.fake-domain.example`, `paypal.com@evil.example`), or whose words say one website but really go to another
+  - links through well-known pass-through services (Google, Outlook, Facebook, YouTube) are checked where they really end up
   - number addresses, shortened links, and risky website endings
   - ads that say *you* won a prize, ask you to pay a fee or use gift cards first, say *your* computer is infected, or tell you to call a number
   - clicks inside ads that load in their own frame are caught too, and the warning covers the whole screen
-- **On the page itself:** warns if the page looks like a company's sign-in page but isn't on that company's website, sends your password to a different website, or is a fake virus or prize pop-up (including pop-ups that appear after the page loads)
-- **Known dangerous websites** are blocked by Chrome itself, so typed addresses, redirects, and pop-ups are stopped too
+- **On the page itself:** warns if the page looks like a company's sign-in page but isn't on that company's website, sends your password to a different website or to a known dangerous one, asks for a password on a free hosting website, sends it without encryption, or is a fake virus or prize pop-up (including pop-ups that appear after the page loads)
+- **Known dangerous websites** are blocked by Chrome itself, so typed addresses, redirects, and pop-ups are stopped too. Only a list from a trusted source blocks outright; everything else gets a warning the person can choose to go past.
 
 **Everywhere:**
 - **🔊 Read to me** on every warning
@@ -130,12 +131,12 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 The tests end with two numbers:
 
 ```
-180/180 tests passed
+225/225 tests passed
 Scams caught:          18/18
 False alarms (normal): 0/15
 ```
 
-Every rule has at least one example that should trigger it and one that should not. The tests also check the trickiest address cases directly: `paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, and two `github.io` sites belong to different people.
+Every rule has at least one example that should trigger it and one that should not, and the policy tests check which combinations of signs lead to each verdict (for example, a strange website ending or an urgent phrase on its own never stops a click). The tests also check the trickiest address cases directly: `paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, and two `github.io` sites belong to different people.
 
 Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
 
@@ -156,6 +157,8 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 - **A sign-in page with a company's name on it** (in its title or main heading) that isn't on that company's website gets a warning, even if it's a real partner site.
 - Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `gmail.js`.
 - Rules can't catch every scam, especially new tricks, and scammers can avoid our exact wording.
+- **Shortened and tracking links aren't followed.** We never open a link to see where it goes (that could warn the scammer, and the answer can change depending on who asks). A shortened link stays a weak warning sign. Only well-known pass-through services that write the destination into the link are followed.
+- **Single dangerous addresses** (`KNOWN_THREAT_URLS`) stop clicks, but Chrome doesn't block them yet when typed in (integration checklist).
 - **Telling owners apart uses a partial list of website endings.** `core/url-normalizer.js` knows common two-part endings (`co.uk`, `com.au`...) and free hosting sites (`github.io`, `netlify.app`...), but not the full Public Suffix List. An ending it doesn't know can make two different owners look like one website.
 - **The list of companies and their official websites (`core/domain-rules.js`) must be checked against each company's own site.** A missing official website means a real link gets flagged; a wrong one would let a fake through.
 - Chrome only. It can't see text messages, phone calls, or other apps on the computer; that would be a different product.

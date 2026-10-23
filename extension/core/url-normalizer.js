@@ -22,8 +22,7 @@
   // This is a hand-picked part of the Public Suffix List (publicsuffix.org),
   // covering common countries and the free hosting sites scammers use most.
   // If a check gets a country or host wrong, add its ending here.
-  const MULTI_PART_ENDINGS = new Set([
-    // countries
+  const COUNTRY_ENDINGS = [
     'co.uk', 'org.uk', 'me.uk', 'ltd.uk', 'plc.uk', 'net.uk', 'ac.uk', 'gov.uk', 'nhs.uk', 'police.uk', 'sch.uk',
     'com.au', 'net.au', 'org.au', 'edu.au', 'gov.au', 'asn.au', 'id.au',
     'co.nz', 'net.nz', 'org.nz', 'govt.nz', 'ac.nz',
@@ -33,7 +32,11 @@
     'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'com.hk', 'com.tw', 'com.sg', 'gov.sg', 'edu.sg', 'com.my', 'com.ph',
     'co.id', 'or.id', 'go.id', 'ac.id', 'co.th', 'go.th', 'in.th', 'com.vn', 'gov.vn',
     'com.tr', 'gov.tr', 'co.il', 'org.il', 'gov.il', 'com.sa', 'com.eg', 'com.ng', 'gov.ng', 'com.pk', 'co.ke', 'com.ua', 'gov.ua',
-    // free hosting: anyone can make a website under these
+  ];
+
+  // Free hosting: anyone can make a website under these in minutes, so
+  // scammers do. A real bank never has its sign-in page on one.
+  const FREE_HOSTING = new Set([
     'github.io', 'gitlab.io', 'blogspot.com', 'wordpress.com', 'wixsite.com', 'weebly.com', 'square.site',
     'netlify.app', 'vercel.app', 'herokuapp.com', 'pages.dev', 'workers.dev', 'web.app', 'firebaseapp.com',
     'appspot.com', 'azurewebsites.net', 'cloudfront.net', 's3.amazonaws.com', 'glitch.me', 'ngrok.io',
@@ -41,13 +44,20 @@
     'myshopify.com', 'webflow.io', 'godaddysites.com', 'carrd.co', 'notion.site',
   ]);
 
-  // Links that pass you through another website first. We look at where
-  // they finally go: https://www.google.com/url?q=REAL_LINK
+  const MULTI_PART_ENDINGS = new Set([...COUNTRY_ENDINGS, ...FREE_HOSTING]);
+
+  // Well-known services that pass you through to another website, with the
+  // real destination written in the link: https://www.google.com/url?q=REAL_LINK
+  // Only these are followed. Each "host" check must match the service's OWN
+  // website exactly: "google.evil.example" is not Google.
+  // We never open a link to find out where it goes (see url-rules.js).
   const REDIRECTORS = [
-    { host: /^(www\.)?google\.[a-z.]+$/, path: /^\/url$/, params: ['q', 'url'] },
-    { host: /(^|\.)safelinks\.protection\.outlook\.com$/, path: /^\/$/, params: ['url'] },
-    { host: /^l\.facebook\.com$/, path: /^\/l\.php$/, params: ['u'] },
-    { host: /^l\.instagram\.com$/, path: /^\/$/, params: ['u'] },
+    { host: h => /^(www\.)?google\./.test(h) && registrableDomain(h) === `google.${publicSuffix(h)}` && !FREE_HOSTING.has(publicSuffix(h)), path: /^\/url$/, params: ['q', 'url'] },
+    { host: h => /(^|\.)safelinks\.protection\.outlook\.com$/.test(h), path: /^\/$/, params: ['url'] },
+    { host: h => h === 'l.facebook.com' || h === 'l.messenger.com', path: /^\/l\.php$/, params: ['u'] },
+    { host: h => h === 'l.instagram.com', path: /^\/$/, params: ['u'] },
+    { host: h => h === 'www.youtube.com' || h === 'youtube.com', path: /^\/redirect$/, params: ['q'] },
+    { host: h => h === 'slack-redir.net', path: /^\/link$/, params: ['url'] },
   ];
 
   const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -58,6 +68,7 @@
   //   isWeb      http or https
   //   isIp       a number address instead of a name
   //   username   anything written before an "@" in the address
+  //   password   anything after a ":" in that part
   function parseUrl(raw, base) {
     if (typeof raw !== 'string' || !raw.trim()) return { ok: false, reason: 'empty' };
     let url;
@@ -79,6 +90,7 @@
       host: hostname.replace(/^www\./, ''),
       isIp: IPV4.test(hostname) || hostname.startsWith('['),
       username: decodeSafely(url.username),
+      password: decodeSafely(url.password),
       pathname,
       searchParams: url.searchParams,
     };
@@ -92,7 +104,7 @@
   function unwrapRedirect(parsed, depth = 0) {
     if (!parsed.ok || !parsed.isWeb || depth >= 3) return parsed;
     for (const r of REDIRECTORS) {
-      if (!r.host.test(parsed.hostname) || !r.path.test(parsed.pathname)) continue;
+      if (!r.host(parsed.hostname) || !r.path.test(parsed.pathname)) continue;
       for (const name of r.params) {
         const inner = parsed.searchParams.get(name);
         const next = inner ? parseUrl(inner) : null;
@@ -105,6 +117,27 @@
   // Reads an address and follows pass-through links. Use this for every link.
   function normalizeUrl(raw, base) {
     return unwrapRedirect(parseUrl(raw, base));
+  }
+
+  // Other web addresses written inside a link, like ?next=https://... (up to 3).
+  // A website that isn't a known pass-through service MAY send you on to them,
+  // or may not: never treat them as the real destination, only as extra places
+  // to check.
+  function embeddedUrls(parsed) {
+    if (!parsed.ok || !parsed.isWeb) return [];
+    const found = [];
+    for (const value of parsed.searchParams.values()) {
+      if (found.length >= 3) break;
+      if (!/^https?:\/\//i.test(value.trim())) continue;
+      const inner = parseUrl(value);
+      if (inner.ok && inner.isWeb) found.push(inner);
+    }
+    return found;
+  }
+
+  // Is this website on a free hosting service?
+  function isFreeHosting(hostname) {
+    return FREE_HOSTING.has(publicSuffix((hostname || '').toLowerCase()));
   }
 
   // The website ending: "com", "co.uk", or "github.io".
@@ -225,7 +258,7 @@
   }
 
   core.urlNormalizer = {
-    parseUrl, normalizeUrl, unwrapRedirect, publicSuffix, registrableDomain, isSameOrSubdomain, sameSite,
+    parseUrl, normalizeUrl, unwrapRedirect, embeddedUrls, isFreeHosting, publicSuffix, registrableDomain, isSameOrSubdomain, sameSite,
     findDomainInText, punycodeDecode, toUnicodeHost, toLookalikeAscii,
   };
   if (typeof module !== 'undefined') module.exports = core.urlNormalizer;
