@@ -28,6 +28,8 @@ test('suspicious link: navigation is cancelled and a useful warning is shown', a
   assert.ok(!env.reached('other-site.example'), 'the browser still asked for the suspicious site');
   const body = await text(page);
   assert.match(body, /Stop and check this first/);
+  assert.match(body, /You clicked a link that says: \u201cwww\.mybank\.example\/statement\u201d/);
+  assert.match(body, /It really goes to: other-site\.example/);
   assert.match(body, /says it goes to mybank\.example, but it really goes to other-site\.example/);
   assert.ok(await page.locator('text=I understand the risk').count(), 'warn should offer a way to continue');
   await page.close();

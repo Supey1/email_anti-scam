@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 
 const PAGES = path.join(__dirname, '..', 'pages');
-const EXTENSION = path.join(__dirname, '..', '..', 'extension');
+const EXTENSION = process.env.EXTENSION_PATH || path.join(__dirname, '..', '..', 'extension');
 
 let chromium;
 try { ({ chromium } = require('playwright')); } catch (e) { console.log('SKIP  Playwright is not installed (npm i playwright)'); process.exit(0); }
@@ -33,19 +33,27 @@ async function launch() {
   });
   const requests = []; // every address the browser asked for
   context.on('request', r => requests.push(r.url()));
-  await context.route(/^https?:\/\/[^/]+\.example\//, route => {
+  await context.route(/^https?:\/\/([^/]+\.example|(www\.)?(paypal\.com|amazon\.com|google\.com)|bit\.ly)\//, route => {
     if (/known-phish|fake-bank-login/.test(route.request().url())) return route.fallback(); // let the extension's own blocking handle these
     return route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' });
   });
+  // The same practice pages over https (as https://pages.example/), because a plain-http page is itself a warning sign for forms.
+  await context.route('https://pages.example/**', route => {
+    const file = path.join(PAGES, path.normalize(new URL(route.request().url()).pathname).replace(/^\/+/, ''));
+    if (!file.startsWith(PAGES) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: 'not found' });
+    return route.fulfill({ contentType: 'text/html', body: fs.readFileSync(file) });
+  });
   const reached = host => requests.some(u => new URL(u).hostname === host);
   const close = async () => { await context.close(); server.close(); fs.rmSync(profile, { recursive: true, force: true }); };
-  return { context, base, requests, reached, close };
+  return { context, base, secure: 'https://pages.example/', requests, reached, close };
 }
 
 // Runs named async tests, prints PASS/FAIL, exits non-zero on failure.
 async function run(tests, env) {
   let failed = 0;
+  const only = process.env.TEST_FILTER; // run just the tests whose name contains this text
   for (const t of tests) {
+    if (only && !t.name.includes(only)) continue;
     env.requests.length = 0; // each test starts with a clean record of what the browser asked for
     try { await t.fn(env); console.log(`PASS  ${t.name}`); }
     catch (err) { failed++; console.log(`FAIL  ${t.name}: ${err.message.split('\n').slice(0, 4).join(' | ')}`); }

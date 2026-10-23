@@ -31,6 +31,15 @@
   let host = result.host || '';
   try { host = new URL(target).hostname; } catch (e) { /* keep what the analyzer gave */ }
 
+  // Say what the link CLAIMED and where it REALLY goes, side by side. Seeing both is what makes a
+  // "hidden destination" warning make sense.
+  function destinationLines() {
+    if (!host) return [];
+    if (params.get('kind') !== 'click') return [`This address was blocked: ${host}`];
+    const said = text.replace(/\s+/g, ' ').trim().slice(0, 100);
+    return [said ? `You clicked a link that says: \u201c${said}\u201d` : 'You clicked a link', `It really goes to: ${host}`];
+  }
+
   function leave() {
     window.speechSynthesis.cancel();
     if (history.length > 1) { history.back(); return; }
@@ -43,7 +52,7 @@
     textSizePx: Settings.TEXT_PX[prefs.textSize],
     speechRate: Settings.SPEECH_RATE[prefs.speechSpeed],
     showRead: prefs.readAloud !== 'off',
-    destination: host ? `Address: ${host}` : '',
+    destination: destinationLines(),
     onBack: leave,
     onContinue: () => chrome.runtime.sendMessage({ type: 'CONTINUE', url: target, text }),
     onReport: () => chrome.runtime.sendMessage({ type: 'REPORT_FALSE_ALARM', report: { host, verdict: model.verdict, reasons: model.top.map(r => r.explanation), source: 'warning-page' } }),

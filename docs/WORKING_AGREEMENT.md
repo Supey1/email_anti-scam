@@ -16,19 +16,9 @@ How the two of us build this together without stepping on each other.
 5. **The contract is in `docs/interfaces.md`.** Changing it needs a pull request that both of us review. Bump `schemaVersion` for breaking changes.
 6. **Tests before merge.** Every completed feature includes its tests and is merged only when they pass:
    ```
-   node tests/rules.test.js
-   node tests/analyzer.test.js
-   node tests/scanner-merge.test.js
-   node tests/explain.test.js
-   node tests/ads-analyzer.test.js
-   node tests/settings.test.js
-   node tests/browser/scanner.test.js       # browser tests need Playwright: npm i playwright
-   node tests/browser/click-guard.test.js
-   node tests/browser/ads.test.js
-   node tests/browser/gmail-adapter.test.js
-   node tests/browser/settings.test.js
+   npm test        # runs every test below (browser tests need Playwright: npm install)
    ```
-   Add browser-level checks for anything that changes click interception or the warning interface.
+   The files are listed in `docs/testing.md`. Changes to rules or wording also re-run `node tests/metrics.js`: detection must not rise by letting false positives rise. Add browser-level checks for anything that changes click interception or the warning interface.
 7. **Keep a short shared checklist** of integration problems in `docs/integration-checklist.md` instead of making overlapping edits on the main branch.
 8. **Privacy and permissions are part of development, not a publishing step.** The Chrome Web Store requires accurate disclosure of data handling and the narrowest permissions the features need. So:
    - Any change to `manifest.json` permissions or host access says why in the pull request.

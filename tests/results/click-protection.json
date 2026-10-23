@@ -1,0 +1,164 @@
+{
+  "supported": 18,
+  "stopped": 18,
+  "limits": 8,
+  "limitsStopped": 0,
+  "scenarios": [
+    {
+      "id": "plain click, hidden destination",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "target=_blank",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "Ctrl-click",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "Shift-click",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "middle-click",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "keyboard Enter",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "click on an element inside the link",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "link with unusual attributes",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "SVG link",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "link inside shadow DOM",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "known dangerous address",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "redirect wrapper around a number address",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "look-alike brand address",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "mismatched link on a generic page",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "prize advertisement",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "prize advertisement inserted later",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "link added to the page later",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "suspicious link on a fake login page",
+      "supported": true,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "page script sets the address",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "page script opens a window",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "link rewrites itself when clicked",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "script clicks a link by itself",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "form sends you to another site",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "page redirects itself after loading",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "unknown redirect service",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "link clicked inside a frame",
+      "supported": false,
+      "stopped": false,
+      "warned": false
+    }
+  ]
+}

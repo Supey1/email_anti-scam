@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Redirect practice</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: simulated redirects and click interception. All addresses are made-up ".example" names.
+       A content script that watches link clicks cannot catch every way a page can move you somewhere.
+       Each link below says what is expected. "Stopped" means the browser never asks for the address. -->
+  <h1>Redirect practice</h1>
+
+  <h2>Stopped</h2>
+  <p><a id="wrapped-bad" href="https://www.google.com/url?q=http://192.168.4.20/login">A search-engine redirect wrapping a number address</a></p>
+  <p><a id="direct-bad" href="https://paypa1-secure.example/login">Log in to PayPal</a></p>
+  <p><a id="known-bad" href="https://known-phish.example/start">Known dangerous address</a></p>
+
+  <h2>Not stopped by the click guard (documented limits)</h2>
+  <p><a id="open-redirect" href="https://redirector.example/go?to=https://other-site.example/landing">An unknown redirect service (we cannot see where it leads)</a></p>
+  <p><a id="js-location" href="#" onclick="location.href='https://other-site.example/js'; return false">The page's own script changes the address</a></p>
+  <p><a id="js-open" href="#" onclick="window.open('https://other-site.example/popup'); return false">The page's own script opens a window</a></p>
+  <p><a id="rewrite" href="https://recipes.example/soup" onclick="this.href='https://other-site.example/swap'">A link that rewrites itself when clicked</a></p>
+  <p><button id="script-click" onclick="document.getElementById('scripted-target').click()">A button whose script clicks a link</button>
+     <a id="scripted-target" href="https://other-site.example/scripted" style="display:none">hidden target</a></p>
+  <form action="https://other-site.example/search" method="get"><input name="q" value="soup"><button id="form-get">A form that sends you to another site</button></form>
+  <p><a id="meta-page" href="/redirect-meta.html">A page that redirects itself after it loads</a></p>
+  <p><a id="meta-known" href="/redirect-meta-known.html">A page that redirects itself to a known dangerous address</a></p>
+
+  <h2>Works normally</h2>
+  <p><a id="fine" href="https://recipes.example/soup">Read a soup recipe</a></p>
+</body></html>

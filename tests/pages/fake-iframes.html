@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Frames practice</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: frames. All addresses are made-up ".example" names.
+       The extension looks at the top-level page only. A same-origin ad frame is READ (its ad is reported),
+       but a link CLICKED inside any frame is not intercepted. A cross-origin frame cannot be read at all. -->
+  <h1>Frames practice</h1>
+  <iframe id="same-origin" class="ad-frame" width="420" height="90"
+    srcdoc='<p>You have won a gift card! Claim your reward now. Act now!</p><a id="frame-link" href="https://claim-gift.example/frame">Claim reward</a>'></iframe>
+  <iframe id="cross-origin" class="ad-frame" src="https://adframe.example/ad" width="420" height="90"></iframe>
+</body></html>

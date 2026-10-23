@@ -105,6 +105,10 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/panel.js`, `panel-styles.js` | The in-page warning card and its look |
 | `tests/rules.test.js` | Automatic tests for the email checks |
 | `tests/scanner-merge.test.js`, `tests/browser/scanner.test.js` | Tests for the webpage scanner (the browser test needs Playwright) |
+| `tests/pages/fake-*.html`, `tests/fake-gmail.html` | Practice pages for each kind of check (see `docs/testing.md`) |
+| `tests/corpus/cases.js`, `tests/metrics.js` | The labelled test set and the accuracy measurements |
+| `tests/browser/systematic.test.js`, `click-matrix.test.js`, `performance.test.js` | Systematic real-browser tests, the click protection metric, and performance |
+| `tests/usability-score.js`, `tests/usability/` | Scoring tool and sheet for sessions with older adults |
 | `tests/settings.test.js`, `tests/browser/settings.test.js` | Tests for settings, the popup, and the settings page |
 | `tests/ads-analyzer.test.js`, `tests/browser/ads.test.js`, `tests/browser/gmail-adapter.test.js` | Tests for advertisements and for the Gmail adapter (including the fake Gmail page) |
 | `tests/explain.test.js`, `tests/browser/click-guard.test.js` | Tests for the warning wording and for stopping clicks in a real browser |
@@ -117,6 +121,7 @@ Every warning comes from a rule a person can read and understand, so the extensi
 If you have [Node.js](https://nodejs.org) installed, run this from the project folder:
 
 ```
+npm test            # everything below in one go (needs Playwright for the browser tests: npm install)
 node tests/rules.test.js
 node tests/analyzer.test.js
 node tests/scanner-merge.test.js
@@ -128,7 +133,13 @@ node tests/browser/click-guard.test.js
 node tests/browser/ads.test.js
 node tests/browser/gmail-adapter.test.js
 node tests/browser/settings.test.js
+node tests/browser/systematic.test.js   # every practice page, new tabs, keyboard, frames, limits
+node tests/browser/click-matrix.test.js # click protection success rate
+node tests/browser/performance.test.js
+node tests/metrics.js                   # accuracy: detection, false positives, block precision, explanations
 ```
+
+How the tests work, what each measure means, and what they deliberately do not claim: [`docs/testing.md`](docs/testing.md). Latest numbers, including every miss and false alarm: [`docs/test-results.md`](docs/test-results.md). Plan and tools for testing with older adults: [`docs/usability-testing.md`](docs/usability-testing.md) (no sessions have been run yet).
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
 
@@ -160,7 +171,8 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 - [ ] Step 5: AI plain-language summary and second opinion on risk
 - [x] Step 6a: Settings page and toolbar popup
 - [ ] Step 6b: "Ask someone I trust" (deferred: needs its own consent and privacy design)
-- [ ] Step 7: Test with 15–20 practice emails and with older adults
+- [x] Step 7a: Systematic testing, metrics, and a record of false positives and misses (`docs/testing.md`, `docs/test-results.md`, `docs/findings.md`)
+- [ ] Step 7b: Test with 15–20 practice scenarios with older adults (plan and scoring ready: `docs/usability-testing.md`)
 - [ ] Step 8: Demo video and submission write-up
 
 ## Privacy

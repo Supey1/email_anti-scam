@@ -13,6 +13,18 @@ Short and shared. Add an item instead of editing the other person's code. Tick i
 - [ ] **B:** `click-guard.js` and `page.js` still branch on the old verdict `allow`. `ui/explain.js` already accepts both shapes; remove its "TEMPORARY" normalization once the analyzer returns the contract.
 - [ ] **B:** Map reason `code`s to any custom wording or icons (everything falls back to `title` / `explanation` today).
 
+## Done (Phase 7, Person B)
+
+- [x] Practice pages for every kind of check (`tests/pages/fake-*.html`), systematic real-browser tests (`tests/browser/systematic.test.js`), click protection matrix (18/18 supported scenarios stopped; 8 documented limits confirmed not stopped), performance measurements.
+- [x] Labelled corpus and metrics (`tests/corpus/cases.js`, `tests/metrics.js`); results, misses, and false alarms in `docs/test-results.md`; findings in `docs/findings.md`.
+- [x] Bug found and fixed by the new pages: prize ads were not stopped when the link's own id started with `ad-`.
+- [x] Interface change H1 (warning page shows what the link said next to where it really goes). From the team's own review, **not yet confirmed with people**.
+- [ ] **Both (Phase 8):** reduce false positives (about 3 in 10 legitimate cases flagged, mostly emails and tracker links). Candidate fixes are in `docs/findings.md`. Re-run `node tests/metrics.js` after each change.
+- [ ] **Both:** the labelled set is a development set; get a second person to write more cases without seeing the rules.
+- [ ] **B:** Run the usability sessions (`docs/usability-testing.md`), record them, score them, and make at least one change from what participants actually did. None done yet.
+- [ ] **B:** Manual checks that cannot be automated: real extension reload, real Gmail, screen reader, 200% zoom (`docs/testing.md`).
+- [ ] **B:** The corner warning card can cover the page (concern C1 in `docs/usability-findings.md`).
+
 ## Done (Phase 6, Person B)
 
 - [x] `extension/settings.js`, `ui/popup.*`, `ui/options.*`, `ui/status.js`. Settings gate scanning, click guarding, Gmail checking, and blocking rules; badge shows OFF when protection is off. Tests: `tests/settings.test.js`, `tests/browser/settings.test.js`.

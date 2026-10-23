@@ -69,21 +69,19 @@ const AdSignals = (() => {
     return false;
   }
 
-  // The ad (if any) that `el` is part of: the element itself or its closest ad-marked ancestor.
-  // A small "Sponsored" label counts for its nearest ancestor that holds a link.
+  // The ad (if any) that `el` is part of: the OUTERMOST ad-marked ancestor that is still small enough to be
+  // one ad unit. (The innermost marked element can be just the link, such as <a id="ad-link">, which has
+  // none of the ad's words.) A small "Sponsored" label counts for the ancestor that holds it and a link.
   function containerFor(el) {
     let node = el && el.nodeType === Node.TEXT_NODE ? el.parentElement : el;
+    let best = null;
     for (let i = 0; node && i <= LIMITS.depth; i++, node = node.parentElement) {
-      if (ownSignals(node).length && sizeOk(node)) return node;
-      // Starting from a link next to a label: the nearest ancestor that holds both is the ad.
-      if (node.localName !== 'a' && node.querySelector('a[href]') && sizeOk(node) && holdsLabel(node)) return node;
-      if (node.localName !== 'iframe' && isLabel(node)) {
-        for (let up = node.parentElement, j = 0; up && j < 4; up = up.parentElement, j++) {
-          if (up.querySelector('a[href]') && sizeOk(up)) return up;
-        }
-      }
+      if (node.localName === 'body' || node.localName === 'html') break;
+      if (!sizeOk(node)) { if (best) break; continue; } // a bigger ancestor cannot be one ad unit
+      if (ownSignals(node).length) best = node;
+      else if (node.localName !== 'a' && node.querySelector('a[href]') && holdsLabel(node)) best = node;
     }
-    return null;
+    return best;
   }
 
   // Every ad unit under (or around) the given elements. Outermost units win over nested ones.

@@ -46,7 +46,7 @@ const WarningView = (() => {
   //   textSizePx: the person's text size, speechRate: how fast to read aloud, showRead: false hides "Read to me",
   //   primaryLabel: text of the main button (default "Go back to safety"),
   //   extras: [{ heading, lines: [{ text, muted?, flag? }] }] shown after the advice,
-  //   destination: 'text shown above the reasons' (optional),
+  //   destination: a line (or array of lines) shown above the reasons, such as what a link says and where it really goes,
   //   corner: true for a small card in the corner instead of a centered one,
   //   onBack, onContinue (only used when model.canContinue), onReport (optional), onHide (optional)
   // }
@@ -108,7 +108,7 @@ const WarningView = (() => {
         ]),
       ]),
       el('div', { class: 'section', id: 'warning-why' }, [
-        options.destination ? el('p', { class: 'dest', text: options.destination }) : null,
+        ...[].concat(options.destination || []).map(line => el('p', { class: 'dest', text: line })),
         model.top.length ? el('h2', { text: model.whyHeading }) : null,
         model.top.length ? el('ul', {}, reasons) : null,
         moreReasons,

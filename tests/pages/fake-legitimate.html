@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Town library newsletter</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: false-positive behavior on normal content. All addresses are made-up ".example" names,
+       except links to well-known real sites (paypal.com, amazon.com), which are never contacted.
+       Expected: NO warning card, and NO link is stopped. The page is full of words scammers also use. -->
+  <h1>Town library newsletter</h1>
+  <p>Urgent: volunteers are needed for the book sale. Act now to reserve a shift!</p>
+  <p>Our computer help desk offers free tech support on Thursdays. Bring your laptop if you think it has a virus.</p>
+  <p>Beware of scams: never pay with gift cards or wire transfers, and never share your password or social security number.</p>
+  <p>Congratulations to Dot, winner of last month's reading challenge! Claim your coupon at the front desk.</p>
+  <p><a id="paypal" href="https://www.paypal.com/donate">Donate with PayPal</a> |
+     <a id="amazon" href="https://www.amazon.com/wishlist/library">Our Amazon wish list</a> |
+     <a id="short" href="https://bit.ly/library-events">Events calendar</a> |
+     <a id="partner" href="https://county-books.example/catalog">County catalog</a> |
+     <a id="same" href="/fake-webpage.html">Member area</a></p>
+  <form action="/login" method="post" onsubmit="return false"><h2>Member login</h2><input name="card"><input type="password" name="pw"><button>Log in</button></form>
+  <div class="ad-slot"><p>Local bakery: fresh bread daily.</p><a id="ad" href="https://bakery.example/menu">See the menu</a></div>
+</body></html>
