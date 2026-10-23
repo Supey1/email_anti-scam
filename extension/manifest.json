@@ -11,7 +11,17 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["threat-list.js", "rules.js", "panel-styles.js", "warning.js", "guard.js"],
+      "js": [
+        "threat-list.js",
+        "core/url-normalizer.js",
+        "core/domain-rules.js",
+        "core/url-rules.js",
+        "core/text-rules.js",
+        "core/risk-policy.js",
+        "core/explanations.js",
+        "core/analyzer.js",
+        "rules.js", "panel-styles.js", "warning.js", "guard.js"
+      ],
       "run_at": "document_start",
       "all_frames": true,
       "match_origin_as_fallback": true
