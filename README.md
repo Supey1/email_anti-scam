@@ -132,6 +132,10 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 
 Version 0.2 sends nothing anywhere: every check happens inside your own browser. To check webpages and links on any site, it asks Chrome for permission to read all websites (plus the network-rules permission used for blocking). It reads page text, links, and forms only to run its checks, and saves nothing. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
 
+## Working together
+
+Two workstreams (detection engine and browser protection) share one analyzer contract. See [`docs/WORKING_AGREEMENT.md`](docs/WORKING_AGREEMENT.md) for the rules, [`docs/interfaces.md`](docs/interfaces.md) for the contract, and [`docs/integration-checklist.md`](docs/integration-checklist.md) for open integration issues.
+
 ## Team
 
 | Name | Role |
