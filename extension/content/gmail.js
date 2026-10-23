@@ -44,8 +44,27 @@
     });
   }
 
-  GmailAdapter.start({
-    onEvidence(evidence) { show(evidence, analyze(evidence)); },
-    onClear() { EmailAntiScamPanel.close({ removeChip: true }); },
+  let watcher = null;
+
+  function apply() {
+    if (Settings.shouldCheckEmail(Settings.current)) {
+      if (watcher) return;
+      watcher = GmailAdapter.start({
+        onEvidence(evidence) { show(evidence, analyze(evidence)); },
+        onClear() { EmailAntiScamPanel.close({ removeChip: true }); },
+      });
+    } else if (watcher) {
+      watcher.stop();
+      watcher = null;
+      EmailAntiScamPanel.close({ removeChip: true });
+    }
+  }
+  Settings.ready.then(apply);
+  Settings.onChange(apply);
+
+  // The popup asks whether Gmail is really being checked, and can ask for a fresh check.
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message.type === 'STATUS') respond({ checking: !!watcher, kind: 'email' });
+    if (message.type === 'RESCAN') { if (watcher) watcher.scanNow(); respond({ ok: !!watcher }); }
   });
 })();

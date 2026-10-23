@@ -7,8 +7,9 @@
 // The page checks the address again itself (it does not trust the link's own claims about
 // the verdict), so a block always stays a block and has no "continue" button.
 
-(() => {
+(async () => {
   'use strict';
+  await Settings.ready;
 
   const search = location.search;
   const at = search.indexOf('&url=');
@@ -37,7 +38,11 @@
     chrome.tabs.getCurrent(tab => { if (tab) chrome.tabs.remove(tab.id); else location.replace('about:blank'); });
   }
 
-  const { card, primary } = WarningView.render(model, {
+  const prefs = Settings.current;
+  const { card, primary, startReading } = WarningView.render(model, {
+    textSizePx: Settings.TEXT_PX[prefs.textSize],
+    speechRate: Settings.SPEECH_RATE[prefs.speechSpeed],
+    showRead: prefs.readAloud !== 'off',
     destination: host ? `Address: ${host}` : '',
     onBack: leave,
     onContinue: () => chrome.runtime.sendMessage({ type: 'CONTINUE', url: target, text }),
@@ -46,4 +51,5 @@
   document.getElementById('root').append(card);
   document.title = `${model.label}: ${model.headline}`;
   primary.focus();
+  if (prefs.readAloud === 'auto' && (model.verdict === 'warn' || model.verdict === 'block')) startReading();
 })();

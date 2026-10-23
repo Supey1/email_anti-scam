@@ -99,7 +99,7 @@ const GmailAdapter = (() => {
 
     return {
       stop() { observer.disconnect(); if (timer) clearTimeout(timer); },
-      scanNow: scan,
+      scanNow() { lastSignature = ''; scan(); }, // check the open email again, even if nothing changed
     };
   }
 

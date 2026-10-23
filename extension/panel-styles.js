@@ -112,29 +112,31 @@ const WARNING_CSS = `
   border-radius: 14px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 20px;
+  font-size: 24px; /* the person's text size setting replaces this */
   line-height: 1.5;
 }
 .card.high { border-color: #b00020; border-style: solid; }
 .card.medium { border-color: #8a6d00; border-style: dashed; }
 .card.low { border-color: #1b7f3b; }
 .card.corner { position: fixed; top: 72px; right: 16px; width: 420px; max-height: calc(100vh - 96px); }
-.card .verdict { margin: 14px; align-items: center; }
-.card .verdict .label { font-size: 16px; letter-spacing: 0.08em; }
-.card .verdict h1 { margin: 0; font-size: 28px; line-height: 1.2; }
-.card h2 { font-size: 21px; margin: 12px 0 6px; }
+.card .verdict { margin: 14px; align-items: center; font-size: 1em; }
+.card .verdict .icon { font-size: 2em; }
+.card .verdict .label { font-size: 0.8em; letter-spacing: 0.08em; }
+.card .verdict h1 { margin: 0; font-size: 1.4em; line-height: 1.2; }
+.card h2 { font-size: 1.05em; margin: 12px 0 6px; }
 .card .section { padding: 4px 18px 8px; }
 .card ul { margin: 4px 0; padding-left: 26px; }
 .card li { margin: 8px 0; }
 .card details.more { margin: 8px 0; }
 .card summary { cursor: pointer; font-weight: bold; padding: 6px 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 18px 18px; }
-.actions .primary { background: #0b3d91; color: #ffffff; border-color: #062a66; font-size: 24px; padding: 12px 18px; }
+.card button { font-size: 0.9em; }
+.actions .primary { background: #0b3d91; color: #ffffff; border-color: #062a66; font-size: 1.2em; padding: 12px 18px; }
 .actions .primary:hover { background: #062a66; }
-.actions .quiet { font-size: 17px; font-weight: normal; background: #f4f4f4; }
+.actions .quiet { font-size: 0.85em; font-weight: normal; background: #f4f4f4; }
 .dest { word-break: break-all; font-weight: bold; }
 .card .extra p { margin: 3px 0; }
-.card .extra .muted { font-size: 18px; }
+.card .extra .muted { font-size: 0.9em; }
 .card .extra .flag { color: #b00020; font-weight: bold; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 button:focus-visible, summary:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }

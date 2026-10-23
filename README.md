@@ -10,6 +10,18 @@ Scammers target older adults by email because many are less familiar with newer 
 
 > TODO: add one or two statistics from a trusted source (for example, the FBI's annual Elder Fraud Report from IC3) and link to it.
 
+## Settings and the toolbar popup (version 0.5)
+
+Click the Email Anti-Scam button in Chrome's toolbar. The popup answers three questions in plain words:
+
+1. **Is protection on?** with one button to turn it on or off.
+2. **Is this page being checked?** It asks the page's own checker, so it only says "yes" when checking is really running. If it can't tell, it says so and suggests reloading. Chrome's own pages are reported as "cannot be checked." There is a button to turn a website on or off, and one to check the page again.
+3. **What can I do when I need help?** A short piece of advice that can be read aloud, plus a link to Settings.
+
+The **Settings** page (also reachable from the popup) lets you choose: protection on or off, whether Gmail emails are checked, which websites are checked (all except ones you turn off, or only ones you choose), whether warnings have a "Read to me" button, read on their own, or stay silent, how fast to read, and text size (normal, large, extra large). Changes apply at once. It also explains what is and is not checked, and lets you save or delete your false-alarm reports. There are no scores, weights, or files to understand.
+
+The "Ask someone I trust" feature is **not built yet** on purpose: sharing a suspicious email or link with another person raises consent and sensitive-data questions that need their own design.
+
 ## What's new in version 0.2
 
 Protection now works across the web, in three levels:
@@ -87,9 +99,13 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/analyzer.js` | The common `analyze(evidence)` entry point for webpages, ads, links, and emails; returns block / warn / allow with reasons |
 | `extension/threats.js` | Built-in list of known dangerous websites (demo `.example` addresses) |
 | `extension/service-worker.js` | Blocks known dangerous websites before they load |
+| `extension/settings.js` | The person's choices (on/off, websites, read aloud, text size), saved on this computer and shared by every part |
+| `extension/ui/popup.html`, `popup.js`, `status.js` | The toolbar popup: is protection on, is this page checked, help |
+| `extension/ui/options.html`, `options.js` | The settings page |
 | `extension/panel.js`, `panel-styles.js` | The in-page warning card and its look |
 | `tests/rules.test.js` | Automatic tests for the email checks |
 | `tests/scanner-merge.test.js`, `tests/browser/scanner.test.js` | Tests for the webpage scanner (the browser test needs Playwright) |
+| `tests/settings.test.js`, `tests/browser/settings.test.js` | Tests for settings, the popup, and the settings page |
 | `tests/ads-analyzer.test.js`, `tests/browser/ads.test.js`, `tests/browser/gmail-adapter.test.js` | Tests for advertisements and for the Gmail adapter (including the fake Gmail page) |
 | `tests/explain.test.js`, `tests/browser/click-guard.test.js` | Tests for the warning wording and for stopping clicks in a real browser |
 | `tests/analyzer.test.js` | Automatic tests for webpage and link checks; prints caught-vs-false-alarm counts |
@@ -106,10 +122,12 @@ node tests/analyzer.test.js
 node tests/scanner-merge.test.js
 node tests/explain.test.js
 node tests/ads-analyzer.test.js
+node tests/settings.test.js
 node tests/browser/scanner.test.js       # browser tests need Playwright: npm i playwright
 node tests/browser/click-guard.test.js
 node tests/browser/ads.test.js
 node tests/browser/gmail-adapter.test.js
+node tests/browser/settings.test.js
 ```
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
@@ -126,6 +144,7 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 
 - Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `extension/content/gmail-adapter.js` (`GmailAdapter.diagnose()` shows which ones still match). The adapter is tested against a Gmail-shaped practice page, not live Gmail.
 - Rules can't catch every scam, especially new tricks. The AI step below is meant to cover what rules miss.
+- Website access: Chrome currently gives the extension access to all websites when it is installed, and the "Websites" setting decides where it actually looks. It does not yet ask Chrome for access only to chosen sites (see `docs/integration-checklist.md`).
 - Chrome only. A Chrome extension cannot see other apps, text messages, or phone calls.
 - The link guard covers ordinary clicks and the Enter key. It does not catch a website's own script opening a page, or links opened from the right-click menu.
 - Advertisements: only ads that carry a recognizable marker are examined, and ads in other websites' frames (the usual ad-network case) can't be inspected. The extension flags suspicious ads and never hides or blocks ads. The exact list is in `docs/ad-support-matrix.md`.
@@ -139,13 +158,14 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 - [x] Step 3: First set of rule-based scam checks
 - [ ] Step 4: Check links against Google Safe Browsing (known dangerous sites)
 - [ ] Step 5: AI plain-language summary and second opinion on risk
-- [ ] Step 6: "Ask someone I trust" button and an options page
+- [x] Step 6a: Settings page and toolbar popup
+- [ ] Step 6b: "Ask someone I trust" (deferred: needs its own consent and privacy design)
 - [ ] Step 7: Test with 15–20 practice emails and with older adults
 - [ ] Step 8: Demo video and submission write-up
 
 ## Privacy
 
-Version 0.2 sends nothing anywhere: every check happens inside your own browser. To check webpages and links on any site, it asks Chrome for permission to read all websites, a network-rules permission used for blocking, and local storage. Storage holds only false-alarm reports you choose to send during testing (the website's name, the verdict, the reasons shown, and the time; the last 100), and they never leave your browser. It reads page text, links, and forms only to run its checks, and saves nothing. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
+Version 0.2 sends nothing anywhere: every check happens inside your own browser. To check webpages and links on any site, it asks Chrome for permission to read all websites, a network-rules permission used for blocking, and local storage. Storage holds your settings, and the false-alarm reports you choose to send during testing (the website's name, the verdict, the reasons shown, and the time; the last 100). Both stay on this computer and never leave your browser. You can save or delete the reports in Settings. It reads page text, links, and forms only to run its checks, and saves nothing. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
 
 ## Working together
 

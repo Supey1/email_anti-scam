@@ -7,7 +7,7 @@
 // A service worker can stop when idle, so nothing here relies on remembered variables:
 // the rules live in Chrome, reports live in chrome.storage.
 
-importScripts('threats.js', 'rules.js', 'analyzer.js');
+importScripts('threats.js', 'rules.js', 'analyzer.js', 'settings.js');
 
 const WARNING_PAGE = chrome.runtime.getURL('ui/warning.html');
 const MAX_REPORTS = 100;
@@ -16,8 +16,12 @@ function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Blocking known-dangerous sites follows the on/off switch. Rules are removed when protection is off.
 async function installThreatRules() {
-  const addRules = THREAT_DOMAINS.map((domain, i) => ({
+  const settings = await Settings.load();
+  chrome.action.setBadgeText({ text: settings.enabled ? '' : 'OFF' });
+  chrome.action.setBadgeBackgroundColor({ color: '#b00020' });
+  const addRules = !settings.enabled ? [] : THREAT_DOMAINS.map((domain, i) => ({
     id: i + 1,
     priority: 1,
     action: { type: 'redirect', redirect: { regexSubstitution: `${WARNING_PAGE}?kind=dnr&url=\\0` } },
@@ -33,6 +37,7 @@ async function installThreatRules() {
 
 chrome.runtime.onInstalled.addListener(installThreatRules);
 chrome.runtime.onStartup.addListener(installThreatRules);
+chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.settings) installThreatRules(); });
 
 function isWebAddress(url) {
   try { return /^https?:$/.test(new URL(url).protocol); } catch (e) { return false; }

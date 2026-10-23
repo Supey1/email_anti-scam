@@ -36,6 +36,7 @@ const EmailAntiScamPanel = (() => {
     const button = document.createElement('button');
     button.className = `reopen ${model.severity === 'unknown' ? 'low' : model.severity}`;
     button.textContent = `${model.icon} Safety check`;
+    button.style.fontSize = `${Settings.TEXT_PX[Settings.current.textSize]}px`;
     button.addEventListener('click', () => { removeChip(); showWarning(lastOptions); });
     shadow.append(button);
     document.documentElement.append(chip);
@@ -55,7 +56,11 @@ const EmailAntiScamPanel = (() => {
     const model = Explain.describe(options.result);
     const done = fn => () => { close(); if (options.leaveChip) showChip(model); if (fn) fn(); };
 
-    const { card, primary } = WarningView.render(model, {
+    const prefs = Settings.current;
+    const { card, primary, startReading } = WarningView.render(model, {
+      textSizePx: Settings.TEXT_PX[prefs.textSize],
+      speechRate: Settings.SPEECH_RATE[prefs.speechSpeed],
+      showRead: prefs.readAloud !== 'off',
       destination: options.destination,
       extras: options.extras,
       primaryLabel: options.primaryLabel,
@@ -84,6 +89,8 @@ const EmailAntiScamPanel = (() => {
     document.documentElement.append(host);
     // A corner card does not take focus from the page; a covering card must.
     if (options.modal) primary.focus();
+    // Reading out loud on its own is the person's choice, and only for warnings.
+    if (prefs.readAloud === 'auto' && (model.verdict === 'warn' || model.verdict === 'block')) startReading();
   }
 
   return { showWarning, close };

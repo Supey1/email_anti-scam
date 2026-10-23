@@ -72,6 +72,10 @@
     if (!event.isTrusted) return;
     if (event.type === 'auxclick' && event.button !== 1) return; // right-click is the context menu, not a navigation
 
+    // Do nothing at all when the person has turned protection off for this site (or for Gmail).
+    const prefs = Settings.current;
+    if (onGmail ? !Settings.shouldCheckEmail(prefs) : !Settings.shouldCheckSite(prefs, location.hostname)) return;
+
     const anchor = findAnchor(event);
     if (!anchor) return;
     const url = destinationOf(anchor);

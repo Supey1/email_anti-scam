@@ -13,6 +13,16 @@ Short and shared. Add an item instead of editing the other person's code. Tick i
 - [ ] **B:** `click-guard.js` and `page.js` still branch on the old verdict `allow`. `ui/explain.js` already accepts both shapes; remove its "TEMPORARY" normalization once the analyzer returns the contract.
 - [ ] **B:** Map reason `code`s to any custom wording or icons (everything falls back to `title` / `explanation` today).
 
+## Done (Phase 6, Person B)
+
+- [x] `extension/settings.js`, `ui/popup.*`, `ui/options.*`, `ui/status.js`. Settings gate scanning, click guarding, Gmail checking, and blocking rules; badge shows OFF when protection is off. Tests: `tests/settings.test.js`, `tests/browser/settings.test.js`.
+- [x] Text size and read-aloud choices apply to the in-page card, the warning page, and the Gmail panel.
+- [ ] **B (Web Store):** Chrome still grants `<all_urls>` at install; the "Websites" setting only controls where we look. To request the narrowest permission, move web access to `optional_host_permissions` and register the webpage content scripts at runtime with `chrome.scripting` after `chrome.permissions.request` (needs a user click, so it can't be covered by the current automated browser tests; verify by hand).
+- [ ] **B:** Auto read-aloud inside the in-page card shares code with the warning page (tested there), but Chrome may block speech until the page has been clicked. Check by hand on real sites.
+- [ ] **B:** Popup and settings page checked with keyboard and ARIA only; try a real screen reader and Chrome's zoom at 200%.
+- [ ] **Deferred by decision:** "Ask someone I trust" (sharing an email or link with another person). Design consent, what is shared, and sensitive-data handling first.
+- [ ] **B:** Incognito: extensions are off there unless the person allows it; the settings page says so but there is no in-extension check.
+
 ## Done (Phases 4 and 5, Person B)
 
 - [x] `extension/content/ad-signals.js`; scanner reports `context.ads` and `context.adFrames`; ads reuse the shared analyzer (`analyzeAd`, `analyzeLink(link, {ad})`). Matrix: `docs/ad-support-matrix.md`.
@@ -31,7 +41,7 @@ Short and shared. Add an item instead of editing the other person's code. Tick i
 - [x] Tests: `tests/explain.test.js`, `tests/browser/click-guard.test.js`.
 - [ ] **B:** Screen-reader behavior is checked through ARIA attributes only; try a real screen reader.
 - [ ] **B:** Read-aloud can't be verified in headless tests; check it by hand.
-- [ ] **B:** Add a way to view and export saved false-alarm reports (settings page, Phase 7).
+- [x] Saved false-alarm reports can be counted, saved, and deleted on the settings page.
 
 ## Done (Phase 1, Person B)
 

@@ -19,10 +19,10 @@ const WarningView = (() => {
     return node;
   }
 
-  function speak(text, onEnd) {
+  function speak(text, onEnd, rate = 0.9) {
     window.speechSynthesis.cancel();
     const speech = new SpeechSynthesisUtterance(text);
-    speech.rate = 0.9;
+    speech.rate = rate;
     speech.onend = speech.onerror = onEnd;
     window.speechSynthesis.speak(speech);
   }
@@ -43,13 +43,14 @@ const WarningView = (() => {
 
   // model = Explain.describe(result)
   // options = {
+  //   textSizePx: the person's text size, speechRate: how fast to read aloud, showRead: false hides "Read to me",
   //   primaryLabel: text of the main button (default "Go back to safety"),
   //   extras: [{ heading, lines: [{ text, muted?, flag? }] }] shown after the advice,
   //   destination: 'text shown above the reasons' (optional),
   //   corner: true for a small card in the corner instead of a centered one,
   //   onBack, onContinue (only used when model.canContinue), onReport (optional), onHide (optional)
   // }
-  // Returns { card, primary } where primary is the button to focus.
+  // Returns { card, primary, startReading } where primary is the button to focus.
   function render(model, options = {}) {
     const announce = el('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
     const reasons = model.top.map(r => el('li', {}, [
@@ -66,7 +67,7 @@ const WarningView = (() => {
     const primary = el('button', { class: 'primary', text: options.primaryLabel || 'Go back to safety', onclick: () => options.onBack && options.onBack() });
     const read = el('button', { text: '🔊 Read to me', 'aria-pressed': 'false' });
     let reading = false;
-    read.addEventListener('click', () => {
+    const toggleReading = () => {
       if (reading) { window.speechSynthesis.cancel(); return; }
       reading = true;
       read.setAttribute('aria-pressed', 'true');
@@ -75,8 +76,9 @@ const WarningView = (() => {
         reading = false;
         read.setAttribute('aria-pressed', 'false');
         read.textContent = '🔊 Read to me';
-      });
-    });
+      }, options.speechRate);
+    };
+    read.addEventListener('click', toggleReading);
 
     const report = options.onReport ? el('button', { class: 'quiet', text: 'This is a false alarm', onclick: () => {
       options.onReport();
@@ -117,12 +119,13 @@ const WarningView = (() => {
           ...extra.lines.filter(Boolean).map(line => el('p', { class: line.flag ? 'flag' : line.muted ? 'muted' : '', text: line.text })),
         ])),
       ]),
-      el('div', { class: 'actions' }, [primary, read, ...secondary, report]),
+      el('div', { class: 'actions' }, [primary, options.showRead === false ? null : read, ...secondary, report]),
       announce,
     ]);
     announce.textContent = `${model.label}. ${model.headline}`;
+    if (options.textSizePx) card.style.fontSize = `${options.textSizePx}px`;
     trapFocus(card);
-    return { card, primary };
+    return { card, primary, startReading: toggleReading };
   }
 
   return { render, el, speak };

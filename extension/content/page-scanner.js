@@ -371,7 +371,7 @@ const PageScanner = (() => {
     document.addEventListener('load', onFrameLoad, true);
 
     return {
-      scanNow: () => { queue.clear(); initialScan(); },
+      scanNow: () => { queue.clear(); seenLinks.clear(); seenForms.clear(); seenAds.clear(); initialScan(); },
       stop,
       stats: () => ({ dynamicScans, queued: queue.size, seenLinks: seenLinks.size, stopped }),
     };
