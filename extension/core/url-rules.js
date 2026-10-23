@@ -177,6 +177,14 @@
     const findings = [];
     const add = (code, data, value) => findings.push({ code, subject: 'page', data: { host: page.host, ...data }, evidence: { kind: 'form', value } });
     const seen = new Set();
+    // Your own computer (localhost) counts as secure, as it does in Chrome.
+    const ownComputer = host => /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(host);
+    // A password or card box on a page that itself isn't secure: the page (and the box) can be
+    // read or changed on the way, wherever the form says it sends. Chrome marks these "Not secure".
+    if (page.protocol === 'http:' && !ownComputer(page.hostname)) {
+      seen.add('INSECURE_FORM');
+      add('INSECURE_FORM', {}, page.href);
+    }
     for (const form of forms) {
       const action = parseUrl(form.action || '', page.href);
       if (!action.ok) continue;
@@ -191,9 +199,7 @@
           add('CREDENTIALS_SENT_ELSEWHERE', { elsewhere: action.host }, action.href);
         }
       }
-      // Your own computer (localhost) counts as secure, as it does in Chrome.
-      const ownComputer = /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(action.hostname);
-      if (action.protocol === 'http:' && !ownComputer && !seen.has('INSECURE_FORM')) {
+      if (action.protocol === 'http:' && !ownComputer(action.hostname) && !seen.has('INSECURE_FORM')) {
         seen.add('INSECURE_FORM');
         add('INSECURE_FORM', {}, action.href);
       }

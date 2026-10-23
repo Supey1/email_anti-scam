@@ -656,6 +656,10 @@ What the person reads:
 
 `security-awareness/tech-scam-news-story`, webpage. **Expected:** `no_warning_signs` + `NONE`. Quotes a scam to warn readers.
 
+### ✅ Legitimate: Library newsletter page: "urgent", "act now", "never pay with gift cards", "congratulations to Dot, winner" (Person B's practice page)
+
+`security-awareness/library-newsletter-page`, webpage. **Expected:** `no_warning_signs` + `NONE`. Scary words used normally: advice ("never pay with gift cards"), someone else's win, and a volunteer call. Found by Person B's tests/pages/fake-legitimate.html.
+
 ## sextortion
 
 ### 🛑 Scam: "I have your password": recorded on webcam, pay $1,500 in bitcoin or the video goes to your contacts

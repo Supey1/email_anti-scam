@@ -6,11 +6,15 @@
 // This hands it to the engine, and keeps it up to date. Until it arrives, the
 // engine uses the bundled data/threat-list.js.
 
+// GranblockThreatSync.ready resolves once the saved list is in use (or there
+// is none), for pages that check something straight away (ui/warning.js).
+
 (() => {
   'use strict';
+  const sync = globalThis.GranblockThreatSync = { ready: Promise.resolve() };
   if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return; // practice pages
   const apply = list => GranblockCore.urlRules.useThreatEntries(Array.isArray(list) ? list : null);
-  chrome.storage.local.get('activeThreats').then(items => apply(items.activeThreats)).catch(() => {});
+  sync.ready = chrome.storage.local.get('activeThreats').then(items => apply(items.activeThreats)).catch(() => {});
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.activeThreats) apply(changes.activeThreats.newValue);
   });

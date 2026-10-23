@@ -123,7 +123,14 @@
     let text = [];
     if (!domainRules.officialBrandFor(hostname)) {
       const offerText = `${link.text || ''}\n${ctx.nearbyText || ''}`;
-      text = keepText(textRules.checkWebText(offerText), other, 'link', textRules.looksLikeScamAdvice(offerText));
+      const raw = textRules.checkWebText(offerText);
+      const advice = textRules.looksLikeScamAdvice(offerText);
+      text = keepText(raw, other, 'link', advice);
+      // Inside something recognized as an ad (context.inAd), "you won, claim it" with a claim
+      // button to a website we can't tie to the company IS the two-part story: the prize, and
+      // the "claim it over there". (Real prize ads from a company go to its own website, which
+      // is trusted above and never gets here.)
+      if (!text.length && ctx.inAd && !advice && raw.some(f => f.code === 'PRIZE_CLAIM')) text = raw;
       if (text.length) {
         // A real ad's click usually goes through an ad network first: we can't
         // compare the company in the ad with an address we can't see.
@@ -131,7 +138,7 @@
         const mismatch = service ? [] : domainRules.checkNamedBrand(offerText, hostname, 'offer');
         if (mismatch.length) derived.push(...mismatch);
         else if (text.some(f => f.code === 'PRIZE_CLAIM' || f.code === 'PAY_TO_CLAIM')) {
-          derived.push({ code: 'UNVERIFIED_PRIZE_CLAIM', subject: 'link', data: { host, service: service ? registrableDomain(hostname) : '' }, evidence: { kind: 'url', value: parsed.href } });
+          derived.push({ code: 'UNVERIFIED_PRIZE_CLAIM', subject: 'link', data: { host, service: service ? registrableDomain(hostname) : '', inAd: !!ctx.inAd }, evidence: { kind: 'url', value: parsed.href } });
         }
       }
     }
@@ -258,6 +265,7 @@
         senderEmail: cleanText(ctx.senderEmail, LIMITS.short),
         subject: cleanText(ctx.subject, LIMITS.short),
         nearbyText: cleanText(ctx.nearbyText, LIMITS.short),
+        inAd: ctx.inAd === true,
         mainHeadings: (Array.isArray(ctx.mainHeadings) ? ctx.mainHeadings.slice(0, LIMITS.headings) : []).map(h => cleanText(h, LIMITS.short)),
         surroundingResult: surrounding ? { verdict: String(surrounding.verdict || ''), recommendedAction: String(surrounding.recommendedAction || '') } : undefined,
       },

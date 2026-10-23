@@ -1,0 +1,13 @@
+{
+  "name": "email-anti-scam",
+  "private": true,
+  "description": "Chrome extension that helps older adults spot scam emails, fake websites, and risky links. Only the tests need Node.",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:fast": "node tests/run-all.js --no-browser",
+    "metrics": "node tests/metrics.js --write"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}

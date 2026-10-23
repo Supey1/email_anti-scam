@@ -76,7 +76,7 @@
       patterns: [
         /\byou('ve| have)? (just )?(won|been selected|been chosen)\b/,
         /\bclaim your (free )?(prize|reward|gift|winnings|cash)/,
-        /\bcongratulations\b[^.!]{0,60}\b(won|winner|selected|chosen)\b/,
+        /\bcongratulations\b(?! to\b)[^.!]{0,60}\b(won|winner|selected|chosen)\b/, // not "congratulations to Dot, our winner"
         /\byou are (our|today'?s|the) (lucky )?winner/,
       ],
     },
@@ -117,17 +117,25 @@
   // a news story, a bank's safety page. Scam pages almost never say "scam".
   const SCAM_ADVICE = /\bscam(s|mer|mers|med)?\b|\bphishing\b|\bfraudsters?\b|\bimpost[eo]rs?\b|\bsextortion\b/g;
 
+  // On websites, wording right after "not", "never", "don't" in the same clause is advice, not a
+  // scam: "never pay with gift cards". ("If you did not order this, call ..." still counts: the
+  // "not" belongs to another clause.) Emails are written TO the person, so they keep every match.
+  const clauseLead = (lower, index) => leadIn(lower, index).split(/[,;:]\s*/).pop();
+  const notAdvice = (lower, match, variant) => variant !== 'web' || !NEGATION.test(clauseLead(lower, match.index));
   function runChecks(checks, text, variant) {
     const lower = (text || '').toLowerCase();
     const findings = [];
     for (const check of checks) {
+      let match = null;
       for (const pattern of check.patterns) {
-        const match = lower.match(pattern);
-        if (match) {
-          findings.push({ code: check.code, subject: 'text', data: { variant }, evidence: { kind: 'text', value: match[0] } });
-          break;
+        let tries = 0;
+        for (const m of lower.matchAll(new RegExp(pattern.source, 'g'))) {
+          if (notAdvice(lower, m, variant)) { match = m; break; }
+          if (++tries >= MAX_TRIES) break;
         }
+        if (match) break;
       }
+      if (match) findings.push({ code: check.code, subject: 'text', data: { variant }, evidence: { kind: 'text', value: match[0] } });
     }
     return findings;
   }

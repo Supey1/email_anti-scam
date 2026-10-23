@@ -16,7 +16,7 @@
     Practice page that copies the parts of Gmail our extension reads
     (h2.hP = subject, span.gD = sender, div.a3s = message text).
     Open this file in Chrome to try the panel without touching real email.
-    Click a link in the "Fake PayPal" email to see the "Stop and check" warning.
+    Extraction lives in extension/content/gmail-adapter.js (the selectors) and tests/browser/gmail-adapter.test.js checks it.
     The links are fake and use made-up addresses. Don't change them to real scam links.
   -->
   <div class="bar">
@@ -50,11 +50,39 @@
         links: [['Reschedule delivery', 'https://bit.ly/fake-test-link']],
       },
       {
-        label: 'Known dangerous link',
-        name: 'Account Team', email: 'team@notices.example',
-        subject: 'Please review this document',
-        body: 'Hello, please review the shared document before Friday.',
-        links: [['Open document', 'https://login.known-phish.example/doc']],
+        label: 'Fake bank (hidden link)',
+        name: 'Chase Alerts', email: 'alerts@chase-verify.example',
+        subject: 'Action needed on your account',
+        body: 'Please sign in to review a recent charge.',
+        links: [['www.chase.com/review', 'https://secure-review.example/login']],
+      },
+      {
+        label: 'Delivery from UPS (real)',
+        name: 'UPS', email: 'pkginfo@ups.com',
+        subject: 'Delivery update',
+        body: 'Your package could not be delivered. You can reschedule delivery online.',
+        links: [['Reschedule', 'https://www.ups.com/track']],
+      },
+      {
+        label: 'Doctor reminder',
+        name: 'Valley Clinic', email: 'reminders@valleyclinic.example',
+        subject: 'Appointment tomorrow',
+        body: 'Please confirm your appointment for tomorrow at 10am. If you cannot come, call us immediately.',
+        links: [],
+      },
+      {
+        label: 'Lottery win',
+        name: 'Prize Office', email: 'office@lucky-draw.example',
+        subject: 'You have won!',
+        body: 'You have won the lottery! To release your prize, send a gift card for the processing fee.',
+        links: [],
+      },
+      {
+        label: 'Shared invoice (hard)',
+        name: 'Morgan Lee', email: 'morgan.lee@docs-share-portal.example',
+        subject: 'Invoice 4471',
+        body: 'Hi, please review the invoice I shared with you when you have a moment.',
+        links: [['View invoice', 'https://docs-share-portal.example/inv/4471']],
       },
       {
         label: 'Normal email',
@@ -104,7 +132,9 @@
     document.getElementById('close').onclick = () => document.getElementById('mail').replaceChildren();
   </script>
 
-  <!-- The same files the extension loads into Gmail -->
+  <!-- The same files the extension loads into Gmail. The browser tests strip this block
+       (between the "standalone" markers) because the real extension injects them itself. -->
+  <!-- standalone:start -->
   <script src="../extension/data/threat-list.js"></script>
   <script src="../extension/data/addresses.js"></script>
   <script src="../extension/data/companies.js"></script>
@@ -118,11 +148,16 @@
   <script src="../extension/core/explanations.js"></script>
   <script src="../extension/core/analyzer.js"></script>
   <script src="../extension/rules.js"></script>
-  <script src="../extension/settings-sync.js"></script>
-  <script src="../extension/speech.js"></script>
+  <script src="../extension/threat-sync.js"></script>
+  <script src="../extension/settings.js"></script>
   <script src="../extension/panel-styles.js"></script>
-  <script src="../extension/warning.js"></script>
-  <script src="../extension/guard.js"></script>
-  <script src="../extension/gmail.js"></script>
+  <script src="../extension/ui/explain.js"></script>
+  <script src="../extension/ui/warning-view.js"></script>
+  <script src="../extension/panel.js"></script>
+  <script src="../extension/content/ad-signals.js"></script>
+  <script src="../extension/content/gmail-adapter.js"></script>
+  <script src="../extension/content/gmail.js"></script>
+  <script src="../extension/content/click-guard.js"></script>
+  <!-- standalone:end -->
 </body>
 </html>

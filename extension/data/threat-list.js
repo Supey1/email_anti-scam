@@ -3,7 +3,7 @@
 // Anything on this list is blocked twice:
 //   1. service-worker.js tells Chrome to stop the page from ever loading
 //      (this also catches typed addresses, redirects, and pop-ups).
-//   2. guard.js stops a click on a link to it and explains why.
+//   2. content/click-guard.js stops a click on a link to it and explains why.
 //
 // Right now this is a PRACTICE list of made-up ".example" addresses, so we can
 // test and demo blocking safely. These can never be real websites.

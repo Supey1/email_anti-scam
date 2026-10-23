@@ -58,7 +58,8 @@ Built by the browser integration (Person B) and passed to the detection engine (
 |---|---|
 | `action` | Full address the form sends what you type to. Use `pageUrl` if the form doesn't say. |
 | `hasPassword` | The form has a password box. |
-| `hasPaymentField` | The form has a box for a card number, card security code, or bank account number. |
+| `hasPaymentField` | The form has a box for a card number, card security code, or bank account number. (`hasPayment`, the name the page scanner uses, means the same.) |
+| `method`, `fieldCount` | Optional, from the page scanner. Not used by the checks. |
 
 **Privacy rule: the scanner never collects anything a person typed or chose in any field.** It records only that a sensitive field *exists*. No form object, and nothing else in the input, may contain a field's value.
 
@@ -68,9 +69,21 @@ Built by the browser integration (Person B) and passed to the detection engine (
 
 ```js
 context: {
-  mainHeadings: ["PayPal"]   // optional: text of the page's main (h1) headings, up to 3
+  mainHeadings: ["PayPal"],  // optional: text of the page's main (h1) headings, up to 3
+  // From content/page-scanner.js (Person B):
+  scan: "initial",           // "initial" (the whole page) or "dynamic" (new content only; page.js merges it first)
+  truncated: { text: false, links: false },  // a size limit cut something off
+  ads: [{                    // advertisements the scanner recognized (content/ad-signals.js); their words are
+    signals: ["class:ad-slot"],             //   kept OUT of visibleText, so an ad doesn't make the page look suspicious
+    text: "Congratulations! You have won...",
+    link: { text: "Claim reward", url: "https://claim-gift.example/x" } | null,
+    frame: false             // inside a same-origin ad frame
+  }],
+  adFrames: { readable: 0, unreadable: 1 }  // cross-origin ad frames can't be read, and are never guessed at
 }
 ```
+
+`analyze()` judges the page itself. `checkWebpage()` (section 3a) also judges each ad (up to 20) the way a click on it would be, and adds a scam ad's reasons after the page's own. An ad leading to a known dangerous website makes the page `warn` + `GO_BACK`, not `block`: the ad is dangerous, not the page.
 
 **`source: "email"`**: an email open in Gmail. `pageUrl` is the Gmail address, `visibleText` is the message text, and `links` are the links inside the message.
 
@@ -87,6 +100,8 @@ context: {
 ```js
 context: {
   nearbyText: "Congratulations! You have won a $2,000 gift card...", // words around the link, like the rest of an ad (up to 400 characters)
+  inAd: true,                  // exactly true: the link is in something content/ad-signals.js recognized as an ad.
+                               //   Then "you won, claim it" leading to a website we can't tie to the company stops the click.
   insideFrame: true,           // the link is inside an ad or other frame
   surroundingResult: {         // optional: copied from the result for the email the link is in, if there is one
     verdict: "warn",
@@ -202,7 +217,7 @@ Which actions go with which verdicts:
 | `RISKY_DOMAIN_ENDING` | weak | all | A website ending often used by scam sites. |
 | `FAKE_SIGN_IN_PAGE` | strong | webpage | A company's sign-in page that isn't on the company's website. |
 | `SIGN_IN_ON_FREE_HOSTING` | moderate | link, webpage | A sign-in or payment page (or a sign-in link) on a free hosting website anyone can make. |
-| `INSECURE_FORM` | weak | webpage | A password or card form sends what you type without encryption (`http:`). |
+| `INSECURE_FORM` | weak | webpage | A password or card form on a page without a secure connection, or one that sends what you type without encryption (`http:`). Your own computer (`localhost`) counts as secure, as in Chrome. |
 | `CREDENTIALS_SENT_ELSEWHERE` | moderate | webpage | A password or card form sends what you type to a different website. |
 | `SENDER_NAME_MISMATCH` | moderate | email | The sender's name says a company, but the address isn't one of its own (`domainRules.BRANDS`). `moderate` for account, payment, or delivery notices and free personal accounts; `weak` for other messages; not reported for a newsletter sent through a known email service; `strong` when a company's address is written into the sender's NAME. |
 | `LOOKALIKE_SENDER` | moderate | email | The sender's address imitates a company. |
@@ -261,6 +276,17 @@ The detection engine is loaded into every page alongside the scanner, and is cal
 const result = analyze(input);   // input: section 1, result: section 2
 ```
 
+The screens (Person B) use four small helpers in `rules.js` built on `analyze()`, so none of them repeats glue:
+
+| Helper | Used by | Returns |
+|---|---|---|
+| `checkWebpage(evidence)` | `page.js` | the page's result, with its ads judged too (section 1, `context.ads`) |
+| `checkLinkClick({ text, url, pageUrl, inAd, adText, insideFrame, surroundingResult })` | `content/click-guard.js`, `ui/warning.js` | the result, plus `host`: where the link really goes |
+| `checkEmail(evidence)` | `content/gmail.js` | the result, plus `links: [{ text, host, flags }]` for the panel's list of links |
+| `stopsPerson(result)` | all of them | `true` for `block`, or `warn` with `GO_BACK` / `DO_NOT_ENTER_INFO`: cancel the click, show the page card. `warn` + `VERIFY_INDEPENDENTLY` never interrupts. |
+
+The extra fields (`host`, `links`) are for the screens; the rest is exactly section 2.
+
 It must return synchronously. A click has to be held or let through in the same moment it happens. If the guard had to wait for a reply from another part of the extension, it couldn't stop the click without breaking every normal link.
 
 `analyze()` never throws. If something goes wrong inside it, it returns:
@@ -291,36 +317,9 @@ The service worker side is built (`LOOKUP_URL`, below); only a development mock 
    - `error` (an error, or no answer in time) changes nothing. (`failed` is accepted as an older name.)
 4. **A slow or failed lookup never lets a held link open by itself.** If the answer doesn't come, show the local result's warning and let the person choose, exactly as if there were no lookup.
 
-### 3c. Frames: `chrome.runtime` messages
+### 3c. Frames
 
-Every message has a `type` and a `schemaVersion`.
-
-**`SHOW_WARNING`**: a click inside an ad or other frame, sent up to the main page so the warning covers the whole screen. Goes from the frame to the service worker, which forwards it to the main page (frame 0) of the same tab.
-
-```js
-// frame -> service worker -> main page
-{
-  type: "SHOW_WARNING",
-  schemaVersion: 1,
-  result: { /* section 2 */ },
-  navigation: { url: "https://claim-reward.example/claim", newTab: true }  // where "open it anyway" goes
-}
-
-// reply
-{ type: "SHOW_WARNING_RESULT", schemaVersion: 1, shown: true }
-```
-
-If `shown` is `false`, or there's no reply, the frame shows the warning itself.
-
-**`ANALYZE`**: for parts of the extension that can't load the engine directly (for example, a future settings page or a threat lookup in the service worker). Never used for click decisions (see 3a).
-
-```js
-// request
-{ type: "ANALYZE", schemaVersion: 1, requestId: "a1b2c3", input: { /* section 1 */ } }
-
-// reply: always a valid result, "unknown" on failure
-{ type: "ANALYSIS_RESULT", schemaVersion: 1, requestId: "a1b2c3", result: { /* section 2 */ } }
-```
+The click guard runs in every frame, ads included. When it stops a click, it asks the service worker for the extension's warning page (`SHOW_WARNING`, below), which replaces the **whole tab**, so a frame can't hide it. If that fails (for example, the extension was just updated), the click guard shows the in-page card instead (`panel.js`). The page scanner and its card run in the main page only.
 
 ---
 
@@ -331,13 +330,14 @@ Content scripts and extension pages talk to the service worker with `chrome.runt
 | Message | Who may send it | Answer |
 |---|---|---|
 | `LOOKUP_URL` | anyone | `LOOKUP_RESULT` |
-| `OPEN_WARNING_PAGE` | a content script (needs a tab) | `WARNING_PAGE_OPENED` |
+| `SHOW_WARNING` | a content script (needs a tab) | `{ ok }` |
+| `CONTINUE` | **only the warning page itself** | `{ ok }` |
+| `REPORT_FALSE_ALARM` | anyone | `{ ok }` |
 | `GET_SETTINGS` | anyone | `SETTINGS` |
 | `UPDATE_THREAT_RULES` | **only the extension's own pages** | `THREAT_RULES_UPDATED` |
 | `SET_SETTINGS` | **only the extension's own pages** | `SETTINGS` |
 | `GET_STATUS` | anyone | `STATUS` |
 | `ACCESS_CHANGED` | anyone (Chrome's permission events also trigger it) | `STATUS` |
-| `SHOW_WARNING` | a content script in a frame | `SHOW_WARNING_RESULT` |
 
 ```js
 // Is this address known to be dangerous?
@@ -359,17 +359,26 @@ Content scripts and extension pages talk to the service worker with `chrome.runt
 { type: "THREAT_RULES_UPDATED", schemaVersion: 1, installedRules: 9, activeEntries: 4,
   rejected: [{ value: "co.uk", reason: "too broad: ..." }] }
 
-// Show the extension's own warning page in this tab
-{ type: "OPEN_WARNING_PAGE", schemaVersion: 1, result: <section 2 result>, url: "https://..." }
-{ type: "WARNING_PAGE_OPENED", schemaVersion: 1, token: "..." }
+// The click guard stopped a link: open ui/warning.html in this tab (or a new tab, for a new-tab click).
+// The warning page checks the address again itself; it never trusts a verdict passed to it.
+{ type: "SHOW_WARNING", url: "https://...", text: "the link's words", newTab: false,
+  inAd: false, adText: "the ad's words", fromScamEmail: false }
+{ ok: true }   // false: the click guard shows its in-page card instead
+
+// "Continue" on the warning page. Checked again with the service worker's list: never to a known dangerous website.
+{ type: "CONTINUE", url: "https://...", text: "the link's words" }
+{ ok: true }
+
+// "This is a false alarm": kept on this computer only (last 100; host, verdict, up to 5 reasons, source, time)
+{ type: "REPORT_FALSE_ALARM", report: { host, verdict, reasons: ["..."], source: "click-guard" } }
+{ ok: true }
 
 // Settings
 { type: "GET_SETTINGS", schemaVersion: 1 }
 { type: "SET_SETTINGS", schemaVersion: 1, settings: { protectionEnabled: false } }
 { type: "SETTINGS", schemaVersion: 1, settings: {
     protectionEnabled: true, remoteLookups: false, provider: "none",
-    providerOptions: {}, lookupTimeoutMs: 1500, allowlist: [],
-    textSize: "large" | "larger" | "largest", autoRead: false, speechRate: 0.9 } }   // speechRate 0.5 to 1.5
+    providerOptions: {}, lookupTimeoutMs: 1500, allowlist: [] } }
 
 // What's active right now (for the settings page)
 { type: "GET_STATUS", schemaVersion: 1 }
@@ -378,7 +387,11 @@ Content scripts and extension pages talk to the service worker with `chrome.runt
   rules: 9, activeEntries: 4 }
 ```
 
-Settings live in `chrome.storage.local` (they survive restarts). Page scripts read the reading and text settings from there (`settings-sync.js`); only the service worker writes them.
+Settings live in `chrome.storage.local` (they survive restarts), under two keys:
+- `settings`: the person's choices (`extension/settings.js`: on/off, Gmail, which websites, text size, reading aloud). The popup and the settings page save these directly; every part reads them through `Settings`. When they change, the service worker applies them (rules and page scripts follow the on/off switch, and the toolbar button says OFF).
+- `engineSettings`: threat lookups and false positives, changed only with `SET_SETTINGS` from the extension's own pages.
+
+`protectionEnabled` in `SET_SETTINGS` / `SETTINGS` **is** `settings.enabled`: one switch, stored once.
 
 ## 4. Fixtures: building without waiting for each other
 
@@ -400,4 +413,5 @@ The original Phase 0 proposal left these open. This file fills them in; both peo
 3. **`analyze()` is a synchronous function call in the page, not a message.** Clicks can't wait for a reply.
 4. **Evidence shape** `{ kind, value, reasonCode }`.
 5. **`hasPaymentField`** in forms, so card-number pages can be checked the same way as password pages.
-6. **The other branch's scanner uses different names** (see the integration checklist). The engine accepts `hasPayment` as well as `hasPaymentField` until the two of you pick one.
+6. **The page scanner's names** (`hasPayment`, `method`, `fieldCount`, `scan`, `truncated`, `ads`, `adFrames`) are part of this contract since the merge. The engine accepts `hasPayment` and `hasPaymentField` as the same thing.
+7. **For email, `block` means a known dangerous website only**, as everywhere else. A scam email with strong signs is `warn` + `GO_BACK` ("Stop and check"); B's temporary engine used `block` for those. (Decided at the merge; B, please confirm.)

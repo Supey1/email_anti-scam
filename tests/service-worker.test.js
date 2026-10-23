@@ -4,7 +4,7 @@
 // These run the real background code (extension/background/) against a pretend
 // Chrome: storage, tabs, and a network-blocking API that keeps rules like
 // Chrome does and can say whether a rule would match an address.
-// tests/browser/acceptance.test.js checks the same things in real Chrome.
+// tests/browser/ (blocking.test.js and the others) check the same things in real Chrome.
 //
 // Only made-up .example addresses. Never real dangerous links.
 
@@ -14,12 +14,15 @@ const path = require('path');
 const { createBackground, DEFAULT_SETTINGS } = require(path.join(__dirname, '..', 'extension', 'background', 'messages.js'));
 const threatRules = require(path.join(__dirname, '..', 'extension', 'background', 'threat-rules.js'));
 const threatList = require(path.join(__dirname, '..', 'extension', 'data', 'threat-list.js'));
-const { analyze } = require(path.join(__dirname, '..', 'extension', 'rules.js'));
+const { analyze, checkLinkClick } = require(path.join(__dirname, '..', 'extension', 'rules.js'));
+const urlRules = require(path.join(__dirname, '..', 'extension', 'core', 'url-rules.js'));
 
 // ---------- a pretend Chrome ----------
 
-const BLOCK_PAGE = 'chrome-extension://test-id/blocked.html';
-const EXTENSION_PAGE = { id: 'test-id', url: 'chrome-extension://test-id/settings.html' };
+const WARNING_PAGE = 'chrome-extension://test-id/ui/warning.html';
+const BLOCK_PAGE = `${WARNING_PAGE}?kind=dnr&url=`;
+const EXTENSION_PAGE = { id: 'test-id', url: 'chrome-extension://test-id/ui/options.html' };
+const ON_WARNING_PAGE = { id: 'test-id', url: `${WARNING_PAGE}?kind=click&url=https://x.example/`, tab: { id: 7 }, frameId: 0 };
 const CONTENT_SCRIPT = { id: 'test-id', url: 'https://news.example/today', tab: { id: 7 }, frameId: 0 };
 
 function fakeStorage() {
@@ -104,26 +107,27 @@ const bundled = () => [
 ];
 
 function setup({ bundledEntries = bundled, start = 1_000_000, access = null, storage = fakeStorage(), dnr = fakeDnr(), scripting = null } = {}) {
-  const session = fakeStorage();
   const permissions = access ? fakePermissions(access) : null;
   const tabUpdates = [];
-  const relayed = [];
+  const tabsCreated = [];
+  const badges = [];
   let time = start;
-  let tokens = 0;
   const background = createBackground({
-    storage, session, dnr,
+    storage, dnr,
     tabs: {
       update: async (tabId, props) => { tabUpdates.push({ tabId, ...props }); },
-      sendMessage: async (tabId, message, opts) => { relayed.push({ tabId, message, opts }); return { shown: true }; },
+      create: async props => { tabsCreated.push(props); },
     },
     ...(permissions ? { permissions, scripting: scripting || fakeScripting() } : {}),
     bundled: bundledEntries,
-    blockPage: BLOCK_PAGE,
+    warningPage: WARNING_PAGE,
+    // As service-worker.js does it: the engine, with the service worker's list.
+    checkLink: ({ url, text, entries }) => { urlRules.useThreatEntries(entries); return checkLinkClick({ url, text }); },
+    badge: on => { badges.push(on); },
     extensionOrigin: 'chrome-extension://test-id/',
     now: () => time,
-    newToken: () => `token-${++tokens}`,
   });
-  return { background, storage, session, dnr, tabUpdates, relayed, permissions, advance: ms => { time += ms; } };
+  return { background, storage, dnr, tabUpdates, tabsCreated, badges, permissions, advance: ms => { time += ms; } };
 }
 const send = (env, message, sender = CONTENT_SCRIPT) => env.background.handleMessage({ schemaVersion: 1, ...message }, sender);
 
@@ -239,7 +243,7 @@ test('false positives: removing one unblocks it everywhere, and is remembered', 
   assert.ok(!(await env.storage.get('activeThreats')).some(e => e.value === 'fake-bank-login.example'), 'the click guard would still block it');
   const lookup = await send(env, { type: 'LOOKUP_URL', url: 'https://fake-bank-login.example/' });
   assert.strictEqual(lookup.status, 'no_match');
-  assert.deepStrictEqual((await env.storage.get('settings')).allowlist, ['fake-bank-login.example']);
+  assert.deepStrictEqual((await env.storage.get('engineSettings')).allowlist, ['fake-bank-login.example']);
   assert.ok(blockedBy(env.dnr, 'https://known-phish.example/'), 'other entries must stay');
 });
 
@@ -380,26 +384,60 @@ test('GET_SETTINGS works from a page; SET_SETTINGS checks every value', async ()
   }
 });
 
-test('OPEN_WARNING_PAGE saves the result and sends the tab to the extension\'s own page', async () => {
+test('SHOW_WARNING opens the extension\'s own warning page: in the same tab, or a new one for a new-tab click', async () => {
   const env = setup();
-  const result = analyze({ source: 'link', pageUrl: 'https://news.example/', pageTitle: '', visibleText: '', links: [{ text: 'www.chase.com', url: 'https://chase-secure.example/' }], forms: [], context: {} });
-  const r = await send(env, { type: 'OPEN_WARNING_PAGE', result, url: 'https://chase-secure.example/' });
-  assert.strictEqual(r.type, 'WARNING_PAGE_OPENED');
-  assert.deepStrictEqual(env.tabUpdates, [{ tabId: 7, url: `${BLOCK_PAGE}?t=${r.token}` }]);
-  // Only what the page shows: no evidence snippets.
-  const saved = (await env.session.get(`warning:${r.token}`)).result;
-  assert.deepStrictEqual(saved, { verdict: result.verdict, recommendedAction: result.recommendedAction, reasons: result.reasons });
-  assert.ok(!('evidence' in saved));
-  assert.strictEqual((await send(env, { type: 'OPEN_WARNING_PAGE', result: { verdict: 'safe' } })).type, 'ERROR');
+  const same = await send(env, { type: 'SHOW_WARNING', url: 'https://chase-secure.example/verify', text: 'www.chase.com', adText: '' });
+  assert.deepStrictEqual(same, { ok: true });
+  assert.strictEqual(env.tabUpdates.length, 1);
+  const opened = new URL(env.tabUpdates[0].url);
+  assert.ok(env.tabUpdates[0].url.startsWith(`${WARNING_PAGE}?`));
+  assert.strictEqual(opened.searchParams.get('kind'), 'click');
+  assert.strictEqual(opened.searchParams.get('text'), 'www.chase.com');
+  assert.ok(env.tabUpdates[0].url.endsWith(`&url=${encodeURIComponent('https://chase-secure.example/verify')}`), 'the address must come last');
+  await send(env, { type: 'SHOW_WARNING', url: 'https://x.example/', newTab: true, fromScamEmail: true });
+  assert.strictEqual(env.tabsCreated.length, 1);
+  assert.strictEqual(env.tabsCreated[0].openerTabId, 7);
+  assert.strictEqual(new URL(env.tabsCreated[0].url).searchParams.get('from'), 'scam-email');
 });
 
-test('SHOW_WARNING (and the older "granblock-warning") goes to the main page of the same tab', async () => {
+test('SHOW_WARNING: only web addresses, only from a tab, and the page address carries little text', async () => {
   const env = setup();
-  const frame = { ...CONTENT_SCRIPT, frameId: 3 };
-  const a = await send(env, { type: 'SHOW_WARNING', result: {} }, frame);
-  const b = await env.background.handleMessage({ type: 'granblock-warning', result: {} }, frame);
-  assert.deepStrictEqual([a.shown, b.shown], [true, true]);
-  assert.ok(env.relayed.every(m => m.tabId === 7 && m.opts.frameId === 0));
+  for (const url of ['javascript:alert(1)', 'chrome://settings/', '', 42]) {
+    assert.deepStrictEqual(await send(env, { type: 'SHOW_WARNING', url }), { ok: false }, String(url));
+  }
+  assert.deepStrictEqual(await send(env, { type: 'SHOW_WARNING', url: 'https://x.example/' }, EXTENSION_PAGE), { ok: false }, 'no tab');
+  await send(env, { type: 'SHOW_WARNING', url: 'https://x.example/', text: 'a'.repeat(5000), adText: 'b'.repeat(5000) });
+  const opened = new URL(env.tabUpdates[0].url);
+  assert.deepStrictEqual([opened.searchParams.get('text').length, opened.searchParams.get('adtext').length], [200, 400]);
+});
+
+test('CONTINUE: only from the warning page, checked again, and never to a known dangerous website', async () => {
+  const env = setup();
+  await env.background.refreshRules();
+  // A website (content script) can't make the tab "continue" anywhere.
+  assert.deepStrictEqual(await send(env, { type: 'CONTINUE', url: 'https://chase-secure.example/' }, CONTENT_SCRIPT), { ok: false });
+  assert.deepStrictEqual(await send(env, { type: 'CONTINUE', url: 'https://known-phish.example/' }, ON_WARNING_PAGE), { ok: false });
+  // An address added by an update is known too, not just the bundled list.
+  await send(env, { type: 'UPDATE_THREAT_RULES', add: [{ type: 'domain', value: 'added-later.example', source: 'test', trusted: true }] }, EXTENSION_PAGE);
+  assert.deepStrictEqual(await send(env, { type: 'CONTINUE', url: 'https://added-later.example/' }, ON_WARNING_PAGE), { ok: false });
+  assert.strictEqual(env.tabUpdates.length, 0);
+  // A warning ("check first" or "stop") can be continued past, if the person chooses to.
+  assert.deepStrictEqual(await send(env, { type: 'CONTINUE', url: 'https://chase-secure.example/', text: 'www.chase.com' }, ON_WARNING_PAGE), { ok: true });
+  assert.deepStrictEqual(env.tabUpdates, [{ tabId: 7, url: 'https://chase-secure.example/' }]);
+  assert.deepStrictEqual(await send(env, { type: 'CONTINUE', url: 'javascript:alert(1)' }, ON_WARNING_PAGE), { ok: false });
+});
+
+test('REPORT_FALSE_ALARM keeps at most 100 short reports, with no page text', async () => {
+  const env = setup();
+  for (let i = 0; i < 105; i++) {
+    await send(env, { type: 'REPORT_FALSE_ALARM', report: { host: `site${i}.example`, verdict: 'warn', source: 'click-guard', reasons: ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'], pageText: 'private words' } });
+  }
+  const saved = await env.storage.get('falseAlarms');
+  assert.strictEqual(saved.length, 100);
+  assert.strictEqual(saved[0].host, 'site5.example');
+  assert.strictEqual(saved[99].reasons.length, 5);
+  assert.ok(!JSON.stringify(saved).includes('private words'));
+  assert.deepStrictEqual(await send(env, { type: 'REPORT_FALSE_ALARM' }), { ok: false });
 });
 
 test('unknown messages and other schema versions are refused', async () => {
@@ -485,39 +523,42 @@ test('a restart (all memory lost) keeps the settings, the rules, and the scripts
   const dnr = fakeDnr();
   const scripting = fakeScripting();
   const first = setup({ access: ALL, storage, dnr, scripting });
-  await send(first, { type: 'SET_SETTINGS', settings: { textSize: 'largest', autoRead: true, speechRate: 0.7 } }, EXTENSION_PAGE);
+  await send(first, { type: 'SET_SETTINGS', settings: { lookupTimeoutMs: 2500, allowlist: ['kept.example'] } }, EXTENSION_PAGE);
   await send(first, { type: 'UPDATE_THREAT_RULES', add: [{ type: 'domain', value: 'kept-after-restart.example', source: 'test', trusted: true }] }, EXTENSION_PAGE);
   // A brand-new service worker on the same storage, rules, and scripts (as after a browser restart).
   const second = setup({ access: ALL, storage, dnr, scripting });
   const got = await send(second, { type: 'GET_SETTINGS' });
-  assert.deepStrictEqual([got.settings.textSize, got.settings.autoRead, got.settings.speechRate], ['largest', true, 0.7]);
+  assert.deepStrictEqual([got.settings.lookupTimeoutMs, got.settings.allowlist], [2500, ['kept.example']]);
   assert.strictEqual((await send(second, { type: 'LOOKUP_URL', url: 'https://kept-after-restart.example/' })).status, 'match');
   await second.background.refreshRules();
   assert.ok(blockedBy(dnr, 'https://kept-after-restart.example/'));
   assert.strictEqual(scripting.scripts.length, 3);
 });
 
-test('reading and text settings are checked like the others', async () => {
-  const env = setup();
-  for (const bad of [{ textSize: 'huge' }, { autoRead: 'yes' }, { speechRate: 3 }, { speechRate: '0.9' }]) {
-    assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: bad }, EXTENSION_PAGE)).type, 'ERROR', JSON.stringify(bad));
-  }
-  const ok = await send(env, { type: 'SET_SETTINGS', settings: { textSize: 'larger', autoRead: true, speechRate: 1.1 } }, EXTENSION_PAGE);
-  assert.deepStrictEqual([ok.settings.textSize, ok.settings.autoRead, ok.settings.speechRate], ['larger', true, 1.1]);
+test('ONE on/off switch: the popup\'s choice (settings.enabled) and SET_SETTINGS protectionEnabled are the same', async () => {
+  const storage = fakeStorage();
+  // The person's other choices (extension/settings.js) are left exactly as they were.
+  await storage.set({ settings: { enabled: false, checkEmail: true, textSize: 'xlarge', offSites: ['bank.example'] } });
+  const env = setup({ storage });
+  await env.background.refreshRules();
+  assert.strictEqual((await send(env, { type: 'GET_SETTINGS' })).settings.protectionEnabled, false);
+  assert.strictEqual(env.dnr.rules.length, 0, 'protection is off: no blocking rules');
+  assert.deepStrictEqual(env.badges.slice(-1), [false], 'the toolbar button says OFF');
+  await send(env, { type: 'SET_SETTINGS', settings: { protectionEnabled: true } }, EXTENSION_PAGE);
+  assert.deepStrictEqual(await storage.get('settings'), { enabled: true, checkEmail: true, textSize: 'xlarge', offSites: ['bank.example'] });
+  assert.ok(env.dnr.rules.length > 0);
+  // Turned off in the popup (written straight to storage), then the service worker is told.
+  await storage.set({ settings: { ...(await storage.get('settings')), enabled: false } });
+  await env.background.settingsChanged();
+  assert.strictEqual(env.dnr.rules.length, 0);
+  assert.strictEqual((await storage.get('engineSettings')).protectionEnabled, undefined, 'the switch is stored in one place only');
 });
 
-test('warning-page data: only the last hour, at most 20, and gone from storage when dropped', async () => {
+test('the old reading settings (now in extension/settings.js) are refused here', async () => {
   const env = setup();
-  const result = { verdict: 'warn', recommendedAction: 'GO_BACK', reasons: [{ code: 'HIDDEN_DESTINATION', title: 't', explanation: 'e' }], evidence: [{ kind: 'text', value: 'private words' }] };
-  const tokens = [];
-  for (let i = 0; i < 25; i++) tokens.push((await send(env, { type: 'OPEN_WARNING_PAGE', result, url: 'https://x.example/' })).token);
-  const keys = [...env.session.data.keys()].filter(k => k.startsWith('warning:'));
-  assert.strictEqual(keys.length, 20);
-  assert.ok(!env.session.data.has(`warning:${tokens[0]}`));
-  assert.ok(!JSON.stringify([...env.session.data.values()]).includes('private words'), 'evidence snippets were saved');
-  env.advance(61 * 60 * 1000);
-  await send(env, { type: 'OPEN_WARNING_PAGE', result, url: 'https://x.example/' });
-  assert.strictEqual([...env.session.data.keys()].filter(k => k.startsWith('warning:')).length, 1);
+  for (const bad of [{ textSize: 'larger' }, { autoRead: true }, { speechRate: 0.9 }]) {
+    assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: bad }, EXTENSION_PAGE)).type, 'ERROR', JSON.stringify(bad));
+  }
 });
 
 test('the manifest asks only for what is used: no website access at install, no cookies or history', () => {
@@ -527,6 +568,11 @@ test('the manifest asks only for what is used: no website access at install, no 
   assert.ok(!manifest.host_permissions, 'website access must be optional, asked for during onboarding');
   assert.ok(!manifest.content_scripts, 'page scripts are registered only after access is given');
   assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*']);
+  // The warning page must be reachable by Chrome's redirect of a known dangerous website.
+  assert.deepStrictEqual(manifest.web_accessible_resources.flatMap(r => r.resources), ['ui/warning.html']);
+  for (const page of [manifest.action.default_popup, manifest.options_ui.page]) {
+    assert.ok(fs.existsSync(path.join(__dirname, '..', 'extension', page)), page);
+  }
 });
 
 test('every page script the service worker registers exists', () => {
@@ -534,6 +580,17 @@ test('every page script the service worker registers exists', () => {
   for (const script of desiredScripts('all', true)) {
     for (const file of script.js) assert.ok(fs.existsSync(path.join(__dirname, '..', 'extension', file)), `${script.id}: missing ${file}`);
   }
+});
+
+test('every script an extension page or the service worker loads exists', () => {
+  const ext = path.join(__dirname, '..', 'extension');
+  for (const page of ['ui/warning.html', 'ui/options.html', 'ui/popup.html']) {
+    const html = fs.readFileSync(path.join(ext, page), 'utf8');
+    for (const [, src] of html.matchAll(/<script src="([^"]+)"/g)) assert.ok(fs.existsSync(path.join(ext, path.dirname(page), src)), `${page}: missing ${src}`);
+  }
+  const worker = fs.readFileSync(path.join(ext, 'service-worker.js'), 'utf8');
+  const imports = worker.slice(worker.indexOf('importScripts('), worker.indexOf(');', worker.indexOf('importScripts(')));
+  for (const [, file] of imports.matchAll(/'([^']+\.js)'/g)) assert.ok(fs.existsSync(path.join(ext, file)), `service-worker.js: missing ${file}`);
 });
 
 // ---------- run ----------

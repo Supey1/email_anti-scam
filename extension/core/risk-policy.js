@@ -141,6 +141,9 @@
     if (finding.code === 'MISLEADING_URL' && d.trick === 'before_at') return 'strong';
     // A sign-in name hidden in a link is odd, but not proof of anything.
     if (finding.code === 'MISLEADING_URL' && d.trick === 'hidden_login') return 'weak';
+    // A prize AD whose claim button goes to a website we can't tie to the company: the
+    // second half of the prize scam ("claim it over there"), not just a missing check.
+    if (finding.code === 'UNVERIFIED_PRIZE_CLAIM' && d.inAd) return 'moderate';
     return rule.tier;
   }
 

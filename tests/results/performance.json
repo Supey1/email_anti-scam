@@ -1,0 +1,19 @@
+{
+  "measures": {
+    "Analyzer: average per check (Node)": "0.300 ms",
+    "Analyzer: slowest 1% (Node)": "1.598 ms",
+    "Huge page (5000 links, 150 ads, ~40k words): longest main-thread block while loading": "88 ms",
+    "Huge page: number of long tasks (over 50 ms) while loading": "1",
+    "Scanner: first scan of the huge page": "21 ms (kept 100 links, 20 ads, 20000 characters)",
+    "Analyzer: that page's evidence, in the browser": "9.1 ms",
+    "Click guard: work done on one click, on that page": "0.18 ms",
+    "Changing ads (1000 insertions in ~5 s): long tasks": "0, longest 0 ms"
+  },
+  "budgets": {
+    "scanMs": 500,
+    "analyzeMs": 50,
+    "clickMs": 25,
+    "longestTaskMs": 700,
+    "stormTasksPer5s": 12
+  }
+}

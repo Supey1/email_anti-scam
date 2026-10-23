@@ -1,7 +1,7 @@
 // content-scripts.js: which scripts run in which pages, decided by what the
 // person has allowed.
 //
-// The extension asks for website access during onboarding (settings.html),
+// The extension asks for website access during onboarding (ui/options.html?welcome=1),
 // not at install, and the person can take it back at any time in Chrome. So
 // the scripts aren't listed in manifest.json; the service worker registers
 // them for exactly the access that's been granted, and removes them when
@@ -20,13 +20,23 @@
   const ALL_SITES = ['http://*/*', 'https://*/*'];
   const GMAIL = ['https://mail.google.com/*'];
 
-  // The engine and the click guard. Must load in this order.
-  const BASE = [
+  // The scam checks (Person A), in this order.
+  const ENGINE = [
     'data/threat-list.js', 'data/addresses.js', 'data/companies.js', 'data/services.js', 'data/people.js',
     'core/url-normalizer.js', 'core/domain-rules.js', 'core/url-rules.js', 'core/text-rules.js',
-    'core/risk-policy.js', 'core/explanations.js', 'core/analyzer.js',
-    'rules.js', 'threat-sync.js', 'settings-sync.js', 'speech.js', 'panel-styles.js', 'warning.js', 'guard.js',
+    'core/risk-policy.js', 'core/explanations.js', 'core/analyzer.js', 'rules.js', 'threat-sync.js',
   ];
+  // Everywhere, in every frame (ads often load in their own frame): the engine,
+  // the shared warning interface, and the click guard (Person B).
+  const BASE = [
+    ...ENGINE,
+    'settings.js', 'panel-styles.js', 'ui/explain.js', 'ui/warning-view.js', 'panel.js',
+    'content/ad-signals.js', 'content/click-guard.js',
+  ];
+  // Ordinary websites, main page only: the page scanner and its glue.
+  const PAGE = ['content/page-scanner.js', 'page.js'];
+  // Gmail: reads the open email.
+  const GMAIL_READER = ['content/gmail-adapter.js', 'content/gmail.js'];
 
   // The scripts that should be registered for this access.
   function desiredScripts(access, protectionEnabled) {
@@ -41,9 +51,9 @@
       persistAcrossSessions: true,
     }];
     if (access === 'all') {
-      scripts.push({ id: 'granblock-page', matches: ALL_SITES, excludeMatches: GMAIL, js: ['page.js'], runAt: 'document_idle', persistAcrossSessions: true });
+      scripts.push({ id: 'granblock-page', matches: ALL_SITES, excludeMatches: GMAIL, js: PAGE, runAt: 'document_idle', persistAcrossSessions: true });
     }
-    scripts.push({ id: 'granblock-gmail', matches: GMAIL, js: ['gmail.js'], runAt: 'document_idle', persistAcrossSessions: true });
+    scripts.push({ id: 'granblock-gmail', matches: GMAIL, js: GMAIL_READER, runAt: 'document_idle', persistAcrossSessions: true });
     return scripts;
   }
 
@@ -73,6 +83,6 @@
     return wanted.map(w => w.id);
   }
 
-  bg.contentScripts = { ALL_SITES, GMAIL, BASE, desiredScripts, currentAccess, syncScripts };
+  bg.contentScripts = { ALL_SITES, GMAIL, ENGINE, BASE, PAGE, GMAIL_READER, desiredScripts, currentAccess, syncScripts };
   if (typeof module !== 'undefined') module.exports = bg.contentScripts;
 })();

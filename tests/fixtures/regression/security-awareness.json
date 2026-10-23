@@ -149,6 +149,36 @@
         "reasons": []
       },
       "why": "Quotes a scam to warn readers."
+    },
+    {
+      "id": "library-newsletter-page",
+      "kind": "legitimate",
+      "summary": "Library newsletter page: \"urgent\", \"act now\", \"never pay with gift cards\", \"congratulations to Dot, winner\" (Person B's practice page)",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://library.example/newsletter",
+        "pageTitle": "Town library newsletter",
+        "visibleText": "Urgent: volunteers are needed for the book sale. Act now to reserve a shift! Our computer help desk offers free tech support on Thursdays. Bring your laptop if you think it has a virus. Beware of scams: never pay with gift cards or wire transfers, and never share your password or social security number. Congratulations to Dot, winner of last month's reading challenge! Claim your coupon at the front desk.",
+        "links": [],
+        "forms": [
+          {
+            "action": "https://library.example/login",
+            "hasPassword": true,
+            "hasPaymentField": false
+          }
+        ],
+        "context": {
+          "mainHeadings": [
+            "Town library newsletter"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Scary words used normally: advice (\"never pay with gift cards\"), someone else's win, and a volunteer call. Found by Person B's tests/pages/fake-legitimate.html."
     }
   ]
 }

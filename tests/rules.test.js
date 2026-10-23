@@ -408,8 +408,13 @@ const RULE_TESTS = [
     triggers: [link('https://deals.xyz/')],
     doesNot: [link('https://xyz.example/')] },
   { code: 'UNVERIFIED_PRIZE_CLAIM',
-    triggers: [link('https://claim.example/', 'Claim', 'You have won a prize! Act now.')],
-    doesNot: [link('https://claim.example/', 'Read more', 'Local woman wins lottery jackpot.')] },
+    triggers: [link('https://claim.example/', 'Claim', 'You have won a prize! Act now.'),
+      // Inside a recognized ad (content/ad-signals.js), the prize alone is enough: the claim button is the second part.
+      link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.", { inAd: true })],
+    doesNot: [link('https://claim.example/', 'Read more', 'Local woman wins lottery jackpot.'),
+      link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now."), // not an ad: one phrase on a website
+      link('https://www.amazon.com/prize', 'Claim your prize', "You've won! Claim your prize now.", { inAd: true }), // the company's real website
+      link('https://claim.example/', 'Read more', 'Scam alert: fake ads say you have won a prize. It is a scam.', { inAd: true })] },
   { code: 'SENDER_NAME_MISMATCH',
     triggers: [email({ name: 'PayPal', address: 'alerts@mail.example' }), email({ name: 'service@paypal.com', address: 'x@evil.example' }),
       email({ name: 'Apple', address: 'apple.support@icloud.com' }),
@@ -432,7 +437,9 @@ const RULE_TESTS = [
     doesNot: [page({ url: 'https://my-recipes.netlify.app/', title: 'Soup recipes' }), link('https://someone.github.io/recipes', 'Soup recipes'),
       link('https://login.example/x', 'Sign in')] },
   { code: 'INSECURE_FORM',
-    triggers: [page({ url: 'http://library.example/login', title: 'Sign in', forms: [passwordForm('http://library.example/session')] })],
+    triggers: [page({ url: 'http://library.example/login', title: 'Sign in', forms: [passwordForm('http://library.example/session')] }),
+      // The page itself isn't secure, even though the form says https (Chrome: "Not secure").
+      page({ url: 'http://shop.example/checkout', title: 'Checkout', forms: [{ action: 'https://shop.example/pay', hasPassword: false, hasPaymentField: true }] })],
     doesNot: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('/session')] }),
       page({ url: 'http://library.example/', title: 'Opening hours' }),
       page({ url: 'http://localhost:8080/login', title: 'Sign in', forms: [passwordForm('/session')] })] },
@@ -442,16 +449,21 @@ const RULE_TESTS = [
       page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('/session')] })] },
   { code: 'PRIZE_CLAIM',
     triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a small fee to claim your prize.' }), email({ text: "Congratulations, you've won $5,000!" })],
-    doesNot: [page({ url: 'https://news.example/x', text: 'Local woman wins lottery jackpot.' }), email({ text: 'Our team won the bowling game!' })] },
+    doesNot: [page({ url: 'https://news.example/x', text: 'Local woman wins lottery jackpot.' }), email({ text: 'Our team won the bowling game!' }),
+      // Someone ELSE won (Person B's library newsletter page): with "Act now" it used to stop the page.
+      page({ url: 'https://library.example/news', text: "Congratulations to Dot, winner of last month's reading challenge! Act now to reserve a shift." })] },
   { code: 'PRIZE_WITH_PRESSURE',
     triggers: [link('https://claim.example/', 'Claim', 'You have won a gift card. Claim before midnight.')],
     doesNot: [link('https://bit.ly/claim', 'Claim', 'You have won a gift card.')] },
   { code: 'PAY_TO_CLAIM',
     triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a $4.99 processing fee to claim your prize.' }),
       email({ text: 'Pay the $1.99 redelivery fee.' }), email({ text: 'To release your winnings, pay a $250 processing fee.' }), link('https://parcel.example/', 'Pay', 'Your package is on hold. Pay the $1.99 redelivery fee now.')],
-    doesNot: [page({ url: 'https://garden-store.example/', text: 'Free shipping on orders over $50. Pay at checkout.' })] },
+    doesNot: [page({ url: 'https://garden-store.example/', text: 'Free shipping on orders over $50. Pay at checkout.' }),
+      // Advice on a website: "never" in the same clause.
+      page({ url: 'https://library.example/news', text: 'Beware of scams: never pay with gift cards or wire transfers. Urgent: volunteers needed!' })] },
   { code: 'PAYMENT_METHOD_REQUEST',
-    triggers: [email({ text: 'Please buy gift cards and send me the numbers.' })],
+    // Emails are written TO the person: "don't" earlier in the clause doesn't turn the request into advice.
+    triggers: [email({ text: 'Please buy gift cards and send me the numbers.' }), email({ text: "Don't tell anyone and buy gift cards today." })],
     doesNot: [email({ text: 'Thanks for the birthday card!' })] },
   { code: 'ACCOUNT_PROBLEM_CLAIM',
     triggers: [email({ subject: 'Your account has been suspended' }), page({ url: 'https://alert.example/', text: 'Your computer is infected. Call 1-800-555-0199 now.' })],
@@ -823,6 +835,12 @@ const ADAPTER_TESTS = [
       assert.strictEqual(explanationOf(linkViaEmail, code), explanationOf(linkViaClick, code));
       assert.ok(linkViaLegacyGuard.reasons.includes(explanationOf(linkViaClick, code)));
     }
+  }],
+  ['a prize ad with a claim button to an unverified website STOPS; the same words outside an ad do not', () => {
+    const inAd = analyze(link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.", { inAd: true }));
+    assert.deepStrictEqual([inAd.verdict, inAd.recommendedAction], ['warn', 'GO_BACK']);
+    assert.strictEqual(analyze(link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.")).verdict, 'no_warning_signs');
+    assert.strictEqual(analyze(link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.", { inAd: 'yes' })).verdict, 'no_warning_signs', 'inAd must be exactly true');
   }],
   ['every reason code has ONE title, whatever found it', () => {
     const titles = {};

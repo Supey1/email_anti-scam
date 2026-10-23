@@ -3,16 +3,25 @@
 //
 //   LOOKUP_URL           is this address on a known-dangerous list?  -> LOOKUP_RESULT
 //   UPDATE_THREAT_RULES  add or remove entries, mark false positives -> THREAT_RULES_UPDATED
-//   OPEN_WARNING_PAGE    show the extension's own warning page       -> WARNING_PAGE_OPENED
 //   GET_SETTINGS         read the protection settings                -> SETTINGS
 //   SET_SETTINGS         change them                                 -> SETTINGS
 //   GET_STATUS           settings + website access + what's active   -> STATUS
 //   ACCESS_CHANGED       website access was granted or taken away    -> STATUS
-//   SHOW_WARNING         pass a warning from a frame to the main page (also the older "granblock-warning")
+//   SHOW_WARNING         the click guard stopped a link: open the warning page (ui/warning.html) -> { ok }
+//   CONTINUE             the person chose "continue" on the warning page: checked again here,
+//                        and never allowed for a known dangerous website         -> { ok }
+//   REPORT_FALSE_ALARM   save a "this is a false alarm" report on this computer   -> { ok }
 // Anything else gets { type: "ERROR" }.
 //
 // Changing the threat rules or the settings is only allowed from the
 // extension's own pages, never from a content script running inside a website.
+// CONTINUE is only accepted from the warning page itself.
+//
+// Two kinds of settings, in chrome.storage.local:
+//   "settings"        the person's choices (extension/settings.js: on/off, Gmail, websites,
+//                     text size, reading aloud). Saved by the popup and the settings page.
+//   "engineSettings"  threat lookups and false positives (below). Only through SET_SETTINGS.
+// protectionEnabled here is the person's on/off switch (settings.enabled), not a copy.
 //
 // createBackground() takes the Chrome APIs as plain functions, so tests can
 // run all of this without Chrome. service-worker.js passes in the real ones.
@@ -27,22 +36,15 @@
   const SCHEMA_VERSION = 1;
 
   const DEFAULT_SETTINGS = Object.freeze({
-    protectionEnabled: true,  // false: no blocking rules, and pages are told protection is off
+    protectionEnabled: true,  // the person's on/off switch; false: no blocking rules, no page scripts
     remoteLookups: false,     // true sends addresses to a lookup service: see docs/threat-intelligence.md
     provider: 'none',         // 'none' | 'mock' (development only)
     providerOptions: {},      // for the mock: { entries, delayMs, fail, trusted }
     lookupTimeoutMs: 1500,
     allowlist: [],            // website names or addresses removed as false positives
-    // Reading and text (warnings, the Gmail panel, the warning page)
-    textSize: 'large',        // 'large' | 'larger' | 'largest'
-    autoRead: false,          // read each new warning aloud without pressing the button
-    speechRate: 0.9,          // 0.5 (slow) to 1.5 (fast)
   });
-  const TEXT_SIZES = ['large', 'larger', 'largest'];
-  // Warnings kept for the warning page: enough to go back and forth, not a history.
-  const WARNING_KEEP_MS = 60 * 60 * 1000;
-  const WARNING_KEEP_MAX = 20;
-  const VERDICTS = ['block', 'warn', 'no_warning_signs', 'unknown'];
+  const MAX_REPORTS = 100; // false-alarm reports kept on this computer
+  const MAX_TEXT = { text: 200, adText: 400 }; // what the warning page's address may carry
 
   // Checks a settings change. Returns { settings } or { error }.
   function validateSettings(current, change) {
@@ -52,7 +54,6 @@
       switch (key) {
         case 'protectionEnabled':
         case 'remoteLookups':
-        case 'autoRead':
           if (typeof value !== 'boolean') return { error: `${key} must be true or false` };
           break;
         case 'provider':
@@ -63,12 +64,6 @@
           break;
         case 'lookupTimeoutMs':
           if (!Number.isInteger(value) || value < 100 || value > 10000) return { error: 'lookupTimeoutMs must be between 100 and 10000' };
-          break;
-        case 'textSize':
-          if (!TEXT_SIZES.includes(value)) return { error: `textSize must be one of ${TEXT_SIZES.join(', ')}` };
-          break;
-        case 'speechRate':
-          if (typeof value !== 'number' || !(value >= 0.5 && value <= 1.5)) return { error: 'speechRate must be between 0.5 and 1.5' };
           break;
         case 'allowlist':
           if (!Array.isArray(value) || value.length > 500 || value.some(v => typeof v !== 'string')) return { error: 'allowlist must be a list of up to 500 addresses' };
@@ -83,13 +78,15 @@
 
   // deps:
   //   storage        { get(key) -> Promise<value>, set(object) -> Promise }  (chrome.storage.local)
-  //   session        same, plus remove(keys), for short-lived data         (chrome.storage.session)
   //   dnr            { getDynamicRules(), updateDynamicRules({ removeRuleIds, addRules }) }
-  //   tabs           { update(tabId, { url }), sendMessage(tabId, message, { frameId }) }
+  //   tabs           { update(tabId, { url }), create({ url, active, index, openerTabId }) }
   //   permissions    { contains({ origins }) }  (chrome.permissions). Left out in tests: full access.
   //   scripting      { getRegisteredContentScripts, registerContentScripts, unregisterContentScripts }. Optional.
   //   bundled()      the bundled list (data/threat-list.js) as raw entries
-  //   blockPage      address of blocked.html
+  //   warningPage    address of ui/warning.html
+  //   checkLink({ url, text, entries })  the scam checks for one link (rules.js checkLinkClick),
+  //                  using these known-dangerous entries. Used before CONTINUE.
+  //   badge(on)      optional: show "OFF" on the toolbar button when protection is off
   //   extensionOrigin  "chrome-extension://<id>/"
   //   now()          current time (ms)
   //   newToken()     a random id
@@ -107,9 +104,19 @@
     const fail = error => reply('ERROR', { error });
     const lookup = bg.threatLookup.createLookup({ getEntries: () => bg.threatRules.forEngine(active.entries), getSettings: () => settings, now });
 
+    const asObject = value => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
     async function load() {
-      const saved = await deps.storage.get('settings');
-      settings = { ...DEFAULT_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
+      const engine = asObject(await deps.storage.get('engineSettings'));
+      const user = asObject(await deps.storage.get('settings'));
+      const known = Object.fromEntries(Object.entries(engine).filter(([key]) => key in DEFAULT_SETTINGS && key !== 'protectionEnabled'));
+      settings = { ...DEFAULT_SETTINGS, ...known, protectionEnabled: user.enabled !== false };
+    }
+    async function store(next) {
+      const { protectionEnabled, ...engine } = next;
+      const user = asObject(await deps.storage.get('settings'));
+      const changes = { engineSettings: engine };
+      if ((user.enabled !== false) !== protectionEnabled) changes.settings = { ...user, enabled: protectionEnabled };
+      await deps.storage.set(changes);
     }
     const whenReady = () => (ready = ready || load());
 
@@ -125,7 +132,9 @@
         active = bg.threatRules.activeEntries([deps.bundled(), updates], { allowlist: settings.allowlist, now: now() });
         const expiries = active.entries.map(e => e.expiresAt).filter(Boolean);
         nextExpiry = expiries.length ? Math.min(...expiries) : null;
-        const rules = settings.protectionEnabled ? bg.threatRules.buildRules(active.entries, deps.blockPage, { canRedirect: access === 'all' }) : [];
+        if (deps.badge) await Promise.resolve(deps.badge(settings.protectionEnabled)).catch(() => {});
+        const blockPage = `${deps.warningPage}?kind=dnr&url=`;
+        const rules = settings.protectionEnabled ? bg.threatRules.buildRules(active.entries, blockPage, { canRedirect: access === 'all' }) : [];
         const old = await deps.dnr.getDynamicRules();
         await deps.dnr.updateDynamicRules({ removeRuleIds: old.map(r => r.id), addRules: rules });
         // The pages' engines use the same list as Chrome (threat-sync.js).
@@ -152,6 +161,12 @@
     function isPrivileged(sender) {
       return !!sender && typeof sender.url === 'string' && sender.url.startsWith(deps.extensionOrigin);
     }
+    function fromWarningPage(sender) {
+      return !!sender && !!sender.tab && typeof sender.url === 'string' && sender.url.startsWith(deps.warningPage);
+    }
+    function isWebAddress(url) {
+      try { return typeof url === 'string' && /^https?:$/.test(new URL(url).protocol); } catch (e) { return false; }
+    }
 
     const handlers = {
       async LOOKUP_URL(message) {
@@ -174,32 +189,10 @@
         if (falsePositives.length) {
           await whenReady();
           settings = { ...settings, allowlist: [...new Set([...settings.allowlist, ...falsePositives])] };
-          await deps.storage.set({ settings });
+          await store(settings);
         }
         lookup.clearCache();
         return reply('THREAT_RULES_UPDATED', await refreshRules());
-      },
-
-      async OPEN_WARNING_PAGE(message, sender) {
-        const result = message.result;
-        if (!result || !VERDICTS.includes(result.verdict) || !Array.isArray(result.reasons)) return fail('OPEN_WARNING_PAGE needs an analyzer result');
-        if (!sender || !sender.tab) return fail('OPEN_WARNING_PAGE must come from a tab');
-        const token = deps.newToken();
-        // Session storage: gone when the browser closes. Only what the warning
-        // page shows: no evidence snippets, no page text.
-        const shown = {
-          verdict: result.verdict,
-          recommendedAction: result.recommendedAction,
-          reasons: result.reasons.slice(0, 10).map(r => ({ code: String(r.code || ''), title: String(r.title || ''), explanation: String(r.explanation || '') })),
-        };
-        // Keep the last hour's warnings, at most WARNING_KEEP_MAX; remove the rest.
-        const before = (await deps.session.get('warningIndex')) || [];
-        const kept = [...before.filter(w => w.createdAt > now() - WARNING_KEEP_MS), { token, createdAt: now() }].slice(-WARNING_KEEP_MAX);
-        const dropped = before.filter(w => !kept.some(k => k.token === w.token)).map(w => `warning:${w.token}`);
-        if (dropped.length) await deps.session.remove(dropped);
-        await deps.session.set({ warningIndex: kept, [`warning:${token}`]: { result: shown, url: typeof message.url === 'string' ? message.url : '', createdAt: now() } });
-        await deps.tabs.update(sender.tab.id, { url: `${deps.blockPage}?t=${token}` });
-        return reply('WARNING_PAGE_OPENED', { token });
       },
 
       async GET_SETTINGS() {
@@ -213,7 +206,7 @@
         const checked = validateSettings(settings, message.settings);
         if (checked.error) return fail(checked.error);
         settings = checked.settings;
-        await deps.storage.set({ settings });
+        await store(settings);
         lookup.clearCache();
         await refreshRules();
         return reply('SETTINGS', { settings });
@@ -230,14 +223,56 @@
         return handlers.GET_STATUS();
       },
 
+      // The click guard stopped a link. A click that would have opened a new tab gets the
+      // warning in a new tab; otherwise the warning replaces the page (from any frame:
+      // the whole tab, so an ad frame can't hide it).
       async SHOW_WARNING(message, sender) {
-        if (!sender || !sender.tab || sender.frameId === 0) return reply('SHOW_WARNING_RESULT', { shown: false });
+        if (!sender || !sender.tab || !isWebAddress(message.url)) return { ok: false };
+        const url = `${deps.warningPage}?kind=click` +
+          `&text=${encodeURIComponent(String(message.text || '').slice(0, MAX_TEXT.text))}` +
+          `&adtext=${encodeURIComponent(String(message.adText || '').slice(0, MAX_TEXT.adText))}` +
+          (message.inAd ? '&inad=1' : '') +
+          (message.fromScamEmail ? '&from=scam-email' : '') +
+          `&url=${encodeURIComponent(message.url)}`; // last: the page reads everything after "&url="
         try {
-          const answer = await deps.tabs.sendMessage(sender.tab.id, message, { frameId: 0 });
-          return reply('SHOW_WARNING_RESULT', { shown: !!(answer && answer.shown) });
+          if (message.newTab) await deps.tabs.create({ url, active: true, index: sender.tab.index + 1, openerTabId: sender.tab.id });
+          else await deps.tabs.update(sender.tab.id, { url });
+          return { ok: true };
         } catch (e) {
-          return reply('SHOW_WARNING_RESULT', { shown: false }); // e.g. the main page is one we can't run on
+          return { ok: false }; // the click guard then shows its own in-page warning
         }
+      },
+
+      // "Continue" on the warning page. Checked again here, whatever the page asked:
+      // a known dangerous website can never be continued to.
+      async CONTINUE(message, sender) {
+        if (!fromWarningPage(sender) || !isWebAddress(message.url)) return { ok: false };
+        await ensureActive();
+        const result = deps.checkLink({ url: message.url, text: String(message.text || ''), entries: bg.threatRules.forEngine(active.entries) });
+        if (!result || result.verdict === 'block') return { ok: false };
+        try {
+          await deps.tabs.update(sender.tab.id, { url: message.url });
+          return { ok: true };
+        } catch (e) {
+          return { ok: false };
+        }
+      },
+
+      // Kept on this computer only, for the testing period: the website's name, what we said,
+      // where, and when. Never page text or anything typed.
+      async REPORT_FALSE_ALARM(message) {
+        const report = message.report && typeof message.report === 'object' ? message.report : null;
+        if (!report) return { ok: false };
+        const saved = (await deps.storage.get('falseAlarms')) || [];
+        saved.push({
+          at: new Date(now()).toISOString(),
+          host: String(report.host || '').slice(0, 253),
+          verdict: String(report.verdict || '').slice(0, 20),
+          source: String(report.source || '').slice(0, 20),
+          reasons: (Array.isArray(report.reasons) ? report.reasons : []).slice(0, 5).map(r => String(r).slice(0, 300)),
+        });
+        await deps.storage.set({ falseAlarms: saved.slice(-MAX_REPORTS) });
+        return { ok: true };
       },
     };
 
@@ -246,18 +281,21 @@
       try {
         if (!message || typeof message !== 'object') return fail('a message must be an object');
         if (message.schemaVersion !== undefined && message.schemaVersion !== SCHEMA_VERSION) return fail(`unsupported schemaVersion: ${message.schemaVersion}`);
-        const type = message.type === 'granblock-warning' ? 'SHOW_WARNING' : message.type; // older name, from guard.js
-        const handler = Object.prototype.hasOwnProperty.call(handlers, type) ? handlers[type] : null;
+        const handler = Object.prototype.hasOwnProperty.call(handlers, message.type) ? handlers[message.type] : null;
         if (!handler) return fail(`unknown message type: ${message.type}`);
-        const answer = await handler(message, sender);
-        // The older guard.js reads { shown } straight from the answer.
-        return message.type === 'granblock-warning' ? { ...answer, shown: !!answer.shown } : answer;
+        return await handler(message, sender);
       } catch (err) {
         return fail(`something went wrong: ${err && err.message}`);
       }
     }
 
-    return { handleMessage, refreshRules, getSettings: () => settings, getActive: () => active };
+    // The person changed their choices (popup or settings page): read them again and apply.
+    function settingsChanged() {
+      ready = null;
+      return refreshRules();
+    }
+
+    return { handleMessage, refreshRules, settingsChanged, getSettings: () => settings, getActive: () => active };
   }
 
   bg.DEFAULT_SETTINGS = DEFAULT_SETTINGS;

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Email Anti-Scam</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="ui.css">
+  <style>body { width: 24rem; }</style>
+</head>
+<body>
+  <main>
+    <h1>Email Anti-Scam</h1>
+
+    <section aria-labelledby="q1">
+      <h2 id="q1">Is protection on?</h2>
+      <p id="protection-status" class="status" role="status"></p>
+      <button id="toggle-protection" class="primary"></button>
+    </section>
+
+    <section aria-labelledby="q2">
+      <h2 id="q2">Is this page being checked?</h2>
+      <p id="page-status" class="status" role="status"></p>
+      <p id="page-detail" class="muted"></p>
+      <button id="toggle-site" hidden></button>
+    </section>
+
+    <section aria-labelledby="q3">
+      <h2 id="q3">Need help?</h2>
+      <p id="help-text">Not sure about an email or a website? Do not click anything. Call someone you trust, using a phone number you already know.</p>
+      <button id="read-help">🔊 Hear this advice</button>
+      <button id="recheck">Check this page again</button>
+      <button id="open-options">Settings</button>
+      <p id="action-result" class="muted" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script src="../settings.js"></script>
+  <script src="status.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
