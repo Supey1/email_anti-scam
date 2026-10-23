@@ -1,12 +1,28 @@
 // rules.js: simple, explainable scam checks.
 // Everything here runs on the user's own computer. No internet needed.
 //
+// There are three ways in, one for each thing we check:
+//   analyzeEmail(email)        an email open in Gmail
+//   analyzeLink(link, context) a link someone is about to click (on any website)
+//   analyzePage(page)          the website someone is looking at
+// They all share the same checks and return the same kind of answer:
+//   { level, action, score, reasons, evidence, ... }
+//
 // How scoring works: every warning sign adds "risk points".
 //   5 or more points -> "high"   (red: looks like a scam)
 //   1 to 4 points    -> "medium" (yellow: be careful)
 //   0 points         -> "low"    (green: no warning signs found)
+// A website on the known-dangerous list (threat-list.js) is different: that is
+// confirmed evidence, not a guess, so it is always "high" and gets blocked.
 //
-// To add a new check: call addReason(points, "plain, friendly sentence").
+// What happens next ("action"):
+//   "block"  known dangerous website: stop it, no way through
+//   "warn"   strong warning signs: stop and explain, let the person choose
+//   "allow"  not enough evidence to interrupt anyone
+// Weak signs alone (one rushed word, an unusual website ending) never
+// interrupt a click. Too many false alarms and people stop trusting us.
+//
+// To add a new check: call addReason(points, "plain, friendly sentence", kind).
 // Write reasons the way you'd explain it to your grandparent.
 
 // Companies scammers pretend to be most often, and their REAL website addresses.
@@ -86,6 +102,69 @@ const WORDING_CHECKS = [
   },
 ];
 
+// Scam wording for websites, ads, and the text around a link.
+// Webpages are full of ordinary words like "urgent" or "lottery" (think news
+// stories), so these look for wording aimed AT the reader: "YOU have won",
+// "YOUR computer is infected", "call this number".
+const OFFER_CHECKS = [
+  {
+    id: 'prize',
+    points: 3,
+    patterns: [
+      /\byou('ve| have)? (just )?(won|been selected|been chosen)\b/,
+      /\bclaim your (free )?(prize|reward|gift|winnings|cash)/,
+      /\bcongratulations\b[^.!]{0,60}\b(won|winner|selected|chosen)\b/,
+      /\byou are (our|today'?s|the) (lucky )?winner/,
+    ],
+    reason: 'It promises you a prize or a reward.',
+  },
+  {
+    id: 'payFirst',
+    points: 3,
+    patterns: [
+      /\b(pay|fee|shipping|processing|handling)\b[^.!]{0,40}\bto (claim|receive|release|unlock|get) (your|the)\b/,
+      /\b(pay|buy|send|purchase)\b[^.!]{0,30}\b(gift ?cards?|bitcoin|crypto|wire transfer|western union|moneygram)/,
+    ],
+    reason: 'It asks you to pay first, or to pay with gift cards, crypto, or a wire transfer. Real prizes and real companies don\'t work this way.',
+  },
+  {
+    id: 'scare',
+    points: 3,
+    patterns: [
+      /\byour (account|card|computer|device|pc|phone|iphone|mac)\b[^.!]{0,40}\b(locked|suspended|infected|compromised|hacked|disabled|blocked)\b/,
+      /\b(virus(es)?|malware|trojan|spyware)\b[^.!]{0,30}\b(detected|found)\b/,
+    ],
+    reason: 'It says your account or computer has a serious problem.',
+  },
+  {
+    id: 'callNow',
+    points: 3,
+    patterns: [
+      /\bcall\b[^.!]{0,40}(\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}|toll[- ]free|support|helpline|technician)/,
+      /\b(do not|don'?t) (close|restart|shut down|turn off)\b[^.!]{0,30}\b(computer|browser|page|window)/,
+    ],
+    reason: 'It tells you to call a phone number, or not to close the page. Real security warnings never do this.',
+  },
+  {
+    id: 'pressure',
+    points: 1,
+    patterns: [
+      /\burgent/, /\bimmediately\b/, /within (24|48|72) hours/, /\bact (now|fast)\b/, /\blast chance\b/,
+      /\bfinal notice\b/, /before midnight/, /expires (today|tonight|in \d+)/, /\bonly \d+ (left|remaining|minutes)/,
+    ],
+    reason: 'It tries to rush you.',
+  },
+];
+
+// Warning signs that are much stronger together than apart.
+const OFFER_COMBOS = [
+  {
+    needs: ['prize', 'pressure'],
+    points: 2,
+    reason: 'It promises a prize AND rushes you. Together, these are a classic scam pattern.',
+  },
+];
+
 // ---------- helpers ----------
 
 // Turns look-alike characters back into letters: "paypa1" -> "paypal", "rnicrosoft" -> "microsoft".
@@ -130,6 +209,17 @@ function brandMentionedInHost(host) {
   return BRANDS.find(b => b.keys.some(k => tokens.some(t => tokenMatchesKey(t, k))));
 }
 
+function isAnyBrandDomain(host) {
+  return BRANDS.some(b => isBrandDomain(host, b));
+}
+
+// Is this website on the known-dangerous list (threat-list.js)?
+function isKnownThreat(host) {
+  const list = typeof KNOWN_THREAT_DOMAINS !== 'undefined' ? KNOWN_THREAT_DOMAINS
+    : typeof require !== 'undefined' ? require('./threat-list.js').KNOWN_THREAT_DOMAINS : [];
+  return list.some(d => host === d || host.endsWith('.' + d));
+}
+
 // Gmail sometimes wraps links like https://www.google.com/url?q=REAL_LINK.
 function unwrapRedirect(url) {
   if (/^(www\.)?google\.com$/.test(url.hostname) && url.pathname === '/url') {
@@ -141,19 +231,50 @@ function unwrapRedirect(url) {
   return url;
 }
 
+// "https://www.Example.com/x" -> "example.com". Returns '' if it isn't a web address.
+function hostOf(href) {
+  try {
+    const url = unwrapRedirect(new URL(href));
+    if (!/^https?:$/.test(url.protocol)) return '';
+    return url.hostname.toLowerCase().replace(/^www\./, '');
+  } catch (e) {
+    return '';
+  }
+}
+
+// Collects warning signs and turns them into an answer.
+function makeCollector() {
+  const evidence = [];
+  const seen = new Set();
+  function addReason(points, text, kind = 'wording') {
+    if (seen.has(text)) return;
+    seen.add(text);
+    evidence.push({ points, text, kind });
+  }
+  function finish(extra = {}) {
+    evidence.sort((a, b) => b.points - a.points);
+    const score = evidence.reduce((sum, e) => sum + e.points, 0);
+    const confirmed = evidence.some(e => e.kind === 'known_threat');
+    const level = confirmed || score >= 5 ? 'high' : score >= 1 ? 'medium' : 'low';
+    const action = confirmed ? 'block' : score >= 5 ? 'warn' : 'allow';
+    return { level, action, confirmed, score, reasons: evidence.map(e => e.text), evidence, ...extra };
+  }
+  return { addReason, finish };
+}
+
 // ---------- checks ----------
 
 function checkLink(link, addReason) {
-  const report = { text: link.text || '', href: link.href, host: '', flags: [] };
-  let url;
-  try {
-    url = unwrapRedirect(new URL(link.href));
-  } catch (e) {
-    return report;
-  }
-  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+  const report = { text: link.text || '', href: link.href, host: '', flags: [], knownThreat: false };
+  const host = hostOf(link.href);
+  if (!host) return report;
   report.host = host;
-  const flag = (points, reason, short) => { addReason(points, reason); report.flags.push(short); };
+  const flag = (points, reason, short, kind = 'destination') => { addReason(points, reason, kind); report.flags.push(short); };
+
+  if (isKnownThreat(host)) {
+    report.knownThreat = true;
+    flag(10, `A link goes to ${host}, which is on a list of known dangerous websites.`, 'known dangerous website', 'known_threat');
+  }
 
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith('[')) {
     flag(3, 'A link goes to a number address instead of a normal website name. Real companies almost never do this.', 'number address');
@@ -200,15 +321,45 @@ function checkSender(email, addReason) {
 
   const claimedBrand = BRANDS.find(b => b.nameRe.test(name));
   if (claimedBrand && (FREE_MAIL.has(domain) || !isBrandDomain(domain, claimedBrand))) {
-    addReason(4, `The sender's name says ${claimedBrand.label}, but the email address (${address}) is not from ${claimedBrand.label}.`);
+    addReason(4, `The sender's name says ${claimedBrand.label}, but the email address (${address}) is not from ${claimedBrand.label}.`, 'sender');
   } else if (FREE_MAIL.has(domain) && /support|security|billing|account|department|service|team|bank/i.test(name)) {
-    addReason(2, `The sender says it is a company or department, but it uses a free personal email address (${address}).`);
+    addReason(2, `The sender says it is a company or department, but it uses a free personal email address (${address}).`, 'sender');
   }
 
   const lookalikeBrand = brandMentionedInHost(domain);
   if (lookalikeBrand && !isBrandDomain(domain, lookalikeBrand) && !FREE_MAIL.has(domain)) {
-    addReason(4, `The sender's address (${address}) pretends to be ${lookalikeBrand.label}, but it isn't ${lookalikeBrand.label}'s real address.`);
+    addReason(4, `The sender's address (${address}) pretends to be ${lookalikeBrand.label}, but it isn't ${lookalikeBrand.label}'s real address.`, 'sender');
   }
+}
+
+// The same address checks as checkLink, worded for the page you're on.
+function checkPageAddress(host, addReason) {
+  if (isKnownThreat(host)) {
+    addReason(10, `This website (${host}) is on a list of known dangerous websites.`, 'known_threat');
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith('[')) {
+    addReason(3, 'This page is on a number address instead of a normal website name. Real companies almost never do this.', 'destination');
+  }
+  const ending = host.split('.').pop();
+  if (RISKY_ENDINGS.has(ending)) {
+    addReason(1, `This website ends in ".${ending}", which scam sites often use.`, 'destination');
+  }
+  const brand = brandMentionedInHost(host);
+  if (brand && !isBrandDomain(host, brand)) {
+    addReason(4, `This website's name pretends to be ${brand.label}, but ${host} is not ${brand.label}'s real website.`, 'destination');
+  }
+}
+
+// Runs OFFER_CHECKS and OFFER_COMBOS on some text. Returns the ids that matched.
+function checkOffer(text, addReason) {
+  const lower = (text || '').toLowerCase();
+  const matched = OFFER_CHECKS.filter(check => check.patterns.some(p => p.test(lower)));
+  for (const check of matched) addReason(check.points, check.reason);
+  const ids = matched.map(check => check.id);
+  for (const combo of OFFER_COMBOS) {
+    if (combo.needs.every(id => ids.includes(id))) addReason(combo.points, combo.reason);
+  }
+  return ids;
 }
 
 function checkWording(email, addReason) {
@@ -226,28 +377,92 @@ function checkWording(email, addReason) {
 // ---------- main entry point ----------
 
 // email = { senderName, senderEmail, subject, bodyText, links: [{ text, href }] }
-// returns { level: 'high' | 'medium' | 'low', score, reasons: [...], links: [...] }
+// returns { level: 'high' | 'medium' | 'low', action, score, reasons: [...], evidence: [...], links: [...] }
 function analyzeEmail(email) {
-  const reasons = [];
-  const seen = new Set();
-  let score = 0;
-  function addReason(points, text) {
-    if (seen.has(text)) return;
-    seen.add(text);
-    reasons.push({ points, text });
-    score += points;
-  }
-
+  const { addReason, finish } = makeCollector();
   const links = (email.links || []).map(link => checkLink(link, addReason));
   checkSender(email, addReason);
   checkWording(email, addReason);
+  return finish({ links });
+}
 
-  reasons.sort((a, b) => b.points - a.points);
-  const level = score >= 5 ? 'high' : score >= 1 ? 'medium' : 'low';
-  return { level, score, reasons: reasons.map(r => r.text), links };
+// Someone is about to click a link. Should we stop them first?
+// link    = { text, href }
+// context = {
+//   pageUrl,           the website the link is on
+//   nearbyText,        words around the link, like the rest of an ad
+//   surroundingLevel,  'high' if the link is inside an email that looks like a scam
+// }
+// returns { level, action: 'block' | 'warn' | 'allow', score, host, reasons, evidence, ... }
+function analyzeLink(link, context = {}) {
+  const { addReason, finish } = makeCollector();
+  const host = hostOf(link.href);
+  if (!host) return finish({ host });
+
+  // Moving around inside the same website is the page's job (analyzePage), not ours.
+  const pageHost = hostOf(context.pageUrl || '');
+  if (pageHost && baseDomain(pageHost) === baseDomain(host) && !isKnownThreat(host)) {
+    return finish({ host, sameSite: true });
+  }
+
+  const report = checkLink(link, addReason);
+
+  // What the link and the ad around it promise. A link to a company's real
+  // website is trusted here: a real bank can say "your card is blocked".
+  if (!isAnyBrandDomain(host)) {
+    const offerText = `${link.text || ''}\n${context.nearbyText || ''}`;
+    const offers = checkOffer(offerText, addReason);
+    if (offers.length) {
+      const namedBrand = BRANDS.find(b => b.nameRe.test(offerText));
+      if (namedBrand && !isBrandDomain(host, namedBrand)) {
+        addReason(2, `The offer mentions ${namedBrand.label}, but the link goes to ${host}, not ${namedBrand.label}'s real website.`, 'destination');
+      } else if (offers.some(id => id !== 'pressure')) {
+        addReason(0, `We could not confirm that ${host} belongs to the company in this offer.`, 'destination');
+      }
+    }
+  }
+
+  if (context.surroundingLevel === 'high') {
+    addReason(5, 'This link is inside an email that looks like a scam.', 'context');
+  }
+
+  return finish({ host, flags: report.flags });
+}
+
+// Is the website itself pretending to be something it isn't?
+// page = {
+//   url, title, headings (main headings' text), text (visible words),
+//   hasPassword (does the page ask for a password?),
+//   formActions (where the page's forms send what you type)
+// }
+// returns { level, action: 'block' | 'warn' | 'allow', score, host, reasons, evidence }
+function analyzePage(page) {
+  const { addReason, finish } = makeCollector();
+  const host = hostOf(page.url || '');
+  if (!host) return finish({ host });
+  if (isAnyBrandDomain(host) && !isKnownThreat(host)) return finish({ host });
+
+  checkPageAddress(host, addReason);
+
+  // A sign-in page with a company's name on it, but not on that company's website.
+  const heading = `${page.title || ''}\n${page.headings || ''}`;
+  const claimedBrand = BRANDS.find(b => b.nameRe.test(heading));
+  if (page.hasPassword && claimedBrand && !isBrandDomain(host, claimedBrand)) {
+    addReason(5, `This page looks like a ${claimedBrand.label} sign-in page, but it is on ${host}, not ${claimedBrand.label}'s real website.`, 'page');
+  }
+
+  // The password you type would be sent to a different website.
+  const elsewhere = (page.formActions || []).map(hostOf).find(h => h && baseDomain(h) !== baseDomain(host));
+  if (page.hasPassword && elsewhere) {
+    addReason(3, `What you type on this page would be sent to a different website (${elsewhere}).`, 'page');
+  }
+
+  checkOffer(`${heading}\n${(page.text || '').slice(0, 5000)}`, addReason);
+
+  return finish({ host });
 }
 
 // Lets tests/rules.test.js load this file with Node. Chrome ignores this.
 if (typeof module !== 'undefined') {
-  module.exports = { analyzeEmail, normalizeLookalikes, baseDomain };
+  module.exports = { analyzeEmail, analyzeLink, analyzePage, normalizeLookalikes, baseDomain, hostOf, isKnownThreat };
 }

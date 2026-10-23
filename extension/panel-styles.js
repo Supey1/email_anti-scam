@@ -1,4 +1,4 @@
-// panel-styles.js: the look of the safety panel.
+// panel-styles.js: the look of the Gmail safety panel and the full-screen warning.
 // It's plain CSS inside a JavaScript string so it can be put inside the panel's
 // "shadow DOM", which keeps Gmail's styles and ours from messing each other up.
 // Design rules: big text, high contrast, color AND icons (never color alone).
@@ -85,4 +85,105 @@ button:hover, button:focus-visible { background: #e8eefc; outline: 3px solid #1a
 .reopen.low    { background: #1b7f3b; color: #ffffff; }
 
 [hidden] { display: none !important; }
+`;
+
+// The full-screen "Stop and check" warning (warning.js).
+// Same design rules, but bigger: it has to win over everything else on the page.
+const WARNING_CSS = `
+:host {
+  all: initial;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.dialog {
+  width: 640px;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: #ffffff;
+  color: #111111;
+  border: 4px solid #b00020;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  font-size: 22px;
+  line-height: 1.45;
+}
+.dialog.page { border-color: #8a6d00; }
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 12px 12px 0 0;
+  background: #b00020;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+.verdict .icon { font-size: 44px; }
+.dialog.page .verdict { background: #ffd54a; color: #111111; }
+
+.where { margin: 16px 22px 0; overflow-wrap: anywhere; }
+
+.section { padding: 4px 22px 12px; }
+.section h3 { font-size: 23px; margin: 12px 0 6px; }
+.section ul { margin: 4px 0; padding-left: 28px; }
+.section li { margin: 8px 0; }
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 22px 12px;
+}
+
+button {
+  font: inherit;
+  font-weight: bold;
+  border: 3px solid #222222;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111111;
+  cursor: pointer;
+}
+button:hover, button:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
+
+.back {
+  flex: 1;
+  min-width: 260px;
+  padding: 16px 20px;
+  font-size: 26px;
+  background: #1b7f3b;
+  border-color: #0f4d23;
+  color: #ffffff;
+}
+.read { padding: 16px 20px; font-size: 22px; }
+
+/* Deliberately small and plain: it must be possible, but never the easy choice. */
+.continue {
+  display: block;
+  margin: 4px 22px 20px;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: #444444;
+  font-size: 17px;
+  font-weight: normal;
+  text-decoration: underline;
+}
 `;

@@ -1,8 +1,10 @@
-// content.js: runs inside Gmail.
+// gmail.js: runs inside Gmail.
 // 1. Notices when an email is opened.
 // 2. Reads the sender, subject, text, and links.
 // 3. Checks it with analyzeEmail() from rules.js.
 // 4. Shows the big-text safety panel.
+// 5. Tells guard.js when an email looks like a scam, so clicking ANY link in it
+//    brings up the "Stop and check" warning first.
 //
 // Safety note: email content is ALWAYS added with textContent, never innerHTML,
 // so a scam email can't sneak code into our panel.
@@ -131,18 +133,14 @@
     if (!current) return;
     const { email, result } = current;
     const v = VERDICTS[result.level];
-    const parts = [
+    speakAloud([
       v.title + '.',
       email.senderName ? `This email is from ${email.senderName}.` : '',
       email.subject ? `It is about: ${email.subject}.` : '',
       ...result.reasons,
       'Here is what to do.',
       ...v.advice,
-    ];
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(parts.filter(Boolean).join(' '));
-    speech.rate = 0.9;
-    window.speechSynthesis.speak(speech);
+    ]);
   }
 
   function render(email, result) {
@@ -215,6 +213,13 @@
     lastSignature = signature;
     render(email, analyzeEmail(email));
   }
+
+  // A link inside the open email that looks like a scam gets stopped by guard.js,
+  // even if the link itself looks fine.
+  GUARD_CONTEXT_PROVIDERS.push(anchor => {
+    if (!current || current.result.level !== 'high' || !anchor.closest(SELECTORS.body)) return null;
+    return { surroundingLevel: 'high' };
+  });
 
   // Gmail changes the page without reloading, so watch for changes
   // and re-check at most a few times per second.

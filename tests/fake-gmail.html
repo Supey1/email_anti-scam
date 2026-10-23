@@ -16,6 +16,7 @@
     Practice page that copies the parts of Gmail our extension reads
     (h2.hP = subject, span.gD = sender, div.a3s = message text).
     Open this file in Chrome to try the panel without touching real email.
+    Click a link in the "Fake PayPal" email to see the "Stop and check" warning.
     The links are fake and use made-up addresses. Don't change them to real scam links.
   -->
   <div class="bar">
@@ -47,6 +48,13 @@
         subject: 'Package on hold',
         body: 'Your package could not be delivered. Click below to reschedule.',
         links: [['Reschedule delivery', 'https://bit.ly/fake-test-link']],
+      },
+      {
+        label: 'Known dangerous link',
+        name: 'Account Team', email: 'team@notices.example',
+        subject: 'Please review this document',
+        body: 'Hello, please review the shared document before Friday.',
+        links: [['Open document', 'https://login.known-phish.example/doc']],
       },
       {
         label: 'Normal email',
@@ -96,9 +104,12 @@
     document.getElementById('close').onclick = () => document.getElementById('mail').replaceChildren();
   </script>
 
-  <!-- The same three files the extension loads into Gmail -->
+  <!-- The same files the extension loads into Gmail -->
+  <script src="../extension/threat-list.js"></script>
   <script src="../extension/rules.js"></script>
   <script src="../extension/panel-styles.js"></script>
-  <script src="../extension/content.js"></script>
+  <script src="../extension/warning.js"></script>
+  <script src="../extension/guard.js"></script>
+  <script src="../extension/gmail.js"></script>
 </body>
 </html>
