@@ -139,11 +139,27 @@ const AdSignals = (() => {
   }
 
   // Context for the analyzer when a link is clicked: is it part of an ad, and what did the ad say?
+  // The words around an element: the largest surrounding box that still holds only a few sentences and no OTHER
+  // link, so a neighbouring ad's words are never mixed into this one's.
+  function surroundingText(el) {
+    let text = '';
+    for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
+      if (node.querySelectorAll('a[href]').length > 1) break;
+      const t = (node.innerText || '').replace(/\s+/g, ' ').trim();
+      if (t.length > LIMITS.maxText) break;
+      text = t;
+    }
+    return text;
+  }
+
   function contextFor(el) {
     const container = containerFor(el);
     if (!container) return null;
     const ad = describe(container);
-    return { text: ad.text, signals: ad.signals };
+    // A link that is itself the marked thing (an ad-network link) holds almost no words of its own: the ad's words
+    // are the box around it, so read those. (Otherwise a scam ad's wording never reaches the engine.)
+    const text = container === el ? (surroundingText(el) || ad.text) : ad.text;
+    return { text, signals: ad.signals };
   }
 
   // Is this <iframe> an ad frame? (Its contents are usually unreadable; the scanner only counts it.)

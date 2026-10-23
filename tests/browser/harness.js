@@ -53,7 +53,7 @@ async function launch({ withAccess = true, profile = null, extension = null, kee
   // Every test address is answered here, never fetched. Chrome's own blocking (declarativeNetRequest)
   // acts BEFORE this, so a known dangerous address that reaches `served` was NOT blocked.
   const served = [];
-  await context.route(/^https?:\/\/([^/]+\.example|(www\.)?(paypal\.com|amazon\.com|google\.com)|bit\.ly)\//, route => {
+  await context.route(/^https?:\/\/([^/]+\.example|(www\.)?(paypal\.com|amazon\.com|google\.com)|([^/]+\.)?(doubleclick\.net|googleadservices\.com)|bit\.ly)\//, route => {
     served.push(new URL(route.request().url()).hostname);
     return route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' });
   });
