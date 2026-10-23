@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "verdict": "warn",
+  "reasons": [
+    {
+      "code": "DELIVERY_PROBLEM_CLAIM",
+      "title": "Delivery problem",
+      "explanation": "It says a package couldn't be delivered. Check the tracking number on the shipper's real website instead."
+    },
+    {
+      "code": "SHORTENED_LINK",
+      "title": "Shortened link",
+      "explanation": "A link is shortened, which hides where it really goes."
+    }
+  ],
+  "recommendedAction": "VERIFY_INDEPENDENTLY",
+  "evidence": [
+    { "kind": "text", "value": "could not be delivered", "reasonCode": "DELIVERY_PROBLEM_CLAIM" },
+    { "kind": "url", "value": "https://bit.ly/fake-test-link", "reasonCode": "SHORTENED_LINK" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "source": "link",
+  "pageUrl": "https://news.example/today",
+  "pageTitle": "The Daily Example",
+  "visibleText": "",
+  "links": [
+    { "text": "Local woman wins lottery jackpot", "url": "https://other-news.example/lottery" }
+  ],
+  "forms": [],
+  "context": {
+    "nearbyText": "Local woman wins lottery jackpot. Officials say the winner will collect next week.",
+    "insideFrame": false
+  }
+}

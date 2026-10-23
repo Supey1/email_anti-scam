@@ -1,0 +1,13 @@
+{
+  "source": "email",
+  "pageUrl": "https://mail.google.com/mail/u/0/#inbox/FMfcgzExample2",
+  "pageTitle": "Lunch Saturday? - Gmail",
+  "visibleText": "Are you free for lunch on Saturday? The new diner opened on Main Street.",
+  "links": [],
+  "forms": [],
+  "context": {
+    "senderName": "Linda",
+    "senderEmail": "linda.m@mail.example",
+    "subject": "Lunch Saturday?"
+  }
+}

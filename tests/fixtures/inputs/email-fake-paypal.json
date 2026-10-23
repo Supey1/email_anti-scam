@@ -1,0 +1,15 @@
+{
+  "source": "email",
+  "pageUrl": "https://mail.google.com/mail/u/0/#inbox/FMfcgzExample",
+  "pageTitle": "Your account has been suspended - Gmail",
+  "visibleText": "We noticed unusual activity. Verify your account within 24 hours or it will be closed.",
+  "links": [
+    { "text": "www.paypal.com", "url": "https://paypa1-secure.example/login" }
+  ],
+  "forms": [],
+  "context": {
+    "senderName": "PayPal Security",
+    "senderEmail": "alerts@paypa1-secure.example",
+    "subject": "Your account has been suspended"
+  }
+}

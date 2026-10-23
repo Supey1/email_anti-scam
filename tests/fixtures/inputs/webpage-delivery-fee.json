@@ -1,0 +1,11 @@
+{
+  "source": "webpage",
+  "pageUrl": "https://usps-redelivery.example/schedule",
+  "pageTitle": "USPS - Schedule a Redelivery",
+  "visibleText": "USPS Tracking. Your package is on hold. Pay the $1.99 redelivery fee to release your package within 24 hours. Card number. Expiry. Pay now.",
+  "links": [],
+  "forms": [
+    { "action": "https://pay-portal.example/charge", "hasPassword": false, "hasPaymentField": true }
+  ],
+  "context": { "mainHeadings": ["USPS Tracking"] }
+}

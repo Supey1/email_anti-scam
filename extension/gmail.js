@@ -1,8 +1,10 @@
-// content.js: runs inside Gmail.
+// gmail.js: runs inside Gmail.
 // 1. Notices when an email is opened.
 // 2. Reads the sender, subject, text, and links.
 // 3. Checks it with analyzeEmail() from rules.js.
 // 4. Shows the big-text safety panel.
+// 5. Tells guard.js when an email looks like a scam, so clicking ANY link in it
+//    brings up the "Stop and check" warning first.
 //
 // Safety note: email content is ALWAYS added with textContent, never innerHTML,
 // so a scam email can't sneak code into our panel.
@@ -123,15 +125,15 @@
     panel.hidden = true;
     reopenButton.hidden = true;
     current = null;
-    window.speechSynthesis.cancel();
+    GranblockSpeech.stop();
   }
 
-  // Reads the verdict, reasons, and advice out loud.
-  function readAloud() {
-    if (!current) return;
+  // The verdict, why, and what to do: what "Read to me" says.
+  function spokenParts() {
+    if (!current) return [];
     const { email, result } = current;
     const v = VERDICTS[result.level];
-    const parts = [
+    return [
       v.title + '.',
       email.senderName ? `This email is from ${email.senderName}.` : '',
       email.subject ? `It is about: ${email.subject}.` : '',
@@ -139,11 +141,8 @@
       'Here is what to do.',
       ...v.advice,
     ];
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(parts.filter(Boolean).join(' '));
-    speech.rate = 0.9;
-    window.speechSynthesis.speak(speech);
   }
+  const speechKey = () => `gmail|${lastSignature}`;
 
   function render(email, result) {
     ensurePanel();
@@ -152,7 +151,7 @@
 
     const header = el('div', { class: 'header' }, [
       el('span', { class: 'title', text: 'Email Safety Check' }),
-      el('button', { text: '🔊 Read to me', onclick: readAloud }),
+      GranblockSpeech.makeButton(document, { getParts: spokenParts, key: speechKey(), rate: () => GranblockSettings.get().speechRate }),
       el('button', { text: 'Hide', 'aria-label': 'Hide safety panel', onclick: hidePanel }),
     ]);
 
@@ -199,8 +198,14 @@
     ]);
 
     panel.replaceChildren(...[header, verdict, who, about, why, links, todo].filter(Boolean));
+    panel.style.zoom = GranblockSettings.zoom(); // the person's text size
     panel.scrollTop = 0;
     showPanel(); // always show the panel again for each new email
+    // Read a warning aloud once per email, if the person asked for that. render()
+    // runs once per new email, and speak() won't restart what's already being read.
+    if (GranblockSettings.get().autoRead && result.level !== 'low') {
+      GranblockSpeech.speak(spokenParts(), { rate: GranblockSettings.get().speechRate, key: speechKey() });
+    }
   }
 
   function scan() {
@@ -215,6 +220,13 @@
     lastSignature = signature;
     render(email, analyzeEmail(email));
   }
+
+  // A link inside the open email that looks like a scam gets stopped by guard.js,
+  // even if the link itself looks fine.
+  GUARD_CONTEXT_PROVIDERS.push(anchor => {
+    if (!current || current.result.level !== 'high' || !anchor.closest(SELECTORS.body)) return null;
+    return { surroundingLevel: 'high' };
+  });
 
   // Gmail changes the page without reloading, so watch for changes
   // and re-check at most a few times per second.

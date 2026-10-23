@@ -1,0 +1,14 @@
+{
+  "source": "link",
+  "pageUrl": "https://news.example/today",
+  "pageTitle": "The Daily Example",
+  "visibleText": "",
+  "links": [
+    { "text": "Claim now", "url": "https://claim-reward-now.example/claim" }
+  ],
+  "forms": [],
+  "context": {
+    "nearbyText": "Congratulations! You have won a $2,000 gift card. Claim your reward before midnight.",
+    "insideFrame": true
+  }
+}

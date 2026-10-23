@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  Practice page: looks normal at first, then a FAKE virus pop-up appears after 3 seconds.
+  Open this file in Chrome (no extension needed). The "Be careful on this page"
+  warning should appear a moment after the pop-up does. This tests that we
+  notice scams that show up after a page has loaded.
+
+  data-practice-url makes the checks treat this file as if it were on that website.
+  The phone number is a fake 555 number.
+-->
+<html lang="en" data-practice-url="https://recipes.example/soup">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Practice: recipe page</title>
+  <style>
+    body { font-family: Georgia, serif; max-width: 680px; margin: 30px auto; padding: 0 16px; }
+    .popup { position: fixed; inset: 40px; padding: 30px; background: #0b57d0; color: #fff; font-family: Arial, sans-serif; font-size: 22px; }
+  </style>
+</head>
+<body>
+  <h1>Grandma's chicken soup</h1>
+  <p>Simmer the chicken with carrots, celery, and onion for two hours. Season to taste.</p>
+
+  <script>
+    setTimeout(() => {
+      const popup = document.createElement('div');
+      popup.className = 'popup';
+      popup.textContent = 'Windows Security Alert: Virus detected! Your computer is infected. ' +
+        'Call support at (800) 555-0142 immediately. Do not close this page or restart your computer.';
+      document.body.append(popup);
+    }, 3000);
+  </script>
+
+  <!-- The same files the extension loads into every website -->
+  <script src="../extension/threat-list.js"></script>
+  <script src="../extension/core/url-normalizer.js"></script>
+  <script src="../extension/core/domain-rules.js"></script>
+  <script src="../extension/core/url-rules.js"></script>
+  <script src="../extension/core/text-rules.js"></script>
+  <script src="../extension/core/risk-policy.js"></script>
+  <script src="../extension/core/explanations.js"></script>
+  <script src="../extension/core/analyzer.js"></script>
+  <script src="../extension/rules.js"></script>
+  <script src="../extension/settings-sync.js"></script>
+  <script src="../extension/speech.js"></script>
+  <script src="../extension/panel-styles.js"></script>
+  <script src="../extension/warning.js"></script>
+  <script src="../extension/guard.js"></script>
+  <script src="../extension/page.js"></script>
+</body>
+</html>
