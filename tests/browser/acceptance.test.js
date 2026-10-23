@@ -2,12 +2,15 @@
 // Run with:  node tests/browser/acceptance.test.js
 // Needs Playwright (npm i playwright) and its Chromium (npx playwright install chromium).
 //
-// Checks, end to end, that:
+// Phase 3 and 4 acceptance. Checks, end to end, that:
 //   1. a local fake webpage is analyzed automatically, and opening it shows the expected state
 //   2. clicking a suspicious link gets the right intervention, and the browser NEVER asks
 //      for the suspicious address (not just "a warning appeared")
 //   3. the words on the warning are the analyzer's own explanations: the same result reads
 //      the same in the browser as it does here in Node
+//   4. the same engine handles a generic webpage, an ad (including one through an ad
+//      network), and a Gmail message. Gmail: this test answers mail.google.com with a local
+//      pretend inbox, so the extension's real Gmail code runs without touching real email.
 //
 // Pages are in tests/browser/acceptance-pages/. Every ".example" address is answered by
 // this test with a tiny page, so nothing touches the internet.
@@ -17,7 +20,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const http = require('http');
-const { analyze, analyzeLink, analyzePage } = require('../../extension/rules.js');
+const { analyze, analyzeEmail, analyzeLink, analyzePage } = require('../../extension/rules.js');
 
 let chromium;
 try { ({ chromium } = require('playwright')); } catch (e) { console.log('SKIP  Playwright is not installed (npm i playwright)'); process.exit(0); }
@@ -52,6 +55,13 @@ async function launch() {
   });
   const requests = [];
   context.on('request', r => requests.push(r.url()));
+  // The pretend Gmail inbox: ?msg=scam or ?msg=real.
+  await context.route(/^https:\/\/mail\.google\.com\//, route => {
+    const msg = new URL(route.request().url()).searchParams.get('msg') || 'scam';
+    route.fulfill({ contentType: 'text/html', body: fs.readFileSync(path.join(PAGES, `gmail-${msg}.html`), 'utf8') });
+  });
+  // Real company websites the tests click through to: answered here, never fetched.
+  await context.route(/^https:\/\/((www\.)?googleadservices\.com|([^/]+\.)?usps\.com)\//, route => route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' }));
   await context.route(/^https?:\/\/[^/]+\.example\//, route => {
     // Known dangerous addresses are left to the extension's own blocking.
     if (/known-phish|fake-bank-login/.test(route.request().url())) return route.fallback();
@@ -196,6 +206,74 @@ test('scam pop-up that appears after loading: noticed and warned about', async (
   await page.waitForFunction(() => !!document.getElementById('email-anti-scam-warning'), null, { timeout: 6000 });
   const warning = await readWarning(page);
   assert.match(warning.title, /Be careful on this page/);
+  await page.close();
+});
+
+// ---------- Phase 4: ads and Gmail ----------
+
+// What the Gmail panel shows, or null.
+const readPanel = page => page.evaluate(() => {
+  const host = document.getElementById('email-anti-scam-host');
+  if (!host || host.shadowRoot.querySelector('.panel').hidden) return null;
+  const root = host.shadowRoot;
+  const section = [...root.querySelectorAll('.section')].find(s => /Why we're warning you/.test(s.textContent));
+  return { verdict: root.querySelector('.verdict').textContent, reasons: section ? [...section.querySelectorAll('li')].map(li => li.textContent) : [] };
+});
+
+test('Gmail scam message: the panel says scam, with the analyzer\'s own reasons', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto('https://mail.google.com/mail/u/0/?msg=scam');
+  await settle(page, 900);
+  const panel = await readPanel(page);
+  assert.ok(panel, 'no panel');
+  assert.match(panel.verdict, /looks like a SCAM/);
+  const expected = analyzeEmail({
+    senderName: 'USPS Delivery', senderEmail: 'notice@usps-redelivery.example', subject: 'Your package is on hold',
+    bodyText: await page.evaluate(() => document.querySelector('div.a3s').innerText.trim()),
+    links: [{ text: 'Reschedule delivery', href: 'https://usps-redelivery.example/track' }],
+  });
+  assert.deepStrictEqual(panel.reasons, expected.reasons);
+  assert.ok(panel.reasons.some(r => /USPS.*usps-redelivery\.example/.test(r)), panel.reasons.join(' | '));
+  await page.close();
+});
+
+test('Gmail scam message: clicking its link is stopped and never requested', async ({ context, reached }) => {
+  const page = await context.newPage();
+  await page.goto('https://mail.google.com/mail/u/0/?msg=scam');
+  await settle(page, 900);
+  await page.click('#reschedule');
+  await settle(page, 300);
+  const warning = await readWarning(page);
+  assert.ok(warning, 'no warning');
+  assert.ok(warning.reasons.some(r => /inside an email that looks like a scam/.test(r)), warning.reasons.join(' | '));
+  assert.ok(!reached('usps-redelivery.example'));
+  await page.close();
+});
+
+test('Gmail real USPS message: "No warning signs found", and its link opens', async ({ context, reached }) => {
+  const page = await context.newPage();
+  await page.goto('https://mail.google.com/mail/u/0/?msg=real');
+  await settle(page, 900);
+  const panel = await readPanel(page);
+  assert.ok(panel, 'no panel');
+  assert.match(panel.verdict, /No warning signs found/);
+  await Promise.all([page.waitForURL(/informeddelivery\.usps\.com/), page.click('#see-all')]);
+  assert.ok(reached('informeddelivery.usps.com'));
+  await page.close();
+});
+
+test('scam ad whose link goes through an ad network: stopped by its wording, ad network never requested', async ({ context, base, reached }) => {
+  const page = await context.newPage();
+  await page.goto(base + 'news.html');
+  await settle(page);
+  const ad = page.frames().find(f => f.url().includes('/ad-network.html'));
+  assert.ok(ad, 'the ad frame did not load');
+  await ad.click('#network-claim');
+  await settle(page, 500);
+  const warning = await readWarning(page);
+  assert.ok(warning, 'no warning on the main page');
+  assert.ok(warning.reasons.some(r => /redelivery|package/i.test(r)), warning.reasons.join(' | '));
+  assert.ok(!reached('www.googleadservices.com'));
   await page.close();
 });
 

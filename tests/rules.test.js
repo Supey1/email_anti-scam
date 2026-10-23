@@ -384,7 +384,7 @@ const RULE_TESTS = [
     triggers: [link('https://paypa1-secure.example/login'), link('https://paypal.com.fake-domain.example/'), link('https://xn--pypal-4ve.example/'), link('https://amazom.example/'), link('https://applesupport.example/')],
     doesNot: [link('https://www.paypal.com/signin'), link('https://www.paypal.co.uk/'), link('https://applebees.example/'), link('https://bucket.s3.amazonaws.com/file'), link('https://purchase-confirm.example/')] },
   { code: 'HIDDEN_DESTINATION',
-    triggers: [link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
+    triggers: [link('https://u123.ct.sendgrid.net/ls/click?upn=abc', 'www.garden-store.example'), link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
     doesNot: [link('https://secure.chase.com/x', 'www.chase.com'), link('https://news.bbc.co.uk/x', 'bbc.co.uk'),
       link('https://www.google.com/url?q=https://www.paypal.com/', 'www.paypal.com')] },
   { code: 'MISLEADING_URL',
@@ -394,8 +394,12 @@ const RULE_TESTS = [
     triggers: [link('http://192.168.4.20/login'), link('http://3232235777/')],
     doesNot: [link('https://route-192.example/')] },
   { code: 'BRAND_NAME_MISMATCH',
-    triggers: [link('https://parcel.example/x', 'Track with FedEx')],
-    doesNot: [link('https://www.fedex.com/track', 'Track with FedEx')] },
+    triggers: [link('https://parcel.example/x', 'Track with FedEx'),
+      email({ name: 'USPS', address: 'notice@mail.example', subject: 'Package on hold', links: [{ text: 'Track', url: 'https://parcel-help.example/t' }] })],
+    doesNot: [link('https://www.fedex.com/track', 'Track with FedEx'),
+      email({ name: 'USPS', address: 'notice@usps.com', subject: 'Package on hold', links: [{ text: 'Track', url: 'https://tools.usps.com/t' }, { text: 'Facebook', url: 'https://facebook.example/usps' }] }),
+      email({ name: 'USPS', address: 'news@sendgrid.net', subject: 'Informed Delivery', links: [{ text: 'Read more', url: 'https://u1.ct.sendgrid.net/ls/click?upn=x' }] }),
+      link('https://www.googleadservices.com/pagead/aclk?sa=L&ai=abc', 'Get my gift card', 'You have won a free Amazon gift card. Claim before midnight.')] },
   { code: 'SHORTENED_LINK',
     triggers: [link('https://bit.ly/abc')],
     doesNot: [link('https://notbit.ly/abc')] },
@@ -406,8 +410,12 @@ const RULE_TESTS = [
     triggers: [link('https://claim.example/', 'Claim', 'You have won a prize! Act now.')],
     doesNot: [link('https://claim.example/', 'Read more', 'Local woman wins lottery jackpot.')] },
   { code: 'SENDER_NAME_MISMATCH',
-    triggers: [email({ name: 'PayPal', address: 'alerts@mail.example' })],
-    doesNot: [email({ name: 'PayPal', address: 'service@paypal.com' })] },
+    triggers: [email({ name: 'PayPal', address: 'alerts@mail.example' }), email({ name: 'service@paypal.com', address: 'x@evil.example' }),
+      email({ name: 'Apple', address: 'apple.support@icloud.com' }),
+      email({ name: 'PayPal', address: 'paypal@sendgrid.net', subject: 'Unusual sign-in activity', text: 'Verify your account.' })],
+    doesNot: [email({ name: 'PayPal', address: 'service@paypal.com' }),
+      email({ name: 'IRS', address: 'irs@service.govdelivery.com', subject: 'IRS Tax Tips', text: 'Free filing options. Unsubscribe or manage preferences.' }),
+      email({ name: 'Amazon Deals', address: 'deals@sendgrid.net', subject: 'Spring sale', text: '20% off. Shop now. Unsubscribe.' })] },
   { code: 'LOOKALIKE_SENDER',
     triggers: [email({ name: 'Alerts', address: 'alerts@paypa1-secure.example' })],
     doesNot: [email({ name: 'Alerts', address: 'alerts@paypal.com' }), email({ name: 'Tommy', address: 'tommy@gmail.com' })] },
@@ -438,7 +446,8 @@ const RULE_TESTS = [
     triggers: [link('https://claim.example/', 'Claim', 'You have won a gift card. Claim before midnight.')],
     doesNot: [link('https://bit.ly/claim', 'Claim', 'You have won a gift card.')] },
   { code: 'PAY_TO_CLAIM',
-    triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a $4.99 processing fee to claim your prize.' })],
+    triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a $4.99 processing fee to claim your prize.' }),
+      email({ text: 'Pay the $1.99 redelivery fee.' }), link('https://parcel.example/', 'Pay', 'Your package is on hold. Pay the $1.99 redelivery fee now.')],
     doesNot: [page({ url: 'https://garden-store.example/', text: 'Free shipping on orders over $50. Pay at checkout.' })] },
   { code: 'PAYMENT_METHOD_REQUEST',
     triggers: [email({ text: 'Please buy gift cards and send me the numbers.' })],
@@ -464,6 +473,21 @@ const RULE_TESTS = [
   { code: 'FAMILY_EMERGENCY',
     triggers: [email({ text: 'Grandma, I was arrested and need bail money.' })],
     doesNot: [email({ text: 'Grandma, the hospital visit went fine. See you Sunday!' })] },
+  { code: 'PAYMENT_DEMAND',
+    triggers: [email({ text: 'You owe $500. Pay now.' }), page({ url: 'https://bill.example/', text: 'Your outstanding balance must be paid. Pay now, or you will be arrested.' })],
+    doesNot: [email({ text: 'Thanks for paying me back for lunch!' }), email({ text: 'Your payment of $45 is due on May 3.' })] },
+  { code: 'THREAT_OF_CONSEQUENCES',
+    triggers: [email({ text: 'Pay today or you will be arrested.' }), email({ text: 'Your Social Security number has been suspended.' })],
+    doesNot: [email({ text: 'The police arrested a man on Main Street.' }), email({ text: 'My license renewal came through!' })] },
+  { code: 'URGENT_PAYMENT_REQUEST',
+    triggers: [email({ text: 'Pay the overdue invoice immediately.' }), email({ text: 'You owe back taxes. Pay or legal action will be taken against you.' }),
+      email({ text: 'Buy gift cards and send the codes within 24 hours.' })],
+    doesNot: [email({ text: 'Your payment of $45 is due on May 3.' }), email({ text: 'Urgent: the meeting moved to 3pm.' })] },
+  { code: 'AGENCY_DOES_NOT_EMAIL',
+    triggers: [email({ name: 'IRS', address: 'refunds@irs-help.example', subject: 'Tax refund', text: 'Confirm your account number to receive your refund.' }),
+      email({ name: 'Internal Revenue Service', address: 'no-reply@irs.gov', subject: 'Final notice', text: 'You owe back taxes. Pay now.' })],
+    doesNot: [email({ name: 'IRS', address: 'irs@service.govdelivery.com', subject: 'IRS Tax Tips', text: 'Free filing options. Unsubscribe or manage preferences.' }),
+      email({ name: 'Linda', subject: 'Taxes', text: 'Did you finish your IRS forms yet?' })] },
   { code: 'PRESSURE_TACTICS',
     triggers: [email({ text: 'Act now, this is urgent.' })],
     doesNot: [email({ text: 'No rush, whenever you have time.' })] },
@@ -565,11 +589,12 @@ const COMBINED_TESTS = [
     expect: r => assert.strictEqual(r.verdict, 'warn'),
   },
   {
-    name: 'sender pretends to be PayPal (moderate) alone: check first; plus "urgent": stop',
+    name: 'sender name says PayPal, someone else\'s address: check first; as an account alert: stop',
     input: email({ name: 'PayPal', address: 'alerts@mail.example', text: 'Hello.' }),
     expect: r => {
       assert.strictEqual(r.recommendedAction, 'VERIFY_INDEPENDENTLY');
-      assert.strictEqual(analyze(email({ name: 'PayPal', address: 'alerts@mail.example', text: 'Urgent: reply today.' })).recommendedAction, 'GO_BACK');
+      const alert = analyze(email({ name: 'PayPal', address: 'alerts@mail.example', subject: 'Unusual sign-in activity', text: 'Urgent: reply today.' }));
+      assert.strictEqual(alert.recommendedAction, 'GO_BACK');
     },
   },
   {
@@ -582,6 +607,96 @@ const COMBINED_TESTS = [
     input: page({ url: 'https://shop.netlify.app/pay', title: 'Checkout', forms: [{ action: 'https://shop.netlify.app/pay', hasPassword: false, hasPayment: true }] }),
     expect: r => assert.ok(codes(r).includes('SIGN_IN_ON_FREE_HOSTING')),
   },
+];
+
+// ---------- context: email services, ad networks, and kinds of message ----------
+const CONTEXT_TESTS = [
+  ['a store newsletter whose links go through an email-tracking service: never stopped, and the reason says why', () => {
+    const r = analyze(email({ name: 'Garden Store', address: 'news@garden-store.example', subject: 'Spring sale', text: '20% off. Unsubscribe.', links: [{ text: 'www.garden-store.example', url: 'https://u123.ct.sendgrid.net/ls/click?upn=abc' }] }));
+    assert.notStrictEqual(r.recommendedAction, 'GO_BACK');
+    assert.match(explanationOf(r, 'HIDDEN_DESTINATION'), /sendgrid\.net, a service that counts clicks/);
+  }],
+  ['a real IRS newsletter sent through GovDelivery: no warning signs', () => {
+    const r = analyze(email({ name: 'IRS', address: 'irs@service.govdelivery.com', subject: 'IRS Tax Tips', text: 'IRS Tax Tip: free filing options. Unsubscribe or manage preferences.', links: [{ text: 'Read more', url: 'https://www.irs.gov/newsroom' }] }));
+    assert.strictEqual(r.verdict, 'no_warning_signs');
+  }],
+  ['"pay or be arrested" from the "IRS": the explanation names the payment demand, the threat, and the agency rule', () => {
+    const r = analyze(email({ name: 'IRS Collections', address: 'collections@irs-gov.example', subject: 'Final notice', text: 'You owe back taxes. Pay the outstanding balance today or a warrant will be issued for your arrest.' }));
+    assert.strictEqual(r.recommendedAction, 'GO_BACK');
+    for (const c of ['PAYMENT_DEMAND', 'URGENT_PAYMENT_REQUEST', 'AGENCY_DOES_NOT_EMAIL']) assert.ok(codes(r).includes(c), `missing ${c}: ${codes(r)}`);
+  }],
+  ['company name on someone else\'s address: weak in a newsletter, moderate in an account alert', () => {
+    const tierOf = r => (r.reasons.find(x => x.code === 'SENDER_NAME_MISMATCH') || {}).explanation;
+    const newsletter = analyze(email({ name: 'Netflix', address: 'deals@partner-offers.example', subject: 'New this week', text: 'Shop now. Unsubscribe.' }));
+    const alert = analyze(email({ name: 'Netflix', address: 'billing@partner-offers.example', subject: 'Payment declined', text: 'Update your payment details.' }));
+    assert.match(tierOf(newsletter), /this alone isn't proof/);
+    assert.match(tierOf(alert), /account or payment notice/);
+    assert.strictEqual(newsletter.recommendedAction, 'VERIFY_INDEPENDENTLY');
+  }],
+  ['a Google ad click with its destination written in: checked where it really goes', () => {
+    const r = analyze(link('https://www.googleadservices.com/pagead/aclk?sa=L&adurl=' + encodeURIComponent('https://paypal.com.rewards.example/claim'), 'Claim'));
+    assert.ok(codes(r).includes('LOOKALIKE_DOMAIN'), codes(r).join(','));
+  }],
+  ['a scam ad through an ad network: still stopped by its wording, and the reason says we couldn\'t see the destination', () => {
+    const r = analyze(link('https://www.googleadservices.com/pagead/aclk?sa=L&ai=abc', 'Claim now', 'Congratulations! You have won a $2,000 gift card. Claim before midnight.', { insideFrame: true }));
+    assert.strictEqual(r.recommendedAction, 'GO_BACK');
+    assert.match(explanationOf(r, 'UNVERIFIED_PRIZE_CLAIM'), /passes through googleadservices\.com/);
+  }],
+  ['a real Amazon ad through an ad network: no warning signs', () => {
+    const r = analyze(link('https://www.googleadservices.com/pagead/aclk?sa=L&ai=abc', 'Shop now', 'Amazon Prime Day: deals on Echo devices. Shop now.', { insideFrame: true }));
+    assert.strictEqual(r.verdict, 'no_warning_signs');
+  }],
+  ['a fake "googleadservices" on another website is neither followed nor excused as an ad network', () => {
+    const r = analyze(link('https://googleadservices.com.evil.example/pagead/aclk?adurl=https://www.amazon.com/', 'www.amazon.com'));
+    assert.ok(explanationOf(r, 'HIDDEN_DESTINATION'), `got: ${codes(r)}`);
+    assert.doesNotMatch(explanationOf(r, 'HIDDEN_DESTINATION'), /counts clicks/);
+  }],
+];
+
+// ---------- Phase 4 acceptance: one rule engine for a webpage, an ad, and a Gmail message ----------
+// The same USPS "redelivery fee" scam, as each adapter would collect it, and a real USPS version of each.
+const readFixture = name => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'inputs', name), 'utf8'));
+const SAME_SCAM = {
+  webpage: analyze(readFixture('webpage-delivery-fee.json')),
+  ad: analyze(readFixture('ad-delivery-fee.json')),
+  gmail: analyze(readFixture('email-delivery-fee.json')),
+};
+const REAL_USPS = {
+  webpage: analyze(page({ url: 'https://tools.usps.com/redelivery', title: 'USPS - Schedule a Redelivery', headings: ['Redelivery'], text: 'Enter your tracking number to schedule a redelivery.', forms: [{ action: 'https://tools.usps.com/redelivery', hasPassword: false, hasPaymentField: true }] })),
+  ad: analyze(link('https://www.googleadservices.com/pagead/aclk?sa=L&ai=xyz', 'Sign up', 'USPS Informed Delivery: see your mail before it arrives. Sign up free.', { insideFrame: true })),
+  gmail: analyze(email({ name: 'USPS Informed Delivery', address: 'USPSInformeddelivery@email.informeddelivery.usps.com', subject: 'Your Daily Digest', text: 'You have 2 mailpieces and 1 package arriving today.', links: [{ text: 'See all', url: 'https://informeddelivery.usps.com/box' }] })),
+};
+const PHASE4_TESTS = [
+  ['the scam is stopped on all three, and never "confirmed" (no known-threat match)', () => {
+    for (const [where, r] of Object.entries(SAME_SCAM)) {
+      assert.deepStrictEqual(validateResult(r), [], `${where}: breaks the contract`);
+      assert.strictEqual(r.verdict, 'warn', where);
+      assert.ok(['GO_BACK', 'DO_NOT_ENTER_INFO'].includes(r.recommendedAction), `${where}: ${r.recommendedAction}`);
+    }
+    assert.strictEqual(SAME_SCAM.webpage.recommendedAction, 'DO_NOT_ENTER_INFO', 'a payment page should say "do not enter info"');
+  }],
+  ['the same signs are found everywhere, with the same title and the same words', () => {
+    for (const code of ['LOOKALIKE_DOMAIN', 'DELIVERY_PROBLEM_CLAIM', 'URGENT_PAYMENT_REQUEST']) {
+      const found = Object.entries(SAME_SCAM).map(([where, r]) => [where, r.reasons.find(x => x.code === code)]);
+      for (const [where, reason] of found) assert.ok(reason, `${where} is missing ${code}`);
+      assert.strictEqual(new Set(found.map(([, x]) => x.title)).size, 1, `${code} has different titles`);
+      if (code !== 'LOOKALIKE_DOMAIN') assert.strictEqual(new Set(found.map(([, x]) => x.explanation)).size, 1, `${code} reads differently`);
+    }
+    // The address sign names the same company and website everywhere; only "this website" / "a link" differs.
+    for (const r of Object.values(SAME_SCAM)) assert.match(explanationOf(r, 'LOOKALIKE_DOMAIN'), /USPS.*usps-redelivery\.example|usps-redelivery\.example.*USPS/);
+  }],
+  ['each adapter\'s own information shows up only where it belongs', () => {
+    assert.ok(codes(SAME_SCAM.gmail).includes('SENDER_NAME_MISMATCH'), 'Gmail: the sender');
+    assert.ok(codes(SAME_SCAM.gmail).includes('BRAND_NAME_MISMATCH'), 'Gmail: links vs the company it claims');
+    assert.ok(codes(SAME_SCAM.webpage).includes('CREDENTIALS_SENT_ELSEWHERE'), 'webpage: where the card number goes');
+    assert.ok(codes(SAME_SCAM.webpage).includes('FAKE_SIGN_IN_PAGE'), 'webpage: USPS payment page off USPS');
+    assert.ok(codes(SAME_SCAM.ad).includes('BRAND_NAME_MISMATCH'), 'ad: the ad names USPS, the link goes elsewhere');
+    for (const c of ['SENDER_NAME_MISMATCH', 'CREDENTIALS_SENT_ELSEWHERE']) assert.ok(!codes(SAME_SCAM.ad).includes(c), `ad has ${c}`);
+    assert.ok(!codes(SAME_SCAM.webpage).includes('SENDER_NAME_MISMATCH'));
+  }],
+  ['the real USPS webpage, ad, and email get no warning signs', () => {
+    for (const [where, r] of Object.entries(REAL_USPS)) assert.strictEqual(r.verdict, 'no_warning_signs', `${where}: ${codes(r)}`);
+  }],
 ];
 
 // ---------- the same evidence through every adapter gives the same words ----------
@@ -662,6 +777,9 @@ const FIXTURE_EXPECTED = {
   'webpage-fake-sign-in.json': ['warn', 'DO_NOT_ENTER_INFO'],
   'webpage-library-sign-in.json': ['no_warning_signs', 'NONE'],
   'webpage-prize-offer.json': ['warn', 'GO_BACK'],
+  'webpage-delivery-fee.json': ['warn', 'DO_NOT_ENTER_INFO'],
+  'ad-delivery-fee.json': ['warn', 'GO_BACK'],
+  'email-delivery-fee.json': ['warn', 'GO_BACK'],
 };
 
 // ---------- run everything ----------
@@ -717,6 +835,12 @@ for (const t of COMBINED_TESTS) {
     t.expect(r);
   });
 }
+
+console.log('\n--- context: email services, ad networks, kinds of message ---');
+for (const [name, fn] of CONTEXT_TESTS) check(`[context] ${name}`, fn);
+
+console.log('\n--- Phase 4: one engine for a webpage, an ad, and a Gmail message ---');
+for (const [name, fn] of PHASE4_TESTS) check(`[phase 4] ${name}`, fn);
 
 console.log('\n--- same evidence, every adapter ---');
 for (const [name, fn] of ADAPTER_TESTS) check(`[adapter] ${name}`, fn);

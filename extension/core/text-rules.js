@@ -16,6 +16,41 @@
   'use strict';
   const core = globalThis.GranblockCore = globalThis.GranblockCore || {};
 
+  // In the money rules, "(?:[^.!]|\.\d)" means "within the same sentence", where a
+  // dot followed by a digit ("$1.99") doesn't end the sentence.
+
+  // Asking for money now, and threats if you don't. Shared by both sets.
+  // Written to the reader ("YOU will be arrested"), so news stories don't count.
+  const PAYMENT_DEMAND = {
+    code: 'PAYMENT_DEMAND',
+    patterns: [
+      /\b(pay|payment|settle|remit)\b(?:[^.!]|\.\d){0,30}\b(now|today|immediately|overdue|outstanding|owed|past due)\b/,
+      /\b(outstanding|overdue|unpaid|past due) (balance|invoice|bill|amount|payment|debt|taxes)\b/,
+      /\byou owe\b/,
+      /\bsend (me |us )?(\$\s?\d|money|funds|the payment)/,
+      /\btransfer (the )?(money|funds|\$\s?\d)/,
+    ],
+  };
+  const THREAT_OF_CONSEQUENCES = {
+    code: 'THREAT_OF_CONSEQUENCES',
+    patterns: [
+      /\b(you|your)\b(?:[^.!]|\.\d){0,40}\b(will be|could be|be) (arrested|sued|prosecuted|deported|jailed)\b/,
+      /\b(warrant|legal action|lawsuit|court action|criminal charges)\b(?:[^.!]|\.\d){0,40}\b(against you|in your name|for your arrest)\b/,
+      /\b(arrest|legal action|lawsuit|prosecution|penalties|charges)\b(?:[^.!]|\.\d){0,30}\b(if you|unless you)\b/,
+      /\byour (social security( number)?|benefits|license|medicare|ssn)\b(?:[^.!]|\.\d){0,30}\b(suspended|cancell?ed|revoked|frozen|blocked)\b/,
+    ],
+  };
+
+  // Pay a fee first: to claim a prize, release a package, or with gift cards.
+  const PAY_TO_CLAIM = {
+    code: 'PAY_TO_CLAIM',
+    patterns: [
+      /\b(pay|fee|shipping|processing|handling)\b(?:[^.!]|\.\d){0,40}\bto (claim|receive|release|unlock|get) (your|the)\b/,
+      /\b(re-?delivery|customs|shipping|delivery|release) fee\b(?:[^.!]|\.\d){0,40}\b(pay|of \$|\$\s?\d)|\bpay\b(?:[^.!]|\.\d){0,30}\b(re-?delivery|customs|shipping|delivery) fee\b/,
+      /\b(pay|buy|send|purchase)\b(?:[^.!]|\.\d){0,30}\b(gift ?cards?|bitcoin|crypto|wire transfer|western union|moneygram)/,
+    ],
+  };
+
   const EMAIL_CHECKS = [
     { code: 'PAYMENT_METHOD_REQUEST', patterns: [/gift ?cards?/, /wire transfer/, /\bbitcoin\b/, /\bcrypto/, /western union/, /moneygram/, /\bzelle\b/] },
     { code: 'ACCOUNT_PROBLEM_CLAIM', patterns: [/\b(account|card|access|profile|service)\b[^.!]{0,30}\b(suspended|locked|disabled|on hold)\b/, /\b(suspended|locked|disabled)\b[^.!]{0,30}\b(account|card)\b/, /unusual (sign-?in )?activity/, /verify your (account|identity)/, /confirm your (account|identity)/, /update your (payment|billing)/, /unauthori[sz]ed/] },
@@ -25,6 +60,9 @@
     { code: 'PERSONAL_INFO_REQUEST', patterns: [/social security number/, /\bssn\b/, /routing number/, /account number/, /date of birth/, /your password/] },
     { code: 'DELIVERY_PROBLEM_CLAIM', patterns: [/could not be delivered/, /couldn'?t be delivered/, /package (is )?on hold/, /(re-?delivery|customs|shipping) fee/, /reschedule (your )?delivery/] },
     { code: 'TECH_SUPPORT_CLAIM', patterns: [/remote access/, /\banydesk\b/, /\bteamviewer\b/, /tech(nical)? support/, /your (computer|pc|device) (is|has been) (infected|hacked)/, /\b(computer|pc|device) (has )?(a )?virus/, /\bvirus(es)? (detected|found|on your)/] },
+    PAY_TO_CLAIM,
+    PAYMENT_DEMAND,
+    THREAT_OF_CONSEQUENCES,
   ];
 
   const WEB_CHECKS = [
@@ -37,13 +75,7 @@
         /\byou are (our|today'?s|the) (lucky )?winner/,
       ],
     },
-    {
-      code: 'PAY_TO_CLAIM',
-      patterns: [
-        /\b(pay|fee|shipping|processing|handling)\b[^.!]{0,40}\bto (claim|receive|release|unlock|get) (your|the)\b/,
-        /\b(pay|buy|send|purchase)\b[^.!]{0,30}\b(gift ?cards?|bitcoin|crypto|wire transfer|western union|moneygram)/,
-      ],
-    },
+    PAY_TO_CLAIM,
     {
       code: 'ACCOUNT_PROBLEM_CLAIM',
       patterns: [
@@ -58,6 +90,15 @@
         /\b(do not|don'?t) (close|restart|shut down|turn off)\b[^.!]{0,30}\b(computer|browser|page|window)/,
       ],
     },
+    {
+      code: 'DELIVERY_PROBLEM_CLAIM',
+      patterns: [
+        /\byour (package|parcel|delivery|shipment)\b[^.!]{0,40}\b(on hold|could not be delivered|couldn'?t be delivered|undeliverable|held|is waiting|was returned)\b/,
+        /\b(re-?delivery|customs|shipping) fee\b/,
+      ],
+    },
+    PAYMENT_DEMAND,
+    THREAT_OF_CONSEQUENCES,
     {
       code: 'PRESSURE_TACTICS',
       patterns: [
@@ -105,11 +146,26 @@
     return runChecks(WEB_CHECKS, text, 'web');
   }
 
+  // What kind of message is this? Decides how much a company-name mismatch matters.
+  //   'alert'      account, security, payment, or delivery notices: what scammers fake
+  //   'marketing'  newsletters and ads (often sent through email services)
+  //   'personal'   anything else
+  const STRONG_ALERT = /\b(password|sign-?in|log-?in|security|verify|verification|suspend(ed)?|locked|unusual|unauthori[sz]ed|payment (failed|declined)|declined|on hold|could not be delivered|undeliverable|delivery (attempt|failed)|redelivery|overdue|past due|final notice|refund|you owe)\b/;
+  const ALERT = /\b(account|billing|invoice|statement|package|parcel|shipment|tracking)\b/;
+  const MARKETING = /\b(unsubscribe|newsletter|manage (your )?(email )?preferences|view (this email )?in (your )?browser|\d+% off|shop now)\b/;
+  function messageKind(subject, text) {
+    const all = `${subject || ''}\n${(text || '').slice(0, 3000)}`.toLowerCase();
+    if (STRONG_ALERT.test(all)) return 'alert';
+    if (MARKETING.test(all)) return 'marketing';
+    if (ALERT.test(all)) return 'alert';
+    return 'personal';
+  }
+
   // Is this text talking ABOUT scams (two or more mentions)?
   function looksLikeScamAdvice(text) {
     return ((text || '').toLowerCase().match(SCAM_ADVICE) || []).length >= 2;
   }
 
-  core.textRules = { EMAIL_CHECKS, WEB_CHECKS, checkEmailText, checkWebText, looksLikeScamAdvice };
+  core.textRules = { EMAIL_CHECKS, WEB_CHECKS, checkEmailText, checkWebText, looksLikeScamAdvice, messageKind };
   if (typeof module !== 'undefined') module.exports = core.textRules;
 })();

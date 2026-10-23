@@ -58,6 +58,9 @@
     { host: h => h === 'l.instagram.com', path: /^\/$/, params: ['u'] },
     { host: h => h === 'www.youtube.com' || h === 'youtube.com', path: /^\/redirect$/, params: ['q'] },
     { host: h => h === 'slack-redir.net', path: /^\/link$/, params: ['url'] },
+    // Google ad clicks, when the ad's destination is written in the link.
+    { host: h => h === 'www.googleadservices.com' || h === 'googleadservices.com', path: /^\/pagead\/aclk$/, params: ['adurl'] },
+    { host: h => /^(googleads\.g|adclick\.g)\.doubleclick\.net$/.test(h), path: /^\/(pagead\/)?aclk$/, params: ['adurl'] },
   ];
 
   const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;

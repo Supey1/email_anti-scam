@@ -28,7 +28,7 @@
       if (!core[name]) require(file);
     }
   }
-  const { normalizeUrl, parseUrl, sameSite, findDomainInText } = core.urlNormalizer;
+  const { normalizeUrl, parseUrl, sameSite, findDomainInText, registrableDomain } = core.urlNormalizer;
   const urlRules = core.urlRules;
   const domainRules = core.domainRules;
   const textRules = core.textRules;
@@ -50,24 +50,44 @@
       ...urlRules.checkSignInLink(text, parsed),
     ];
     const shown = urlRules.checkShownDestination(text, parsed);
+    // Through an email service or ad network we can't see where the link ends
+    // up, so we can't compare it with company names. The other checks still count.
+    if (domainRules.serviceKind(parsed.hostname)) {
+      for (const f of shown) Object.assign(f.data, { variant: 'via_service', service: registrableDomain(parsed.hostname) });
+      findings.push(...shown);
+      return findings;
+    }
     findings.push(...shown);
     // The link's words name a company (but no website), and the address isn't that company's.
     if (!shown.length && !findDomainInText(text)) findings.push(...domainRules.checkNamedBrand(text, parsed.hostname, 'link_text'));
     return findings;
   }
 
+  // Codes that mean "the message asks for money, details, or account action".
+  const ASKS = new Set(['PAYMENT_DEMAND', 'PAYMENT_METHOD_REQUEST', 'PAY_TO_CLAIM', 'PERSONAL_INFO_REQUEST', 'ACCOUNT_PROBLEM_CLAIM', 'THREAT_OF_CONSEQUENCES']);
+
   function evaluateEmail(input) {
     const ctx = input.context || {};
+    const text = (input.visibleText || '').slice(0, MAX_TEXT);
     const findings = [];
     const links = (input.links || []).map(link => {
       const parsed = normalizeUrl(link.url);
       const linkFindings = checkLinkAddress(link.text || '', parsed);
       findings.push(...linkFindings);
-      return { text: link.text || '', href: link.url, host: parsed.ok && parsed.isWeb ? parsed.host : '', findings: linkFindings };
+      const host = parsed.ok && parsed.isWeb ? parsed.host : '';
+      return { text: link.text || '', href: link.url, host, service: host ? domainRules.serviceKind(parsed.hostname) : '', findings: linkFindings };
     });
-    findings.push(...domainRules.checkSender(ctx.senderName, ctx.senderEmail));
-    findings.push(...textRules.checkEmailText(`${ctx.subject || ''}\n${(input.visibleText || '').slice(0, MAX_TEXT)}`));
-    return { findings, links };
+    const wording = textRules.checkEmailText(`${ctx.subject || ''}\n${text}`);
+    findings.push(...wording);
+
+    // Who it claims to be, judged by what KIND of message it is: a company name
+    // on someone else's address matters in an account alert, much less in a newsletter.
+    const kind = textRules.messageKind(ctx.subject, text);
+    findings.push(...domainRules.checkSender(ctx.senderName, ctx.senderEmail, kind));
+    const claimed = domainRules.brandNamedIn(ctx.senderName) || domainRules.brandNamedIn(ctx.subject);
+    findings.push(...domainRules.checkMessageLinks(claimed, links, kind));
+    findings.push(...domainRules.checkAgencyEmail(ctx.senderName, ctx.subject, wording.some(f => ASKS.has(f.code))));
+    return { findings, links, kind };
   }
 
   function evaluateLink(input) {
@@ -97,10 +117,13 @@
       const offerText = `${link.text || ''}\n${ctx.nearbyText || ''}`;
       text = keepText(textRules.checkWebText(offerText), other, 'link', textRules.looksLikeScamAdvice(offerText));
       if (text.length) {
-        const mismatch = domainRules.checkNamedBrand(offerText, hostname, 'offer');
+        // A real ad's click usually goes through an ad network first: we can't
+        // compare the company in the ad with an address we can't see.
+        const service = domainRules.serviceKind(hostname);
+        const mismatch = service ? [] : domainRules.checkNamedBrand(offerText, hostname, 'offer');
         if (mismatch.length) derived.push(...mismatch);
         else if (text.some(f => f.code === 'PRIZE_CLAIM' || f.code === 'PAY_TO_CLAIM')) {
-          derived.push({ code: 'UNVERIFIED_PRIZE_CLAIM', subject: 'link', data: { host }, evidence: { kind: 'url', value: parsed.href } });
+          derived.push({ code: 'UNVERIFIED_PRIZE_CLAIM', subject: 'link', data: { host, service: service ? registrableDomain(hostname) : '' }, evidence: { kind: 'url', value: parsed.href } });
         }
       }
     }

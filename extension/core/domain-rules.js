@@ -15,10 +15,14 @@
   const { registrableDomain, isSameOrSubdomain, publicSuffix, toLookalikeAscii } = core.urlNormalizer;
 
   // Companies scammers pretend to be most often, and their OFFICIAL websites.
-  //   nameRe   how the company's name is written in text
-  //   keys     words to look for inside a web address
-  //   domains  official websites (and everything under them)
-  // Before adding a website here, check it on the company's own site.
+  //   nameRe        how the company's name is written in text
+  //   keys          words to look for inside a web address
+  //   domains       official websites (and everything under them). Their email
+  //                 comes from these too, unless emailDomains says otherwise.
+  //   emailDomains  extra official addresses its email comes from
+  //   asksByEmail   false if the organization says it never emails people first
+  //                 to ask for personal or financial details
+  // Before adding anything here, check it on the organization's own website.
   const BRANDS = [
     { label: 'PayPal', nameRe: /paypal/i, keys: ['paypal'], domains: ['paypal.com', 'paypal.me', 'paypal.co.uk'] },
     { label: 'Amazon', nameRe: /amazon/i, keys: ['amazon'], domains: ['amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.com.au'] },
@@ -28,7 +32,8 @@
     { label: 'Chase', nameRe: /\bchase\b/i, keys: ['chase'], domains: ['chase.com'] },
     { label: 'Wells Fargo', nameRe: /wells ?fargo/i, keys: ['wellsfargo'], domains: ['wellsfargo.com'] },
     { label: 'Bank of America', nameRe: /bank of america/i, keys: ['bankofamerica', 'bofa'], domains: ['bankofamerica.com', 'bofa.com'] },
-    { label: 'the IRS', nameRe: /\birs\b|internal revenue/i, keys: ['irs'], domains: ['irs.gov'] },
+    // irs.gov: "The IRS doesn't initiate contact with taxpayers by email ... to request personal or financial information."
+    { label: 'the IRS', nameRe: /\birs\b|internal revenue/i, keys: ['irs'], domains: ['irs.gov'], asksByEmail: false },
     { label: 'Social Security', nameRe: /social security/i, keys: ['ssa', 'socialsecurity'], domains: ['ssa.gov'] },
     { label: 'the Post Office (USPS)', nameRe: /\busps\b|postal service/i, keys: ['usps'], domains: ['usps.com'] },
     { label: 'FedEx', nameRe: /fedex/i, keys: ['fedex'], domains: ['fedex.com'] },
@@ -38,6 +43,24 @@
   // Websites with a company's word in their name that are NOT pretending:
   // "amazonaws.com" is where anyone can put files, not Amazon's shop.
   const NOT_IMPERSONATION = ['amazonaws.com'];
+
+  // Services that send email and count clicks FOR other businesses. A real
+  // company's newsletter may come from (or link through) one of these, so a
+  // company name on them isn't proof of anything by itself. Scammers use them
+  // too, so they're never a sign of safety either. Check before adding.
+  const EMAIL_SERVICES = [
+    'sendgrid.net', 'mcsv.net', 'mcdlv.net', 'rsgsv.net', 'list-manage.com', 'mandrillapp.com',
+    'amazonses.com', 'awstrack.me', 'sparkpostmail.com', 'mailgun.org', 'constantcontact.com', 'ccsend.com',
+    'rs6.net', 'createsend.com', 'hubspotemail.net', 'klaviyomail.com', 'exacttarget.com', 'mktomail.com',
+    'postmarkapp.com', 'sendinblue.com', 'govdelivery.com',
+  ];
+
+  // Advertising networks. A click on a real ad usually goes through one of
+  // these first, so "the ad names Amazon but the link goes to
+  // googleadservices.com" is normal and says nothing.
+  const AD_NETWORKS = [
+    'googleadservices.com', 'doubleclick.net', 'googlesyndication.com', 'amazon-adsystem.com', 'adnxs.com', 'criteo.com',
+  ];
 
   // Free personal email services. A real company never emails you from one of these.
   const FREE_MAIL = new Set([
@@ -66,6 +89,17 @@
 
   function isOfficialFor(hostname, brand) {
     return brand.domains.some(d => isSameOrSubdomain(hostname, d));
+  }
+
+  function sendsEmailFrom(domain, brand) {
+    return isOfficialFor(domain, brand) || (brand.emailDomains || []).some(d => isSameOrSubdomain(domain, d));
+  }
+
+  // 'email' for an email service, 'ad' for an ad network, or ''.
+  function serviceKind(hostname) {
+    if (EMAIL_SERVICES.some(d => isSameOrSubdomain(hostname, d))) return 'email';
+    if (AD_NETWORKS.some(d => isSameOrSubdomain(hostname, d))) return 'ad';
+    return '';
   }
 
   // The company this is an official website of, or null.
@@ -177,7 +211,12 @@
   }
 
   // The sender's name or address pretends to be a company.
-  function checkSender(senderName, senderEmail) {
+  //   kind  what the message is: 'alert' (an account, security, payment, or
+  //         delivery notice), 'marketing' (a newsletter or ad), or 'personal'.
+  //         See textRules.messageKind().
+  // A company name on someone else's address matters most in an alert: that's
+  // what scammers fake. A newsletter sent through an email service is normal.
+  function checkSender(senderName, senderEmail, kind = 'personal') {
     const name = senderName || '';
     const address = (senderEmail || '').toLowerCase().trim();
     const domain = address.includes('@') ? address.split('@').pop() : '';
@@ -185,10 +224,19 @@
     const findings = [];
     const evidence = { kind: 'sender', value: address };
 
-    const claimed = brandNamedIn(name);
-    if (claimed && (FREE_MAIL.has(domain) || !isOfficialFor(domain, claimed))) {
-      findings.push({ code: 'SENDER_NAME_MISMATCH', subject: 'sender', data: { brand: claimed.label, address }, evidence });
-    } else if (FREE_MAIL.has(domain) && /support|security|billing|account|department|service|team|bank/i.test(name)) {
+    // "service@paypal.com <x@evil.example>": an address written into the NAME.
+    const shownAddress = (name.match(/[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})/i) || [])[1];
+    const shownBrand = shownAddress ? officialBrandFor(shownAddress.toLowerCase()) : null;
+    const claimed = shownBrand || brandNamedIn(name);
+    // A company never emails from a free personal account, even its own ("Apple <someone@icloud.com>").
+    if (claimed && (FREE_MAIL.has(domain) || !sendsEmailFrom(domain, claimed))) {
+      let variant;
+      if (shownBrand && !isSameOrSubdomain(domain, shownAddress.toLowerCase())) variant = 'address_in_name';
+      else if (FREE_MAIL.has(domain)) variant = 'free_mail';
+      else if (serviceKind(domain) === 'email') variant = kind === 'alert' ? 'alert' : null; // a newsletter through an email service is normal
+      else variant = kind === 'alert' ? 'alert' : 'not_alert';
+      if (variant) findings.push({ code: 'SENDER_NAME_MISMATCH', subject: 'sender', data: { brand: claimed.label, address, variant, shown: shownAddress }, evidence });
+    } else if (!claimed && FREE_MAIL.has(domain) && /support|security|billing|account|department|service|team|bank/i.test(name)) {
       findings.push({ code: 'COMPANY_ON_FREE_EMAIL', subject: 'sender', data: { address }, evidence });
     }
 
@@ -197,6 +245,34 @@
       findings.push({ code: 'LOOKALIKE_SENDER', subject: 'sender', data: { brand: fake.brand.label, address }, evidence });
     }
     return findings;
+  }
+
+  // An email claiming to be from an organization that says it never emails
+  // people first to ask for personal or financial details, asking for exactly that.
+  //   asks  the message asks for money, personal details, or account action
+  function checkAgencyEmail(senderName, subject, asks) {
+    if (!asks) return [];
+    const brand = BRANDS.find(b => b.asksByEmail === false && (b.nameRe.test(senderName || '') || b.nameRe.test(subject || '')));
+    if (!brand) return [];
+    return [{ code: 'AGENCY_DOES_NOT_EMAIL', subject: 'sender', data: { brand: brand.label }, evidence: { kind: 'text', value: brand.label } }];
+  }
+
+  // An email that says it's from a company, but none of its links go to that
+  // company's website. Links through email services and ad networks are
+  // skipped (we can't see where they end up).
+  //   claimed  the company the sender name or subject names
+  //   links    [{ host, service }] for the email's links
+  //   kind     see checkSender
+  function checkMessageLinks(claimed, links, kind) {
+    if (!claimed) return [];
+    const readable = links.filter(l => l.host && !l.service);
+    if (!readable.length || readable.some(l => isOfficialFor(l.host, claimed))) return [];
+    return [{
+      code: 'BRAND_NAME_MISMATCH',
+      subject: 'link',
+      data: { brand: claimed.label, host: readable[0].host, variant: 'message', alert: kind === 'alert' },
+      evidence: { kind: 'domain', value: readable[0].host },
+    }];
   }
 
   // A sign-in or payment page with a company's name on it, but not on that company's website.
@@ -213,8 +289,8 @@
   }
 
   core.domainRules = {
-    BRANDS, FREE_MAIL, normalizeLookalikes, officialBrandFor, brandNamedIn, lookalikeOf,
-    checkAddress, checkNamedBrand, checkSender, checkSignInPage,
+    BRANDS, FREE_MAIL, EMAIL_SERVICES, AD_NETWORKS, normalizeLookalikes, officialBrandFor, brandNamedIn, lookalikeOf,
+    serviceKind, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage,
   };
   if (typeof module !== 'undefined') module.exports = core.domainRules;
 })();

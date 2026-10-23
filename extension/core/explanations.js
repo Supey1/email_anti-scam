@@ -48,7 +48,9 @@
     },
     HIDDEN_DESTINATION: {
       title: 'Link goes somewhere else',
-      explain: d => `A link says it goes to ${d.shown}, but it really goes to ${d.host}.`,
+      explain: d => d.variant === 'via_service'
+        ? `A link says it goes to ${d.shown}, but it first passes through ${d.service}, a service that counts clicks, so we can't see where it really ends up.`
+        : `A link says it goes to ${d.shown}, but it really goes to ${d.host}.`,
       flag: () => 'hidden destination',
     },
     MISLEADING_URL: {
@@ -69,9 +71,11 @@
     },
     BRAND_NAME_MISMATCH: {
       title: 'Company name doesn\'t match',
-      explain: d => d.variant === 'offer'
-        ? `The offer mentions ${d.brand}, but the link goes to ${d.host}, not ${d.brand}'s real website.`
-        : `A link mentions ${d.brand}, but it goes to ${d.host}.`,
+      explain: d => {
+        if (d.variant === 'offer') return `The offer mentions ${d.brand}, but the link goes to ${d.host}, not ${d.brand}'s real website.`;
+        if (d.variant === 'message') return `This email says it's from ${d.brand}, but none of its links go to ${d.brand}'s real website (one goes to ${d.host}).`;
+        return `A link mentions ${d.brand}, but it goes to ${d.host}.`;
+      },
       flag: d => `not really ${d.brand}`,
     },
     SHORTENED_LINK: {
@@ -88,11 +92,18 @@
     },
     UNVERIFIED_PRIZE_CLAIM: {
       title: 'Unverified prize offer',
-      explain: d => `We could not confirm that ${d.host} belongs to the company in this offer.`,
+      explain: d => d.service
+        ? `This offer's link passes through ${d.service}, an advertising or email service, so we couldn't check which company it really leads to.`
+        : `We could not confirm that ${d.host} belongs to the company in this offer.`,
     },
     SENDER_NAME_MISMATCH: {
       title: 'Sender doesn\'t match',
-      explain: d => `The sender's name says ${d.brand}, but the email address (${d.address}) is not from ${d.brand}.`,
+      explain: d => {
+        if (d.variant === 'address_in_name') return `The sender's name shows the address ${d.shown}, but the email really came from ${d.address}.`;
+        if (d.variant === 'free_mail') return `The sender's name says ${d.brand}, but it came from a free personal email account (${d.address}). ${d.brand} never does this.`;
+        if (d.variant === 'alert') return `This looks like an account or payment notice from ${d.brand}, but it came from ${d.address}, not one of ${d.brand}'s own email addresses.`;
+        return `The sender's name says ${d.brand}, but the email address (${d.address}) is not from ${d.brand}. Companies sometimes send ads through other services, so this alone isn't proof.`;
+      },
     },
     LOOKALIKE_SENDER: {
       title: 'Fake sender address',
@@ -159,7 +170,7 @@
     },
     DELIVERY_PROBLEM_CLAIM: {
       title: 'Delivery problem',
-      explain: () => 'It says a package couldn\'t be delivered. Fake delivery notices are a very common scam. Check the tracking number on the shipper\'s real website instead.',
+      explain: () => 'It says a package couldn\'t be delivered or needs a fee. Fake delivery notices are a very common scam. Check the tracking number on the shipper\'s real website instead.',
     },
     SECRECY_REQUEST: {
       title: 'Asks you to keep a secret',
@@ -168,6 +179,22 @@
     FAMILY_EMERGENCY: {
       title: 'Family emergency',
       explain: () => 'It says a family member is in trouble and needs help fast. Call that person directly using a phone number you already have.',
+    },
+    PAYMENT_DEMAND: {
+      title: 'Asks for money',
+      explain: () => 'It asks you to pay or send money.',
+    },
+    THREAT_OF_CONSEQUENCES: {
+      title: 'Threatens you',
+      explain: () => 'It threatens you with arrest, legal action, or losing your benefits. Real agencies and companies don\'t threaten people by email or pop-up.',
+    },
+    URGENT_PAYMENT_REQUEST: {
+      title: 'Urgent demand for money',
+      explain: () => 'It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have.',
+    },
+    AGENCY_DOES_NOT_EMAIL: {
+      title: 'Agency that doesn\'t email first',
+      explain: d => `This says it's from ${d.brand} and asks for money or personal details. ${d.brand} says it never emails people first to ask for these.`,
     },
     PRESSURE_TACTICS: {
       title: 'Rushing you',

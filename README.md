@@ -23,8 +23,10 @@ It protects at three levels. The stronger the evidence, the stronger the respons
 **In Gmail** (from version 0.1):
 - Notices when you open an email and checks it automatically
 - Shows a big-text panel with high contrast, color **and** icons, and short sentences
-- Checks the sender: a company name with a personal or fake email address
-- Checks the wording: gift cards and wire transfers, "your account is locked," rushing, secrecy, prizes, fake delivery notices, tech-support scams, and the "grandparent scam"
+- Checks the sender against each company's **own** email addresses. How much a mismatch matters depends on the message: a "PayPal" account alert from someone else's address is a real warning sign, but a newsletter sent through an email service (SendGrid, Mailchimp, GovDelivery...) is normal. A company's address written into the sender's *name* (`service@paypal.com <x@evil.example>`) is always a warning.
+- Notices when an email says it's from a company but none of its links go to that company's website
+- Checks the wording: gift cards and wire transfers, "your account is locked," rushing, secrecy, prizes, fake delivery notices and redelivery fees, tech-support scams, the "grandparent scam," and **urgent demands for money** ("pay today or you will be arrested")
+- Knows that the IRS says it never emails people first to ask for money or personal details
 - **New:** clicking *any* link in an email that looks like a scam brings up the "Stop and check" warning first
 
 **On every website** (new in 0.2):
@@ -32,7 +34,8 @@ It protects at three levels. The stronger the evidence, the stronger the respons
   - links that pretend to be a company (`paypa1-secure.xyz`, `paypal.com.fake-domain.example`, `paypal.com@evil.example`), or whose words say one website but really go to another
   - links through well-known pass-through services (Google, Outlook, Facebook, YouTube) are checked where they really end up
   - number addresses, shortened links, and risky website endings
-  - ads that say *you* won a prize, ask you to pay a fee or use gift cards first, say *your* computer is infected, or tell you to call a number
+  - ads that say *you* won a prize, ask you to pay a fee or use gift cards first, say *your* package is on hold, say *your* computer is infected, or tell you to call a number
+  - ad clicks that go through an ad network (like Google's) are checked where they really go when the link says so; when it doesn't, the ad's wording is still checked, but the engine doesn't pretend to know the destination
   - clicks inside ads that load in their own frame are caught too, and the warning covers the whole screen
 - **On the page itself:** warns if the page looks like a company's sign-in page but isn't on that company's website, sends your password to a different website or to a known dangerous one, asks for a password on a free hosting website, sends it without encryption, or is a fake virus or prize pop-up (including pop-ups that appear after the page loads)
 - **Known dangerous websites** are blocked by Chrome itself, so typed addresses, redirects, and pop-ups are stopped too. Only a list from a trusted source blocks outright; everything else gets a warning the person can choose to go past.
@@ -125,7 +128,7 @@ node tests/rules.test.js
 node tests/browser/acceptance.test.js
 ```
 
-The last one loads the real extension into Chromium, opens local fake pages, and checks that suspicious clicks are stopped before the browser even asks for the address. It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
+The last one loads the real extension into Chromium, opens local fake pages (a normal page, a fake sign-in page, a news page with ads, a pop-up, and a pretend Gmail inbox), and checks that suspicious clicks are stopped before the browser even asks for the address. It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
 
 `contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md). `rules.test.js` checks the scam rules.
 
@@ -134,7 +137,7 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 The tests end with two numbers:
 
 ```
-253/253 tests passed
+301/301 tests passed
 Scams caught:          18/18
 False alarms (normal): 0/15
 ```
@@ -162,6 +165,8 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 - Rules can't catch every scam, especially new tricks, and scammers can avoid our exact wording.
 - **Shortened and tracking links aren't followed.** We never open a link to see where it goes (that could warn the scammer, and the answer can change depending on who asks). A shortened link stays a weak warning sign. Only well-known pass-through services that write the destination into the link are followed.
 - **Single dangerous addresses** (`KNOWN_THREAT_URLS`) stop clicks, but Chrome doesn't block them yet when typed in (integration checklist).
+- **The lists of email services and ad networks (`core/domain-rules.js`) are hand-picked.** A real company's newsletter sent through a service that isn't listed may get a mild "check first" note; a scam sent through a listed service is still checked on everything else.
+- **Gmail only shows us the sender's name and address.** The hidden email headers that would prove who really sent a message aren't visible to the extension.
 - **Telling owners apart uses a partial list of website endings.** `core/url-normalizer.js` knows common two-part endings (`co.uk`, `com.au`...) and free hosting sites (`github.io`, `netlify.app`...), but not the full Public Suffix List. An ending it doesn't know can make two different owners look like one website.
 - **The list of companies and their official websites (`core/domain-rules.js`) must be checked against each company's own site.** A missing official website means a real link gets flagged; a wrong one would let a fake through.
 - Chrome only. It can't see text messages, phone calls, or other apps on the computer; that would be a different product.

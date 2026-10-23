@@ -67,6 +67,9 @@
     CALL_THIS_NUMBER: { tier: 'moderate', points: 3, group: 'request' },
     SECRECY_REQUEST: { tier: 'moderate', points: 3, group: 'pressure' },
     PRIZE_WITH_PRESSURE: { tier: 'moderate', points: 2, group: 'combo' },
+    THREAT_OF_CONSEQUENCES: { tier: 'moderate', points: 3, group: 'pressure' },
+    URGENT_PAYMENT_REQUEST: { tier: 'moderate', points: 2, group: 'combo' },
+    AGENCY_DOES_NOT_EMAIL: { tier: 'moderate', points: 4, group: 'identity' },
 
     BRAND_NAME_MISMATCH: { tier: 'weak', points: 2, group: 'destination' },
     COMPANY_ON_FREE_EMAIL: { tier: 'weak', points: 2, group: 'identity' },
@@ -74,21 +77,37 @@
     SHORTENED_LINK: { tier: 'weak', points: 1, group: 'destination' },
     RISKY_DOMAIN_ENDING: { tier: 'weak', points: 1, group: 'destination' },
     PRESSURE_TACTICS: { tier: 'weak', points: 1, group: 'pressure' },
+    PAYMENT_DEMAND: { tier: 'weak', points: 1, group: 'request' },
     UNVERIFIED_PRIZE_CLAIM: { tier: 'weak', points: 0, group: 'destination' },
   };
 
   const TEXT_GROUPS = new Set(['claim', 'request', 'pressure']);
 
-  // Signs that are much stronger together than apart.
+  // Signs that are much stronger together than apart. A combination is added
+  // when at least one sign from EACH group is present.
   const COMBOS = [
-    { needs: ['PRIZE_CLAIM', 'PRESSURE_TACTICS'], adds: 'PRIZE_WITH_PRESSURE' },
+    { groups: [['PRIZE_CLAIM'], ['PRESSURE_TACTICS']], adds: 'PRIZE_WITH_PRESSURE' },
+    // "Urgent financial action": asking for money, plus a deadline or a threat.
+    // A normal bill ("payment due May 3") has the first part only.
+    { groups: [['PAYMENT_DEMAND', 'PAYMENT_METHOD_REQUEST', 'PAY_TO_CLAIM'], ['PRESSURE_TACTICS', 'THREAT_OF_CONSEQUENCES']], adds: 'URGENT_PAYMENT_REQUEST' },
   ];
 
-  // Some findings are stronger (or weaker) than their code's usual tier.
+  // Some findings are stronger (or weaker) than their code's usual tier,
+  // depending on the trick used or the kind of message.
   function tierFor(finding) {
     const rule = RULES[finding.code];
     if (!rule) return 'weak';
     const d = finding.data || {};
+    // Company name, someone else's address: matters in an account alert, much less in a newsletter.
+    if (finding.code === 'SENDER_NAME_MISMATCH') {
+      if (d.variant === 'address_in_name') return 'strong'; // "service@paypal.com" written into the NAME
+      if (d.variant === 'not_alert') return 'weak';
+      return 'moderate'; // 'alert', 'free_mail'
+    }
+    // An email that says it's a company's alert, but none of its links go to that company.
+    if (finding.code === 'BRAND_NAME_MISMATCH' && d.variant === 'message' && d.alert) return 'moderate';
+    // A link through an email service or ad network: we can't see where it ends up.
+    if (finding.code === 'HIDDEN_DESTINATION' && d.variant === 'via_service') return 'weak';
     if (finding.code === 'KNOWN_THREAT' && !d.trusted) return 'strong';
     // Writing a company's real website in front of a fake one has no innocent use.
     if (finding.code === 'LOOKALIKE_DOMAIN' && d.technique === 'official_domain_in_front') return 'strong';
@@ -104,7 +123,8 @@
     if (!rule) return 0;
     const tier = tierFor(finding);
     if (tier === 'strong' && rule.tier !== 'strong') return STOP_AT;
-    if (tier === 'weak' && rule.tier !== 'weak') return 2;
+    if (tier === 'moderate' && rule.tier === 'weak') return 3;
+    if (tier === 'weak' && rule.tier !== 'weak') return 1;
     return rule[source] !== undefined ? rule[source] : rule.points;
   }
 
@@ -136,8 +156,8 @@
     const all = findings.slice();
     const codes = new Set(all.map(f => f.code));
     for (const combo of COMBOS) {
-      if (combo.needs.every(code => codes.has(code)) && !codes.has(combo.adds)) {
-        all.push({ code: combo.adds, subject: 'text', data: { needs: combo.needs }, evidence: null });
+      if (combo.groups.every(group => group.some(code => codes.has(code))) && !codes.has(combo.adds)) {
+        all.push({ code: combo.adds, subject: 'text', data: {}, evidence: null });
       }
     }
 
