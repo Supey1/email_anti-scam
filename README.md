@@ -70,7 +70,7 @@ The practice pages load the extension's files themselves, so open them as files,
 ## How it works
 
 ```
-1. COLLECT EVIDENCE                 2. CHECK IT (rules.js)              3. ACT
+1. COLLECT EVIDENCE                 2. CHECK IT (rules.js + core/)      3. ACT
 gmail.js  the open email     ──►    analyzeEmail()   ──►  panel (+ tells guard.js)
 guard.js  a link being clicked ──►  analyzeLink()    ──►  "Stop and check" warning
 page.js   the page you're on   ──►  analyzePage()    ──►  "Be careful" warning
@@ -78,7 +78,7 @@ page.js   the page you're on   ──►  analyzePage()    ──►  "Be carefu
 service-worker.js + threat-list.js  ──►  Chrome blocks known dangerous websites before they load
 ```
 
-Each check adds "risk points" for a warning sign, and the answer comes with the list of signs that caused it:
+Each check adds "risk points" for a warning sign (`core/risk-policy.js` says how many), and the answer comes with the list of signs that caused it:
 
 | Evidence | Level | Action |
 |---|---|---|
@@ -96,7 +96,8 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | File | What it does |
 |---|---|
 | `extension/manifest.json` | Tells Chrome what the extension is, which files run where, and what it's allowed to do |
-| `extension/rules.js` | All the scam checks and the scoring, for emails, links, and pages |
+| `extension/rules.js` | The front door to the scam checks: `analyze()` (see `docs/interfaces.md`) |
+| `extension/core/` | The scam checks, in groups: reading addresses, address rules, company-name rules, wording rules, the risk policy, and the plain-language explanations |
 | `extension/threat-list.js` | The list of known dangerous websites (practice addresses for now) |
 | `extension/gmail.js` | Reads the open email in Gmail and builds the panel |
 | `extension/guard.js` | Stops risky link clicks before the browser leaves the page |
@@ -129,9 +130,12 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 The tests end with two numbers:
 
 ```
-Scams caught:          17/17
-False alarms (normal): 0/13
+180/180 tests passed
+Scams caught:          18/18
+False alarms (normal): 0/15
 ```
+
+Every rule has at least one example that should trigger it and one that should not. The tests also check the trickiest address cases directly: `paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, and two `github.io` sites belong to different people.
 
 Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
 
@@ -152,6 +156,8 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 - **A sign-in page with a company's name on it** (in its title or main heading) that isn't on that company's website gets a warning, even if it's a real partner site.
 - Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `gmail.js`.
 - Rules can't catch every scam, especially new tricks, and scammers can avoid our exact wording.
+- **Telling owners apart uses a partial list of website endings.** `core/url-normalizer.js` knows common two-part endings (`co.uk`, `com.au`...) and free hosting sites (`github.io`, `netlify.app`...), but not the full Public Suffix List. An ending it doesn't know can make two different owners look like one website.
+- **The list of companies and their official websites (`core/domain-rules.js`) must be checked against each company's own site.** A missing official website means a real link gets flagged; a wrong one would let a fake through.
 - Chrome only. It can't see text messages, phone calls, or other apps on the computer; that would be a different product.
 
 ## Roadmap

@@ -191,9 +191,10 @@ Which actions go with which verdicts:
 | Code | Strength | Used for | Meaning |
 |---|---|---|---|
 | `KNOWN_THREAT` | block | all | The website is on the list of known dangerous websites. |
-| `LOOKALIKE_DOMAIN` | strong | all | The address imitates a company (`paypa1-secure.example`). |
+| `LOOKALIKE_DOMAIN` | strong | all | The address imitates a company: its name with extra words, swapped characters (`paypa1`), letters from another alphabet, a misspelling, or the company's real website written in front (`paypal.com.fake-domain.example`). |
 | `HIDDEN_DESTINATION` | strong | email, link | The link's words show one website, but it goes to another. |
 | `BRAND_NAME_MISMATCH` | medium | email, link | The link or offer names a company, but goes somewhere else. |
+| `MISLEADING_URL` | strong | email, link | The address is written to look like a company's website (`paypal.com@evil.example`, or a company's website in the path) but goes elsewhere. |
 | `NUMBER_ADDRESS` | medium | all | A raw number address instead of a website name. |
 | `SHORTENED_LINK` | weak | email, link | A shortened link hides where it really goes. |
 | `RISKY_DOMAIN_ENDING` | weak | all | A website ending often used by scam sites. |

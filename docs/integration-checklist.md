@@ -15,16 +15,21 @@ Short and shared. When something in the other person's area needs to change, add
 
 The code was written before the contract. Today `rules.js` takes three different input shapes and returns `level` / `action` / `score` / plain-sentence `reasons`.
 
-- [ ] **A:** One entry point, `analyze(input)`, taking the contract input for all three sources. It returns the contract result and never throws (`unknown` on failure). Keep `analyzeEmail` / `analyzeLink` / `analyzePage` internal, or remove them.
-- [ ] **A:** Every reason returns `{ code, title, explanation }` using the codes in the table. Remove `score` and `level` from the output.
-- [ ] **A:** Map the old actions to verdicts: `block` → `block` + `GO_BACK`; strong `warn` → `warn` + `GO_BACK` (links, email) or `DO_NOT_ENTER_INFO` (pages); weak signs (today's "medium") → `warn` + `VERIFY_INDEPENDENTLY`; nothing → `no_warning_signs` + `NONE`.
-- [ ] **A:** Return `evidence` items `{ kind, value, reasonCode }`.
-- [ ] **A:** Pair each input fixture with the result it should get, and test the engine's real output with `validateResult` from `tests/contract.js`.
+- [x] **A:** One entry point, `analyze(input)` in `rules.js`, taking the contract input for all three sources. It returns the contract result and never throws (`unknown` on failure).
+- [x] **A:** Every reason returns `{ code, title, explanation }` using the codes in the table. No `score` or `level` in the contract result.
+- [x] **A:** Verdicts and actions: known dangerous → `block` + `GO_BACK`; 5+ points → `warn` + `GO_BACK` (links, email, pages without a password or card box) or `DO_NOT_ENTER_INFO` (pages with one); 1–4 points → `warn` + `VERIFY_INDEPENDENTLY`; nothing → `no_warning_signs` + `NONE`.
+- [x] **A:** Return `evidence` items `{ kind, value, reasonCode }`.
+- [x] **A:** Each input fixture is paired with its expected verdict in `tests/rules.test.js`, and every result there is checked with `validateResult`.
+- [ ] **A:** Remove `analyzeEmail` / `analyzeLink` / `analyzePage` from `rules.js` once B no longer calls them. Until then they wrap `analyze()` and return the old shape, so nothing in B's code had to change.
 - [ ] **B:** `gmail.js`, `page.js`, and `guard.js` build the contract input (`source`, `pageUrl`, `pageTitle`, `visibleText`, `links[].url`, `forms[]`, `context`) and call `analyze()`. `page.js` sends `forms` as `{ action, hasPassword, hasPaymentField }` instead of `hasPassword` / `formActions`.
 - [ ] **B:** `guard.js` and `page.js` interrupt only for `GO_BACK` / `DO_NOT_ENTER_INFO`, never by reading reason codes or counting reasons.
 - [ ] **B:** `warning.js` and the Gmail panel show `title` / `explanation` per reason, may style by `code`, and show unknown codes from `title` / `explanation`. Gmail says "No warning signs found", never "safe". `unknown` is not shown as no warning signs.
 - [ ] **B:** Rename the frame-to-main-page message from `granblock-warning` to `SHOW_WARNING` / `SHOW_WARNING_RESULT` with `schemaVersion` and `navigation`.
 - [ ] **B:** Test the scanner's real output with `validateInput` from `tests/contract.js`, including that no field values are ever collected.
+
+## Load order (A touched B's files: please review)
+
+- [ ] **B:** Phase 1 split the engine into `extension/core/*.js`. Those files must load before `rules.js`, so A added them to the script lists in `extension/manifest.json`, `tests/fake-gmail.html`, and `tests/practice-*.html`. Nothing else in those files changed (separate commit). Check that you're happy with it, or move them where you prefer.
 
 ## Tests
 
