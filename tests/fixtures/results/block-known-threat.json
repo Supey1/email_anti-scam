@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "verdict": "block",
+  "reasons": [
+    {
+      "code": "KNOWN_THREAT",
+      "title": "Known dangerous website",
+      "explanation": "known-phish.example is on a list of known dangerous websites."
+    }
+  ],
+  "recommendedAction": "GO_BACK",
+  "evidence": [
+    { "kind": "domain", "value": "known-phish.example", "reasonCode": "KNOWN_THREAT" }
+  ]
+}

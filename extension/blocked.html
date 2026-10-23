@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email Anti-Scam warning</title>
+  <!-- The extension's own warning page. A website can't change or fake it, which is why it is the safest place for a warning.
+       Shown instead of a website on the known-dangerous list (blocked.html#host, from Chrome's blocking rules), and for a
+       risky click or any other analyzer result (blocked.html?t=TOKEN, from OPEN_WARNING_PAGE). The page itself is built by
+       blocked.js from the shared warning interface (ui/warning-view.js). -->
+</head>
+<body>
+  <main id="root"></main>
+  <script src="threat-list.js"></script>
+  <script src="core/url-normalizer.js"></script>
+  <script src="core/domain-rules.js"></script>
+  <script src="core/url-rules.js"></script>
+  <script src="core/text-rules.js"></script>
+  <script src="core/risk-policy.js"></script>
+  <script src="core/explanations.js"></script>
+  <script src="core/analyzer.js"></script>
+  <script src="rules.js"></script>
+  <script src="threat-sync.js"></script>
+  <script src="speech.js"></script>
+  <script src="panel-styles.js"></script>
+  <script src="ui/explain.js"></script>
+  <script src="ui/warning-view.js"></script>
+  <script src="blocked.js"></script>
+</body>
+</html>

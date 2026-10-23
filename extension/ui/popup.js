@@ -1,12 +1,16 @@
 // popup.js: three plain questions. Is protection on? Is this page being checked? What can I do to get help?
+// Uses the service worker's GET_STATUS / SET_SETTINGS (docs/interfaces.md) and asks the page's own checker whether it is running.
 
 (async () => {
   'use strict';
-  await Settings.ready;
 
   const $ = id => document.getElementById(id);
   const params = new URLSearchParams(location.search);
+  const ZOOM = { large: 1, larger: 1.2, largest: 1.45 };
   let tab = null;
+  let status = null;
+
+  const ask = message => chrome.runtime.sendMessage({ schemaVersion: 1, ...message });
 
   async function findTab() {
     try {
@@ -18,13 +22,9 @@
     }
   }
 
-  async function askPage(message) {
+  async function askPage(type) {
     if (!tab || tab.id === undefined) return undefined;
-    try { return await chrome.tabs.sendMessage(tab.id, message); } catch (e) { return undefined; }
-  }
-
-  function applyTextSize() {
-    document.documentElement.style.fontSize = `${Settings.TEXT_PX[Settings.current.textSize] * 0.8}px`;
+    try { return await chrome.tabs.sendMessage(tab.id, { type, schemaVersion: 1 }); } catch (e) { return undefined; }
   }
 
   function showStatus(el, info) {
@@ -33,51 +33,43 @@
   }
 
   async function render() {
-    applyTextSize();
-    const s = Settings.current;
+    status = await ask({ type: 'GET_STATUS' });
+    const enabled = !!(status.settings && status.settings.protectionEnabled);
+    document.documentElement.style.fontSize = `${19 * (ZOOM[status.settings && status.settings.textSize] || 1)}px`;
 
-    showStatus($('protection-status'), s.enabled
+    showStatus($('protection-status'), enabled
       ? { state: 'yes', icon: '✅', text: 'Yes, protection is on.' }
       : { state: 'no', icon: '⛔', text: 'No, protection is off.' });
-    $('toggle-protection').textContent = s.enabled ? 'Turn protection off' : 'Turn protection on';
+    $('toggle-protection').textContent = enabled ? 'Turn protection off' : 'Turn protection on';
 
-    const reply = await askPage({ type: 'STATUS' });
-    const info = PopupStatus.describePage({ settings: s, url: tab && tab.url, reply });
+    const reply = enabled ? await askPage('PAGE_STATUS') : undefined;
+    const info = PopupStatus.describePage({ protectionEnabled: enabled, access: status.access, url: tab && tab.url, reply });
     showStatus($('page-status'), info);
     $('page-detail').textContent = info.detail;
-    const toggle = $('toggle-site');
-    toggle.hidden = !info.toggle;
-    if (info.toggle) { toggle.textContent = info.toggle.label; toggle.dataset.on = String(info.toggle.on); }
+    $('open-settings-from-status').hidden = !info.openSettings;
     $('recheck').hidden = info.state !== 'yes';
   }
 
-  function say(text) { $('action-result').textContent = text; }
+  const say = text => { $('action-result').textContent = text; };
 
   $('toggle-protection').addEventListener('click', async () => {
-    await Settings.save({ enabled: !Settings.current.enabled });
-  });
-
-  $('toggle-site').addEventListener('click', async () => {
-    const host = new URL(tab.url).hostname;
-    await Settings.save(Settings.withSiteToggled(Settings.current, host, $('toggle-site').dataset.on === 'true'));
+    const answer = await ask({ type: 'SET_SETTINGS', settings: { protectionEnabled: !status.settings.protectionEnabled } });
+    if (answer.type === 'ERROR') say('Sorry, that did not work. Try again.');
+    await render();
   });
 
   $('read-help').addEventListener('click', () => {
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance($('help-text').textContent);
-    speech.rate = Settings.SPEECH_RATE[Settings.current.speechSpeed];
-    window.speechSynthesis.speak(speech);
+    GranblockSpeech.speak($('help-text').textContent, { rate: (status && status.settings && status.settings.speechRate) || 0.9, key: 'popup-help' });
   });
 
   $('recheck').addEventListener('click', async () => {
-    const reply = await askPage({ type: 'RESCAN' });
+    const reply = await askPage('PAGE_RESCAN');
     say(reply && reply.ok ? 'Checked again.' : 'Could not check again. Try reloading the page.');
   });
 
-  $('open-options').addEventListener('click', () => { chrome.runtime.openOptionsPage(); });
-
-  // Pages react a moment after a setting changes, so look again shortly afterwards.
-  Settings.onChange(() => setTimeout(render, 350));
+  const openSettings = () => chrome.runtime.openOptionsPage();
+  $('open-options').addEventListener('click', openSettings);
+  $('open-settings-from-status').addEventListener('click', openSettings);
 
   tab = await findTab();
   await render();

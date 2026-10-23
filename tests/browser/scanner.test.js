@@ -8,6 +8,7 @@ const path = require('path');
 let chromium;
 try { ({ chromium } = require('playwright')); } catch (e) { console.log('SKIP  Playwright is not installed (npm i playwright)'); process.exit(0); }
 
+const { validateInput } = require('../contract.js');
 const SCANNER = path.join(__dirname, '..', '..', 'extension', 'content', 'page-scanner.js');
 const URL = 'http://scanner.test/page';
 
@@ -22,11 +23,18 @@ async function open(browser, html, limits = { debounceMs: 100 }) {
   await page.addScriptTag({ path: SCANNER });
   await page.evaluate(limits => {
     window.__evidence = [];
-    window.__scanner = PageScanner.start({ limits, onEvidence: e => window.__evidence.push(e) });
+    window.__meta = [];
+    window.__scanner = PageScanner.start({ limits, onEvidence: (e, meta) => { window.__evidence.push(e); window.__meta.push(meta); } });
   }, limits);
   return page;
 }
-const evidence = page => page.evaluate(() => window.__evidence);
+// Every piece of evidence the scanner gives must follow docs/interfaces.md exactly.
+const evidence = async page => {
+  const all = await page.evaluate(() => window.__evidence);
+  for (const e of all) assert.deepStrictEqual(validateInput(e), [], 'scanner output breaks the contract');
+  return all;
+};
+const metas = page => page.evaluate(() => window.__meta);
 const wait = (page, ms) => page.waitForTimeout(ms);
 
 test('initial scan collects url, title, text, links, and form metadata', async browser => {
@@ -46,8 +54,8 @@ test('initial scan collects url, title, text, links, and form metadata', async b
     { text: 'Claim reward', url: 'https://claim.example/go' },
     { text: 'Local page', url: 'http://scanner.test/local' },
   ], 'other-site links first; fragment and mailto links left out');
-  assert.deepStrictEqual(e.forms, [{ action: 'https://collect.example/post', method: 'post', fieldCount: 2, hasPassword: true, hasPayment: false }]);
-  assert.strictEqual(e.context.scan, 'initial');
+  assert.deepStrictEqual(e.forms, [{ action: 'https://collect.example/post', hasPassword: true, hasPaymentField: false }]);
+  assert.strictEqual((await metas(page))[0].scan, 'initial');
   await page.close();
 });
 
@@ -68,7 +76,7 @@ test('never collects typed or sensitive values', async browser => {
   assert.ok(json.includes('visible text'));
   const [e] = await evidence(page);
   assert.strictEqual(e.forms[0].hasPassword, true);
-  assert.strictEqual(e.forms[0].hasPayment, true);
+  assert.strictEqual(e.forms[0].hasPaymentField, true);
   await page.close();
 });
 
@@ -86,10 +94,11 @@ test('limits text and links on huge pages', async browser => {
   const links = Array.from({ length: 5000 }, (_, i) => `<a href="https://site${i}.example/">link ${i}</a>`).join('');
   const page = await open(browser, `<body><p>${'word '.repeat(50000)}</p>${links}`, { debounceMs: 100 });
   const [e] = await evidence(page);
-  assert.ok(e.visibleText.length <= 20000, `text was ${e.visibleText.length}`);
+  assert.ok(e.visibleText.length <= 40000, `text was ${e.visibleText.length}`);
   assert.strictEqual(e.links.length, 100);
-  assert.strictEqual(e.context.truncated.text, true);
-  assert.strictEqual(e.context.truncated.links, true);
+  const [meta] = await metas(page);
+  assert.strictEqual(meta.truncated.text, true);
+  assert.strictEqual(meta.truncated.links, true);
   await page.close();
 });
 
@@ -101,7 +110,7 @@ test('dynamic scan reports only new content and does not repeat it', async brows
   await wait(page, 400);
   let all = await evidence(page);
   assert.strictEqual(all.length, 2);
-  assert.strictEqual(all[1].context.scan, 'dynamic');
+  assert.strictEqual((await metas(page))[1].scan, 'dynamic');
   assert.deepStrictEqual(all[1].links, [{ text: 'Claim prize', url: 'https://ad.example/win' }]);
   assert.ok(all[1].visibleText.includes('Congratulations winner') && !all[1].visibleText.includes('original text'));
 

@@ -1,68 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Email Anti-Scam",
-  "version": "0.5.0",
-  "description": "Protects older adults from scam emails, fake websites, and risky links with a big, plain-language warning.",
+  "version": "0.6.0",
+  "description": "Helps older adults avoid scams: checks emails, websites, and links, and stops risky clicks with a big, plain-language warning.",
   "permissions": [
     "declarativeNetRequest",
-    "storage"
+    "storage",
+    "scripting"
   ],
-  "host_permissions": [
-    "<all_urls>"
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "service-worker.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://mail.google.com/*"
-      ],
-      "js": [
-        "settings.js",
-        "rules.js",
-        "threats.js",
-        "analyzer.js",
-        "panel-styles.js",
-        "ui/explain.js",
-        "ui/warning-view.js",
-        "panel.js",
-        "content/ad-signals.js",
-        "content/gmail-adapter.js",
-        "content/gmail.js",
-        "content/click-guard.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "exclude_matches": [
-        "https://mail.google.com/*"
-      ],
-      "js": [
-        "settings.js",
-        "rules.js",
-        "threats.js",
-        "analyzer.js",
-        "panel-styles.js",
-        "ui/explain.js",
-        "ui/warning-view.js",
-        "panel.js",
-        "content/ad-signals.js",
-        "content/page-scanner.js",
-        "page.js",
-        "content/click-guard.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
+  "options_page": "settings.html",
   "web_accessible_resources": [
     {
       "resources": [
-        "ui/warning.html"
+        "blocked.html"
       ],
       "matches": [
         "<all_urls>"
@@ -72,9 +29,5 @@
   "action": {
     "default_title": "Email Anti-Scam",
     "default_popup": "ui/popup.html"
-  },
-  "options_ui": {
-    "page": "ui/options.html",
-    "open_in_tab": true
   }
 }

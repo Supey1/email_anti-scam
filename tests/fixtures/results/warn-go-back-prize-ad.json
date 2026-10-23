@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "verdict": "warn",
+  "reasons": [
+    {
+      "code": "PRIZE_CLAIM",
+      "title": "Prize offer",
+      "explanation": "It promises you a prize or a reward."
+    },
+    {
+      "code": "PRIZE_WITH_PRESSURE",
+      "title": "Prize and rushing",
+      "explanation": "It promises a prize and rushes you. Together, these are a classic scam pattern."
+    },
+    {
+      "code": "PRESSURE_TACTICS",
+      "title": "Rushing you",
+      "explanation": "It tries to rush you."
+    },
+    {
+      "code": "UNVERIFIED_PRIZE_CLAIM",
+      "title": "Unverified prize offer",
+      "explanation": "We could not confirm that claim-reward-now.example belongs to the company in this offer."
+    }
+  ],
+  "recommendedAction": "GO_BACK",
+  "evidence": [
+    { "kind": "text", "value": "You have won a $2,000 gift card", "reasonCode": "PRIZE_CLAIM" },
+    { "kind": "text", "value": "before midnight", "reasonCode": "PRESSURE_TACTICS" },
+    { "kind": "url", "value": "https://claim-reward-now.example/claim", "reasonCode": "UNVERIFIED_PRIZE_CLAIM" }
+  ]
+}

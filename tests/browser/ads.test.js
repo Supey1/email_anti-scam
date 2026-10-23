@@ -1,52 +1,102 @@
 // Advertisement support matrix, in real Chromium with the real extension.
 // Run with:  node tests/browser/ads.test.js
 // Each test is one row of docs/ad-support-matrix.md, using tests/pages/ads.html.
-// We identify suspicious ads. We never hide, remove, or block advertisements.
+// We never hide, remove, or block advertisements. When someone clicks a link inside an ad, the words around the
+// link (the rest of the ad) go to the engine as context.nearbyText, and the engine decides. Ads are not scored separately.
 
 const assert = require('assert');
+const path = require('path');
 const { launch, run } = require('./harness');
 
-const WARNING = /\/ui\/warning\.html/;
+const WARNING = /\/blocked\.html/;
+const EXT = path.join(__dirname, '..', '..', 'extension', 'content');
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
-async function open({ context, base }) {
+async function open({ context, secure }) {
   const page = await context.newPage();
-  await page.goto(base + 'ads.html');
-  await page.waitForTimeout(3500); // initial scan, plus the ad that is inserted after 1.5 s
+  await page.goto(secure + 'ads.html');
+  await page.waitForTimeout(2500); // the ad inserted after 1.5 s has arrived
   return page;
 }
-const card = page => page.evaluate(() => {
-  const host = document.getElementById('email-anti-scam-warning');
-  return host ? host.shadowRoot.querySelector('.card').innerText.replace(/\s+/g, ' ') : null;
-});
 
-// Only the supported SUSPICIOUS ads should have been reported, and the ordinary ones never.
-test('page-level: suspicious ads are reported with plain reasons; the page is not called dangerous', async env => {
+// ---------- what is recognized as an ad (so its words can travel with a click) ----------
+
+test('matrix: supported ad patterns are recognized, with the reason', async env => {
   const page = await open(env);
-  const text = await card(page);
-  assert.ok(text, 'no warning card appeared');
-  assert.match(text, /CAUTION/);
-  assert.doesNotMatch(text, /DANGER/);
-  assert.match(text, /claim-gift\.example/);
+  await page.addScriptTag({ path: path.join(EXT, 'ad-signals.js') });
+  const found = await page.evaluate(() => Object.fromEntries(AdSignals.find([document.documentElement]).map(c => [c.id || c.querySelector('a')?.id, AdSignals.describe(c).signals.join(' ')])));
+  const expect = {
+    A1: /class:ad-slot/, A2: /attribute:data-ad-slot/, 'A3': /rel:sponsored/, A4: /label:Advertisement/, A5: /label:Sponsored/,
+    A6: /class:advert/, A8: /class:ad-slot/, B1: /class:ad-slot/, B2: /attribute:data-ad-slot/, B3: /label:Advertisement/,
+  };
+  for (const [id, why] of Object.entries(expect)) {
+    assert.ok(id in found, `not recognized as an ad: ${id} (found: ${Object.keys(found)})`);
+    assert.match(found[id], why, id);
+  }
   await page.close();
 });
 
-// Click on each ad: supported suspicious ads are stopped (never requested); ordinary ones work.
-const stopped = ['A1-link', 'A2-link', 'A3', 'A4-link', 'A5-link', 'A6-link', 'A8-link'];
-for (const id of stopped) {
-  test(`${id}: suspicious ad click is stopped before navigation`, async env => {
+test('matrix: unsupported patterns are not claimed (unmarked ads, ads in shadow DOM)', async env => {
+  const page = await open(env);
+  await page.addScriptTag({ path: path.join(EXT, 'ad-signals.js') });
+  const ids = await page.evaluate(() => AdSignals.find([document.documentElement]).map(c => c.id));
+  assert.ok(!ids.includes('C2'), 'an ad with no marker cannot be recognized');
+  assert.ok(!ids.includes('C3-host'), 'shadow DOM is not entered');
+  await page.close();
+});
+
+test('the whole ad is the words around the link, not just the link', async env => {
+  const page = await open(env);
+  await page.addScriptTag({ path: path.join(EXT, 'ad-signals.js') });
+  const near = await page.evaluate(() => AdSignals.contextFor(document.getElementById('A1-link')).text);
+  assert.ok(near.includes('You have won a $2,000 gift card') && near.includes('Claim reward'));
+  // A link whose own id looks like an ad marker must still give the whole ad, not just the link.
+  const fake = await page.evaluate(() => { const d = document.createElement('div'); d.className = 'ad-slot'; d.innerHTML = '<p>Big prize words here</p><a id="ad-weird-link" href="https://x.example/">Go</a>'; document.body.append(d); return AdSignals.contextFor(document.getElementById('ad-weird-link')).text; });
+  assert.ok(fake.includes('Big prize words here'));
+  await page.close();
+});
+
+// ---------- clicks ----------
+
+// The engine decides which ad clicks to interrupt: a prize with pressure, from an unverified site, does.
+for (const id of ['A1-link', 'A4-link', 'A5-link', 'A8-link']) {
+  test(`${id}: a prize advertisement click is stopped before navigation`, async env => {
     const page = await open(env);
-    await page.evaluate(() => document.getElementById('email-anti-scam-warning')?.remove());
     await page.click(`#${id}`);
     await page.waitForURL(WARNING);
-    assert.ok(!env.reached('claim-gift.example') && !env.reached('other-site.example'), 'the browser asked for the suspicious site');
+    assert.ok(!env.reached('claim-gift.example'), 'the browser asked for the suspicious site');
     await page.close();
   });
 }
 
+test('A7: a click inside an ad frame is stopped too (the click guard runs in frames)', async env => {
+  const page = await open(env);
+  await page.frameLocator('#A7').locator('a').click();
+  await page.waitForURL(WARNING);
+  assert.ok(!env.reached('claim-gift.example'));
+  await page.close();
+});
+
+test('a click inside a frame made with srcdoc is stopped too', async env => {
+  const page = await open(env);
+  await page.frameLocator('#A7-srcdoc').locator('a').click();
+  await page.waitForURL(WARNING);
+  assert.ok(!env.reached('claim-gift.example'));
+  await page.close();
+});
+
+test('weak signs in an ad (no pressure, hidden destination) are not interrupted: the engine decides', async env => {
+  for (const [id, host] of [['A2-link', 'claim-gift.example'], ['A6-link', 'other-site.example']]) {
+    const page = await open(env);
+    await page.click(`#${id}`);
+    await page.waitForURL(new RegExp(host.replace('.', '\\.')));
+    await page.close();
+  }
+});
+
 for (const id of ['B1-link', 'B2-link', 'B3-link', 'B4-link']) {
-  test(`${id}: ordinary ad is left alone; the ad stays and its link works`, async env => {
+  test(`${id}: an ordinary ad is left alone; the ad stays and its link works`, async env => {
     const page = await open(env);
     const adId = id.replace('-link', '');
     assert.ok(await page.locator(`#${adId}`).isVisible(), 'the ad must not be hidden or removed');
@@ -57,81 +107,13 @@ for (const id of ['B1-link', 'B2-link', 'B3-link', 'B4-link']) {
   });
 }
 
-test('ordinary ads are never named in the warning', async env => {
+test('C1: a cross-origin ad frame is left alone and stays in place', async env => {
   const page = await open(env);
-  const text = await card(page);
-  for (const word of ['garden-store', 'books.example', 'shoes.example', 'Summer sale']) assert.ok(!text.includes(word), `${word} was reported`);
+  assert.ok(await page.locator('#C1').isVisible());
   await page.close();
 });
 
-// Unsupported patterns: documented, and no false claim of coverage.
-// ---------- what the scanner identifies as ads (evidence, before any judging) ----------
-
-const path = require('path');
-const EXT = path.join(__dirname, '..', '..', 'extension', 'content');
-
-// Runs a fresh scanner (and ad detector) inside the page and returns its first evidence.
-async function scanEvidence({ context, base }) {
-  const page = await context.newPage();
-  await page.goto(base + 'ads.html');
-  await page.waitForTimeout(500);
-  await page.addScriptTag({ path: path.join(EXT, 'ad-signals.js') });
-  await page.addScriptTag({ path: path.join(EXT, 'page-scanner.js') });
-  const evidence = await page.evaluate(() => new Promise(resolve => {
-    const scanner = PageScanner.start({ onEvidence: e => { resolve(e); scanner.stop(); } });
-  }));
-  return { page, evidence };
-}
-
-test('matrix: supported ad patterns are identified, with why and where they lead', async env => {
-  const { page, evidence } = await scanEvidence(env);
-  const byUrl = Object.fromEntries(evidence.context.ads.map(a => [a.link && a.link.url, a]));
-  const expect = {
-    'https://claim-gift.example/a1': /^class:ad-slot/,
-    'https://claim-gift.example/a2': /^attribute:data-ad-slot/,
-    'https://claim-gift.example/a3': /rel:sponsored/,
-    'https://claim-gift.example/a4': /^label:Advertisement/,
-    'https://claim-gift.example/a5': /label:Sponsored/,
-    'https://other-site.example/a6': /^class:advert/,
-    'https://claim-gift.example/a7': /^frame:ad-frame/, // inside the same-origin ad frame
-    'https://garden-store.example/sale': /^class:ad-slot/,
-    'https://books.example/cookbook': /^attribute:data-ad-slot/,
-    'https://shoes.example/new': /label:Advertisement/,
-  };
-  for (const [url, why] of Object.entries(expect)) {
-    assert.ok(byUrl[url], `not identified as an ad: ${url}`);
-    assert.match(byUrl[url].signals.join(' '), why, url);
-  }
-  assert.ok(byUrl['https://claim-gift.example/a1'].text.includes('You have won a $2,000 gift card'));
-  assert.strictEqual(byUrl['https://claim-gift.example/a1'].link.text, 'Claim reward');
-  assert.strictEqual(byUrl['https://claim-gift.example/a7'].frame, true);
-  await page.close();
-});
-
-test('matrix: unsupported patterns are not claimed (unmarked, shadow DOM, image-only without a link text)', async env => {
-  const { page, evidence } = await scanEvidence(env);
-  const urls = evidence.context.ads.map(a => a.link && a.link.url);
-  assert.ok(!urls.includes('https://claim-gift.example/c2'), 'unmarked ad cannot be identified');
-  assert.ok(!urls.includes('https://claim-gift.example/c3'), 'shadow DOM is not entered');
-  await page.close();
-});
-
-test('C1: a cross-origin ad frame is counted as unreadable, never guessed at', async env => {
-  const { page, evidence } = await scanEvidence(env);
-  assert.strictEqual(evidence.context.adFrames.unreadable, 1);
-  assert.strictEqual(evidence.context.adFrames.readable, 1);
-  assert.ok(await page.locator('#C1').isVisible(), 'the ad frame is left in place');
-  await page.close();
-});
-
-test('ad text is kept out of the page text, so an ad does not make the whole page look bad', async env => {
-  const { page, evidence } = await scanEvidence(env);
-  for (const adText of ['$2,000', 'Summer sale', 'cookbook', 'Free $500']) assert.ok(!evidence.visibleText.includes(adText), `ad text leaked into the page text: ${adText}`);
-  assert.ok(evidence.visibleText.includes('Advertisement support matrix'), 'normal page text is still collected');
-  await page.close();
-});
-
-test('C4: an image-only ad has no text to judge; nothing is flagged and the link works', async env => {
+test('C4: an image-only ad has no words to judge; its link works unless the address itself is a problem', async env => {
   const page = await open(env);
   await page.click('#C4-link');
   await page.waitForURL(/claim-gift\.example\/c4/);

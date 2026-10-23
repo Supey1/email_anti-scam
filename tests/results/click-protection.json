@@ -1,162 +1,210 @@
 {
-  "supported": 18,
-  "stopped": 18,
-  "limits": 8,
+  "supported": 20,
+  "stopped": 20,
+  "limits": 7,
   "limitsStopped": 0,
+  "weak": 2,
   "scenarios": [
     {
-      "id": "plain click, hidden destination",
+      "id": "plain click on a look-alike company link",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "target=_blank",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "Ctrl-click",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "Shift-click",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "middle-click",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "keyboard Enter",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "click on an element inside the link",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "link with unusual attributes",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "SVG link",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "link inside shadow DOM",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "known dangerous address",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
-      "id": "redirect wrapper around a number address",
+      "id": "look-alike behind a search-engine redirect",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
-      "id": "look-alike brand address",
+      "id": "look-alike company address",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
-      "id": "mismatched link on a generic page",
+      "id": "look-alike link on a generic page",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "prize advertisement",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "prize advertisement inserted later",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
       "id": "link added to the page later",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
     },
     {
-      "id": "suspicious link on a fake login page",
+      "id": "look-alike link on a fake login page",
       "supported": true,
+      "weak": false,
       "stopped": true,
       "warned": true
+    },
+    {
+      "id": "click inside a frame",
+      "supported": true,
+      "weak": false,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "click inside a srcdoc frame",
+      "supported": true,
+      "weak": false,
+      "stopped": true,
+      "warned": true
+    },
+    {
+      "id": "hidden destination alone (weak warning)",
+      "supported": false,
+      "weak": true,
+      "stopped": false,
+      "warned": false
+    },
+    {
+      "id": "raw number address alone (weak warning)",
+      "supported": false,
+      "weak": true,
+      "stopped": false,
+      "warned": false
     },
     {
       "id": "page script sets the address",
       "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     },
     {
       "id": "page script opens a window",
       "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     },
     {
       "id": "link rewrites itself when clicked",
       "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     },
     {
       "id": "script clicks a link by itself",
       "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     },
     {
       "id": "form sends you to another site",
       "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     },
     {
       "id": "page redirects itself after loading",
       "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     },
     {
       "id": "unknown redirect service",
       "supported": false,
-      "stopped": false,
-      "warned": false
-    },
-    {
-      "id": "link clicked inside a frame",
-      "supported": false,
+      "weak": false,
       "stopped": false,
       "warned": false
     }

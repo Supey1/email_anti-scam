@@ -1,117 +1,114 @@
-// settings.js: the person's choices, shared by every part of the extension.
-// Saved in chrome.storage.local (on this computer only). Nothing here is ever sent anywhere.
-//
-// Plain choices only. No scores, weights, or files to edit.
+// settings.js: the settings page (and welcome page) of the extension.
+// Everything goes through the service worker (docs/interfaces.md, "Service
+// worker messages"); website access goes through Chrome's permission prompt.
 
-const Settings = (() => {
-  'use strict';
+const ALL_SITES = ['http://*/*', 'https://*/*'];
+const GMAIL = ['https://mail.google.com/*'];
 
-  const DEFAULTS = {
-    enabled: true,          // protection on or off
-    checkEmail: true,       // check emails opened in Gmail
-    siteMode: 'all',        // 'all': check every website except offSites; 'chosen': only onSites
-    offSites: [],           // websites the person turned off (used when siteMode is 'all')
-    onSites: [],            // websites the person chose (used when siteMode is 'chosen')
-    readAloud: 'button',    // 'off' | 'button' (a Read to me button) | 'auto' (read warnings out loud on their own)
-    speechSpeed: 'normal',  // 'slow' | 'normal' | 'fast'
-    textSize: 'large',      // 'normal' | 'large' | 'xlarge'
-  };
+const $ = id => document.getElementById(id);
+const send = message => chrome.runtime.sendMessage({ schemaVersion: 1, ...message });
+let status = null;
 
-  const CHOICES = {
-    siteMode: ['all', 'chosen'],
-    readAloud: ['off', 'button', 'auto'],
-    speechSpeed: ['slow', 'normal', 'fast'],
-    textSize: ['normal', 'large', 'xlarge'],
-  };
-  const TEXT_PX = { normal: 20, large: 24, xlarge: 28 };
-  const SPEECH_RATE = { slow: 0.75, normal: 0.9, fast: 1.1 };
-  const MAX_SITES = 200;
-
-  // "https://www.Example.com/path?x" -> "example.com". Returns '' if it isn't a usable website name.
-  function normalizeHost(input) {
-    if (typeof input !== 'string') return '';
-    let text = input.trim().toLowerCase();
-    if (!text) return '';
-    if (!/^[a-z][a-z0-9+.-]*:\/\//.test(text)) text = `https://${text}`;
-    try {
-      const host = new URL(text).hostname.replace(/^www\./, '').replace(/\.$/, '');
-      return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(host) || host === 'localhost' ? host : '';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  function cleanList(list) {
-    const out = [];
-    for (const item of Array.isArray(list) ? list : []) {
-      const host = normalizeHost(item);
-      if (host && !out.includes(host) && out.length < MAX_SITES) out.push(host);
-    }
-    return out;
-  }
-
-  // Anything missing or invalid falls back to the default, so a damaged setting can't break protection.
-  function normalize(raw) {
-    const r = raw && typeof raw === 'object' ? raw : {};
-    const out = { ...DEFAULTS };
-    for (const key of ['enabled', 'checkEmail']) if (typeof r[key] === 'boolean') out[key] = r[key];
-    for (const [key, allowed] of Object.entries(CHOICES)) if (allowed.includes(r[key])) out[key] = r[key];
-    out.offSites = cleanList(r.offSites);
-    out.onSites = cleanList(r.onSites);
-    return out;
-  }
-
-  const matches = (list, host) => list.some(site => host === site || host.endsWith(`.${site}`));
-
-  // Should the extension look at this website?
-  function shouldCheckSite(settings, host) {
-    host = normalizeHost(host) || String(host || '').toLowerCase();
-    if (!settings.enabled || !host) return false;
-    if (settings.siteMode === 'chosen') return matches(settings.onSites, host);
-    return !matches(settings.offSites, host);
-  }
-
-  // Should the extension look at emails opened in Gmail?
-  const shouldCheckEmail = settings => settings.enabled && settings.checkEmail;
-
-  // The same site with the setting flipped, for the popup's "turn on/off for this site" button.
-  function withSiteToggled(settings, host, on) {
-    host = normalizeHost(host);
-    const key = settings.siteMode === 'chosen' ? 'onSites' : 'offSites';
-    const without = settings[key].filter(s => s !== host && !host.endsWith(`.${s}`));
-    // In 'all' mode a site is on unless listed; in 'chosen' mode it is off unless listed.
-    const listed = settings.siteMode === 'chosen' ? on : !on;
-    return { [key]: listed ? without.concat(host) : without };
-  }
-
-  const api = { DEFAULTS, CHOICES, TEXT_PX, SPEECH_RATE, normalize, normalizeHost, shouldCheckSite, shouldCheckEmail, withSiteToggled, current: { ...DEFAULTS } };
-
-  // ---- storage (only inside the extension) ----
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    api.load = async () => {
-      const { settings } = await chrome.storage.local.get('settings');
-      api.current = normalize(settings);
-      return api.current;
-    };
-    api.save = async partial => {
-      const next = normalize({ ...api.current, ...partial });
-      await chrome.storage.local.set({ settings: next });
-      api.current = next;
-      return next;
-    };
-    api.reset = async () => api.save({ ...DEFAULTS, offSites: [], onSites: [] });
-    // callback(newSettings) runs whenever settings change anywhere (popup, options page, another tab).
-    api.onChange = callback => chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.settings) { api.current = normalize(changes.settings.newValue); callback(api.current); }
-    });
-    api.ready = api.load();
-  } else {
-    api.ready = Promise.resolve(api.current);
-  }
-  return api;
-})();
-
-// Lets tests load this file with Node. Chrome ignores this.
-if (typeof module !== 'undefined') {
-  module.exports = Settings;
+function say(text) {
+  $('message').textContent = text || '';
 }
+
+async function load() {
+  status = await send({ type: 'GET_STATUS' });
+  if (!status || status.type !== 'STATUS') {
+    say('The settings could not be loaded. Close this page and open it again.');
+    return;
+  }
+  draw();
+}
+
+function draw() {
+  const { settings, access } = status;
+  const on = settings.protectionEnabled;
+
+  // Protection, in one sentence.
+  const box = $('status');
+  let icon, text, cls;
+  if (!on) { icon = '⏸'; text = 'Protection is off. Nothing is checked or blocked.'; cls = 'off'; }
+  else if (access === 'all') { icon = '✅'; text = 'Protection is on: checking websites, ads, and Gmail, and blocking known dangerous websites.'; cls = 'on'; }
+  else if (access === 'gmail') { icon = '⚠️'; text = 'Protection is on for Gmail only. Known dangerous websites are blocked, but other websites aren\'t checked.'; cls = 'partial'; }
+  else { icon = '⚠️'; text = 'Protection is on, but it can only block known dangerous websites. Choose "Check all websites" below to be warned about scams.'; cls = 'partial'; }
+  box.className = `status ${cls}`;
+  box.replaceChildren(Object.assign(document.createElement('span'), { className: 'icon', textContent: icon }), Object.assign(document.createElement('span'), { textContent: text }));
+  box.firstChild.setAttribute('aria-hidden', 'true');
+  const toggle = $('toggle-protection');
+  toggle.textContent = on ? 'Turn protection off' : 'Turn protection on';
+  toggle.className = on ? '' : 'primary';
+
+  for (const [id, value] of [['access-all', 'all'], ['access-gmail', 'gmail'], ['access-none', 'none']]) {
+    $(id).setAttribute('aria-pressed', String(access === value));
+  }
+  // Until websites are checked, the recommended choice is the obvious next step.
+  $('access-all').classList.toggle('next-step', access !== 'all');
+
+  for (const input of document.querySelectorAll('input[name="textSize"]')) input.checked = input.value === settings.textSize;
+  for (const input of document.querySelectorAll('input[name="speechRate"]')) input.checked = Number(input.value) === settings.speechRate;
+  $('autoRead').checked = settings.autoRead;
+  $('sample').style.zoom = { large: 1, larger: 1.2, largest: 1.45 }[settings.textSize] || 1;
+
+  const list = $('allowlist');
+  list.replaceChildren(...settings.allowlist.map(site => {
+    const remove = Object.assign(document.createElement('button'), { textContent: 'Remove' });
+    remove.setAttribute('aria-label', `Remove ${site}`);
+    remove.addEventListener('click', () => save({ allowlist: settings.allowlist.filter(s => s !== site) }));
+    const li = document.createElement('li');
+    li.append(`${site} `, remove);
+    return li;
+  }));
+  $('allowlist-empty').hidden = settings.allowlist.length > 0;
+}
+
+async function save(change) {
+  const answer = await send({ type: 'SET_SETTINGS', settings: change });
+  if (answer.type !== 'SETTINGS') { say(`That didn't work: ${answer.error}`); return; }
+  say('');
+  await load();
+}
+
+// Website access. Chrome shows its own question; the person decides there.
+async function setAccess(choice) {
+  say('');
+  try {
+    if (choice === 'all') {
+      const granted = await chrome.permissions.request({ origins: ALL_SITES });
+      if (!granted) say('Chrome did not allow it, so websites won\'t be checked. You can try again any time.');
+    } else if (choice === 'gmail') {
+      const granted = await chrome.permissions.request({ origins: GMAIL });
+      if (granted) await chrome.permissions.remove({ origins: ALL_SITES }).catch(() => {});
+      else say('Chrome did not allow it, so Gmail won\'t be checked.');
+    } else {
+      await chrome.permissions.remove({ origins: [...ALL_SITES, ...GMAIL] });
+    }
+  } catch (e) {
+    say(`That didn't work: ${e.message}`);
+  }
+  await send({ type: 'ACCESS_CHANGED' });
+  await load();
+}
+
+$('toggle-protection').addEventListener('click', () => save({ protectionEnabled: !status.settings.protectionEnabled }));
+$('access-all').addEventListener('click', () => setAccess('all'));
+$('access-gmail').addEventListener('click', () => setAccess('gmail'));
+$('access-none').addEventListener('click', () => setAccess('none'));
+for (const input of document.querySelectorAll('input[name="textSize"]')) input.addEventListener('change', () => save({ textSize: input.value }));
+for (const input of document.querySelectorAll('input[name="speechRate"]')) input.addEventListener('change', () => save({ speechRate: Number(input.value) }));
+$('autoRead').addEventListener('change', () => save({ autoRead: $('autoRead').checked }));
+
+// "Try it": the sample warning, read the way real warnings are.
+$('sample-buttons').append(GranblockSpeech.makeButton(document, {
+  getParts: () => ['Stop and check this link.', $('sample-text').textContent],
+  key: 'settings-sample',
+  rate: () => (status ? status.settings.speechRate : 0.9),
+}));
+
+// Chrome can change access too (the person can take it away in Chrome's own settings).
+chrome.permissions.onAdded.addListener(() => load());
+chrome.permissions.onRemoved.addListener(() => load());
+
+$('welcome').hidden = !new URLSearchParams(location.search).has('welcome');
+load();

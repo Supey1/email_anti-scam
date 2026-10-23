@@ -135,9 +135,17 @@
   <!-- The same files the extension loads into Gmail. The browser tests strip this block
        (between the "standalone" markers) because the real extension injects them itself. -->
   <!-- standalone:start -->
+  <script src="../extension/threat-list.js"></script>
+  <script src="../extension/core/url-normalizer.js"></script>
+  <script src="../extension/core/domain-rules.js"></script>
+  <script src="../extension/core/url-rules.js"></script>
+  <script src="../extension/core/text-rules.js"></script>
+  <script src="../extension/core/risk-policy.js"></script>
+  <script src="../extension/core/explanations.js"></script>
+  <script src="../extension/core/analyzer.js"></script>
   <script src="../extension/rules.js"></script>
-  <script src="../extension/threats.js"></script>
-  <script src="../extension/analyzer.js"></script>
+  <script src="../extension/settings-sync.js"></script>
+  <script src="../extension/speech.js"></script>
   <script src="../extension/panel-styles.js"></script>
   <script src="../extension/ui/explain.js"></script>
   <script src="../extension/ui/warning-view.js"></script>

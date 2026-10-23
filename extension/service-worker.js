@@ -1,81 +1,69 @@
-// service-worker.js: the extension's background part.
-//  1. Blocks websites already known to be dangerous, before the page loads (declarativeNetRequest).
-//  2. Shows the extension-owned warning page when click-guard.js stops a link.
-//  3. Continues to a destination only when the person chooses to, and never for a "block".
-//  4. Saves false-alarm reports locally during testing.
+// service-worker.js: the extension's background helper.
 //
-// A service worker can stop when idle, so nothing here relies on remembered variables:
-// the rules live in Chrome, reports live in chrome.storage.
+// It connects Chrome to background/messages.js, which does the actual work:
+//   - keeps Chrome's network-blocking rules in step with the known-threat list,
+//     so known dangerous websites are blocked before they load, however you get there
+//   - answers "is this address known to be dangerous?" (LOOKUP_URL)
+//   - opens the extension's own warning page
+//   - reads and changes the protection settings
+//   - starts and stops the page scripts to match the website access the
+//     person has given (asked for on the welcome page, never at install)
+//   - passes warnings from ads and other frames up to the main page
+// Message formats: docs/interfaces.md ("Service worker messages").
+//
+// Chrome can stop this script whenever it's idle, so nothing important lives
+// only in memory: settings and threat updates are in chrome.storage.local,
+// warnings for the warning page in chrome.storage.session (gone when the
+// browser closes). Anything in memory is rebuilt on first use after a restart.
 
-importScripts('threats.js', 'rules.js', 'analyzer.js', 'settings.js');
+importScripts(
+  'threat-list.js',
+  'core/url-normalizer.js',
+  'core/domain-rules.js',
+  'core/url-rules.js',
+  'background/threat-rules.js',
+  'background/threat-lookup.js',
+  'background/content-scripts.js',
+  'background/messages.js',
+);
 
-const WARNING_PAGE = chrome.runtime.getURL('ui/warning.html');
-const MAX_REPORTS = 100;
+const storageArea = area => ({
+  get: key => area.get(key).then(items => items[key]),
+  set: items => area.set(items),
+  remove: keys => area.remove(keys),
+});
 
-function escapeRegex(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const background = GranblockBackground.createBackground({
+  storage: storageArea(chrome.storage.local),
+  session: storageArea(chrome.storage.session),
+  dnr: chrome.declarativeNetRequest,
+  tabs: chrome.tabs,
+  permissions: chrome.permissions,
+  scripting: chrome.scripting,
+  bundled: () => [
+    ...KNOWN_THREAT_DOMAINS.map(value => ({ type: 'domain', value, source: KNOWN_THREAT_SOURCE.name, trusted: KNOWN_THREAT_SOURCE.trusted })),
+    ...KNOWN_THREAT_URLS.map(value => ({ type: 'url', value, source: KNOWN_THREAT_SOURCE.name, trusted: KNOWN_THREAT_SOURCE.trusted })),
+  ],
+  blockPage: chrome.runtime.getURL('blocked.html'),
+  extensionOrigin: chrome.runtime.getURL(''),
+  newToken: () => crypto.randomUUID(),
+});
+// For the browser tests (tests/browser/acceptance.test.js).
+GranblockBackground.instance = background;
 
-// Blocking known-dangerous sites follows the on/off switch. Rules are removed when protection is off.
-async function installThreatRules() {
-  const settings = await Settings.load();
-  chrome.action.setBadgeText({ text: settings.enabled ? '' : 'OFF' });
-  chrome.action.setBadgeBackgroundColor({ color: '#b00020' });
-  const addRules = !settings.enabled ? [] : THREAT_DOMAINS.map((domain, i) => ({
-    id: i + 1,
-    priority: 1,
-    action: { type: 'redirect', redirect: { regexSubstitution: `${WARNING_PAGE}?kind=dnr&url=\\0` } },
-    condition: {
-      // matches the domain and its subdomains, only for the address bar (not images, scripts, etc.)
-      regexFilter: `^https?://([^/]+\\.)?${escapeRegex(domain)}([:/?#].*)?$`,
-      resourceTypes: ['main_frame'],
-    },
-  }));
-  const old = await chrome.declarativeNetRequest.getDynamicRules();
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: old.map(r => r.id), addRules });
-}
-
-chrome.runtime.onInstalled.addListener(installThreatRules);
-chrome.runtime.onStartup.addListener(installThreatRules);
-chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.settings) installThreatRules(); });
-
-function isWebAddress(url) {
-  try { return /^https?:$/.test(new URL(url).protocol); } catch (e) { return false; }
-}
-
-function fromOurWarningPage(sender) {
-  return sender.id === chrome.runtime.id && !!sender.url && sender.url.startsWith(WARNING_PAGE) && !!sender.tab;
-}
-
-async function saveReport(report) {
-  const { falseAlarms = [] } = await chrome.storage.local.get('falseAlarms');
-  falseAlarms.push({ at: new Date().toISOString(), host: String(report.host || ''), verdict: String(report.verdict || ''), source: String(report.source || ''), reasons: (report.reasons || []).slice(0, 5).map(String) });
-  await chrome.storage.local.set({ falseAlarms: falseAlarms.slice(-MAX_REPORTS) });
-}
+chrome.runtime.onInstalled.addListener(details => {
+  background.refreshRules();
+  // Right after installing: the welcome page, where the person chooses which websites to check.
+  if (details.reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('settings.html?welcome=1') });
+});
+chrome.runtime.onStartup.addListener(() => background.refreshRules());
+// Website access given or taken away (here or in Chrome's own settings):
+// start or stop the page scripts, and switch blocking between our blocked
+// page and Chrome's plain "blocked" page.
+chrome.permissions.onAdded.addListener(() => background.refreshRules());
+chrome.permissions.onRemoved.addListener(() => background.refreshRules());
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id || !message) return;
-
-  if (message.type === 'SHOW_WARNING' && sender.tab && isWebAddress(message.url)) {
-    const url = `${WARNING_PAGE}?kind=click&text=${encodeURIComponent(String(message.text || '').slice(0, 200))}&adtext=${encodeURIComponent(String(message.adText || '').slice(0, 400))}&url=${encodeURIComponent(message.url)}`;
-    // A click that would have opened a new tab gets the warning in a new tab; otherwise it replaces the page.
-    const done = () => sendResponse({ ok: true });
-    const fail = () => sendResponse({ ok: false });
-    if (message.newTab) chrome.tabs.create({ url, active: true, index: sender.tab.index + 1, openerTabId: sender.tab.id }).then(done, fail);
-    else chrome.tabs.update(sender.tab.id, { url }).then(done, fail);
-    return true;
-  }
-
-  if (message.type === 'CONTINUE' && fromOurWarningPage(sender) && isWebAddress(message.url)) {
-    // Check again here: a block can never be continued past, whatever the page asked.
-    const result = analyzeLink({ text: String(message.text || ''), href: message.url });
-    if (result.verdict === 'block') { sendResponse({ ok: false }); return; }
-    chrome.tabs.update(sender.tab.id, { url: message.url }).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
-    return true;
-  }
-
-  if (message.type === 'REPORT_FALSE_ALARM' && message.report) {
-    saveReport(message.report).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
-    return true;
-  }
+  background.handleMessage(message, sender).then(sendResponse);
+  return true; // we'll answer later
 });

@@ -108,37 +108,46 @@ async function pick(page, label) {
   return panel(page);
 }
 
-test('fake Gmail: scam emails get DANGER, a borderline email gets CAUTION, a normal email gets no warning signs', async env => {
+test('fake Gmail: scam emails get an interrupting CAUTION, weak signs a gentle CAUTION, a normal email no warning signs', async env => {
   const page = await openFakeGmail(env);
   assert.strictEqual(await panel(page), null, 'nothing shows before an email is opened');
-  assert.strictEqual((await pick(page, 'Fake PayPal')).label, 'DANGER');
-  assert.strictEqual((await pick(page, 'Grandparent scam')).label, 'DANGER');
+  for (const label of ['Fake PayPal', 'Grandparent scam', 'Lottery win', 'Fake bank']) {
+    const p = await pick(page, label);
+    assert.strictEqual(p.label, 'CAUTION', label);
+    assert.strictEqual(p.headline, 'Stop and check this first', label);
+  }
   const shipping = await pick(page, 'Shipping');
   assert.strictEqual(shipping.label, 'CAUTION');
+  assert.strictEqual(shipping.headline, 'Be careful: check this first', 'a weak warning does not sound like a stop');
+  const ups = await pick(page, 'Delivery from UPS');
+  assert.strictEqual(ups.headline, 'Be careful: check this first', 'a real UPS notice is at most a gentle warning (a known false alarm)');
   const normal = await pick(page, 'Normal email');
   assert.strictEqual(normal.label, 'NO WARNING SIGNS');
   assert.ok(!/safe/i.test(normal.headline), 'headline must not claim the email is safe');
   assert.match(normal.text, /does not prove it is safe/);
+  const hard = await pick(page, 'Shared invoice');
+  assert.strictEqual(hard.label, 'NO WARNING SIGNS', 'a polished phishing email with no usual signs is not detected: documented in docs/test-results.md');
   await page.close();
 });
 
-test('fake Gmail: the panel explains why, shows the sender, and where links really go', async env => {
+test('fake Gmail: the panel explains why, shows the sender, and where the warning links really go', async env => {
   const page = await openFakeGmail(env);
   const p = await pick(page, 'Fake PayPal');
-  assert.match(p.text, /Why we stopped you/);
+  assert.match(p.text, /Why we're warning you/);
+  assert.match(p.text, /pretends to be PayPal/);
+  assert.match(p.text, /Where the warning links really go/);
   assert.match(p.text, /paypa1-secure\.xyz/);
-  assert.match(p.text, /Really goes to: paypa1-secure\.xyz/);
   assert.match(p.text, /Who sent this PayPal Security/);
-  assert.match(p.text, /Do not click any links in this email/);
+  assert.match(p.text, /Do not go there/);
   await page.close();
 });
 
-test('fake Gmail: a hidden-destination link is stopped by the click guard, and the email stays open', async env => {
+test('fake Gmail: a link inside a scam email is stopped by the click guard, and the email stays open', async env => {
   const page = await openFakeGmail(env);
   await pick(page, 'Fake bank');
   await page.evaluate(() => document.getElementById('email-anti-scam-warning').remove());
   const [popup] = await Promise.all([env.context.waitForEvent('page'), page.click('div.a3s a')]);
-  await popup.waitForURL(/\/ui\/warning\.html/);
+  await popup.waitForURL(/\/blocked\.html/);
   assert.ok(!env.reached('secure-review.example'));
   assert.match(page.url(), /mail\.google\.com/, 'the mailbox page is not navigated away');
   await popup.close();

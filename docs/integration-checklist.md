@@ -1,74 +1,85 @@
 # Integration checklist
 
-Short and shared. Add an item instead of editing the other person's code. Tick it when it is merged with its tests.
+Short and shared. When something in the other person's area needs to change, add it here instead of editing their code. Tick it off when the fix is merged with its tests.
 
-## Contract gaps (current code vs `docs/interfaces.md`)
+## Decide first
 
-- [ ] **A:** `analyzePage` / `analyzeLink` return `verdict: "allow"`; the contract says `no_warning_signs` (and `unknown` on failure).
-- [ ] **A:** `reasons` are plain strings; the contract wants `{ code, title, explanation }`.
-- [ ] **A:** Result needs `schemaVersion: 1` and `recommendedAction` as an enum code, not a sentence.
-- [ ] **A:** `analyzer.js` input uses `url` / `title` / `links[].href`; contract uses `pageUrl` / `pageTitle` / `links[].url`, plus `source` and `context`. (The scanner already emits the contract shape.)
-- [ ] **A:** Add `tests/fixtures/inputs/` and `tests/fixtures/results/` per the interfaces doc.
-- [x] `analyze(evidence)` is now the single entry point and accepts the contract's input shape for webpages and emails; `page.js` no longer has an adapter. (Added by B as a stopgap in `analyzer.js`; **A** owns it from here: please review, and move the result to the structured output.)
-- [ ] **B:** `click-guard.js` and `page.js` still branch on the old verdict `allow`. `ui/explain.js` already accepts both shapes; remove its "TEMPORARY" normalization once the analyzer returns the contract.
-- [ ] **B:** Map reason `code`s to any custom wording or icons (everything falls back to `title` / `explanation` today).
+- [x] **Both:** Two versions of the same features existed. Decision (see "Merge of the two builds" below): the detection engine, background, settings page and contract come from `claude/friendly-mayer-hx20bc` (main); the browser layer (scanner, click guard, Gmail adapter, warning interface, popup) and the test, metrics, and usability work come from `claude/new-session-yy3c1k`, rewired to the engine's `analyze()`. The older `analyzer.js`, `threats.js`, `settings.js` (mine), `guard.js`, `warning.js`, and the first `gmail.js` are gone.
 
-## Done (Phase 7, Person B)
+## Merge of the two builds (what changed, and what to review)
 
-- [x] Practice pages for every kind of check (`tests/pages/fake-*.html`), systematic real-browser tests (`tests/browser/systematic.test.js`), click protection matrix (18/18 supported scenarios stopped; 8 documented limits confirmed not stopped), performance measurements.
-- [x] Labelled corpus and metrics (`tests/corpus/cases.js`, `tests/metrics.js`); results, misses, and false alarms in `docs/test-results.md`; findings in `docs/findings.md`.
-- [x] Bug found and fixed by the new pages: prize ads were not stopped when the link's own id started with `ad-`.
-- [x] Interface change H1 (warning page shows what the link said next to where it really goes). From the team's own review, **not yet confirmed with people**.
-- [ ] **Both (Phase 8):** reduce false positives (about 3 in 10 legitimate cases flagged, mostly emails and tracker links). Candidate fixes are in `docs/findings.md`. Re-run `node tests/metrics.js` after each change.
-- [ ] **Both:** the labelled set is a development set; get a second person to write more cases without seeing the rules.
-- [ ] **B:** Run the usability sessions (`docs/usability-testing.md`), record them, score them, and make at least one change from what participants actually did. None done yet.
-- [ ] **B:** Manual checks that cannot be automated: real extension reload, real Gmail, screen reader, 200% zoom (`docs/testing.md`).
-- [ ] **B:** The corner warning card can cover the page (concern C1 in `docs/usability-findings.md`).
+- [ ] **A (please review):** B touched A's files, additively: `background/messages.js` now accepts `newTab` and `linkText` on `OPEN_WARNING_PAGE` (a click that would open a new tab gets the warning in a new tab; the warning page shows what the link said next to where it really goes) and a new `REPORT_FALSE_ALARM` message (a short note saved in `storage.local`, last 100). `background/content-scripts.js` lists the merged scripts. `tests/service-worker.test.js` has tests for all three. `docs/interfaces.md` documents them.
+- [x] The engine's input is now exactly what `tests/contract.js` allows: the scanner reports only forms with a password or card box (`hasPaymentField`), `context.mainHeadings`, and nothing else. Advertisements are no longer reported separately; their words are part of the page text and the words around a clicked link go in `context.nearbyText`.
+- [ ] **A:** Engine false alarm that interrupts (found by testing): an anti-scam newsletter ("never pay with gift cards", "act now", "congratulations to our winner") with a member login gets `DO_NOT_ENTER_INFO`. The text rules read "never pay with gift cards" as a payment demand. Corpus case `L-P11`, page `tests/pages/fake-legitimate-advice.html`, test "KNOWN FALSE POSITIVE". Fix it, then set `interruptedLegitimateMax` in `tests/metrics.js` to 0 and flip the test.
+- [ ] **A:** Weak warnings (`VERIFY_INDEPENDENTLY`) on legitimate cases are common (about 4 in 10 in the labelled set: real senders' wording, shortened and tracking links). They never interrupt, but see `docs/findings.md` for candidates.
+- [ ] **A:** Hard scams with no usual wording are not flagged (6 of 8 in the labelled set).
+- [ ] **Both:** Lost in the merge on purpose: my per-website on/off lists and the "only websites I choose" mode (website access is now Chrome's optional permission, which is narrower), and the settings page I wrote (main's `settings.html` is the one). The popup replaces the per-site toggle with "Open Settings" when access is missing.
+- [ ] **B:** Not done: holding a click for a remote lookup (`whenToLookUp`), right-click "Open in new tab" (can't be tested by the test browser), a real screen reader, real Gmail, usability sessions with older adults (`docs/usability-testing.md`).
 
-## Done (Phase 6, Person B)
+## Phase 0: the contract (`docs/interfaces.md`)
 
-- [x] `extension/settings.js`, `ui/popup.*`, `ui/options.*`, `ui/status.js`. Settings gate scanning, click guarding, Gmail checking, and blocking rules; badge shows OFF when protection is off. Tests: `tests/settings.test.js`, `tests/browser/settings.test.js`.
-- [x] Text size and read-aloud choices apply to the in-page card, the warning page, and the Gmail panel.
-- [ ] **B (Web Store):** Chrome still grants `<all_urls>` at install; the "Websites" setting only controls where we look. To request the narrowest permission, move web access to `optional_host_permissions` and register the webpage content scripts at runtime with `chrome.scripting` after `chrome.permissions.request` (needs a user click, so it can't be covered by the current automated browser tests; verify by hand).
-- [ ] **B:** Auto read-aloud inside the in-page card shares code with the warning page (tested there), but Chrome may block speech until the page has been clicked. Check by hand on real sites.
-- [ ] **B:** Popup and settings page checked with keyboard and ARIA only; try a real screen reader and Chrome's zoom at 200%.
-- [ ] **Deferred by decision:** "Ask someone I trust" (sharing an email or link with another person). Design consent, what is shared, and sensitive-data handling first.
-- [ ] **B:** Incognito: extensions are off there unless the person allows it; the settings page says so but there is no in-extension check.
+- [ ] **Both:** Confirm the "Decisions to confirm" list at the bottom of `interfaces.md`. Nothing below starts until this is done.
+- [x] **Both:** Fixed inputs (`tests/fixtures/inputs/`) and fixed results (`tests/fixtures/results/`), checked by `node tests/contract.test.js`.
 
-## Done (Phases 4 and 5, Person B)
+## Moving the current code to the contract
 
-- [x] `extension/content/ad-signals.js`; scanner reports `context.ads` and `context.adFrames`; ads reuse the shared analyzer (`analyzeAd`, `analyzeLink(link, {ad})`). Matrix: `docs/ad-support-matrix.md`.
-- [x] `extension/content/gmail-adapter.js` (all Gmail selectors) and `content/gmail.js` (glue); the old `content.js` is gone. Tests: `tests/browser/gmail-adapter.test.js` on `tests/fake-gmail.html`.
-- [x] The Gmail panel now uses the shared warning interface, so email and webpages explain the same verdict the same way.
-- [ ] **A:** Email maps the rule score to `block` / `warn` / `allow` in `analyzeEmailEvidence`. Confirm that is the intended meaning of `block` for email (documented in `interfaces.md`).
-- [ ] **A:** Ad detection judges by the same link/wording rules as pages; add ad-specific reason codes when the structured output arrives.
-- [ ] **B + A:** Cross-origin ad frames are not inspected. Reading them needs `all_frames` content scripts and a wider privacy review; decide before the Web Store listing.
-- [ ] **B:** Gmail selectors are the original ones plus tests on a Gmail-shaped page, not verified against live Gmail. Try it with a real test account and update `GmailAdapter.SELECTORS`.
-- [ ] **B:** Real Gmail renders links through redirects in some views; confirm hidden-destination checks behave.
+The code was written before the contract. Today `rules.js` takes three different input shapes and returns `level` / `action` / `score` / plain-sentence `reasons`.
 
-## Done (Phases 2 and 3, Person B)
+- [x] **A:** One entry point, `analyze(input)` in `rules.js`, taking the contract input for all three sources. It returns the contract result and never throws (`unknown` on failure).
+- [x] **A:** Every reason returns `{ code, title, explanation }` using the codes in the table. No `score` or `level` in the contract result.
+- [x] **A:** Verdicts and actions: known dangerous → `block` + `GO_BACK`; 5+ points → `warn` + `GO_BACK` (links, email, pages without a password or card box) or `DO_NOT_ENTER_INFO` (pages with one); 1–4 points → `warn` + `VERIFY_INDEPENDENTLY`; nothing → `no_warning_signs` + `NONE`.
+- [x] **A:** Return `evidence` items `{ kind, value, reasonCode }`.
+- [x] **A:** Each input fixture is paired with its expected verdict in `tests/rules.test.js`, and every result there is checked with `validateResult`.
+- [ ] **A:** Remove `analyzeEmail` / `analyzeLink` / `analyzePage` from `rules.js` once B no longer calls them. Until then they wrap `analyze()` and return the old shape, so nothing in B's code had to change.
+- [x] **B:** `gmail.js`, `page.js`, and `guard.js` build the contract input (`source`, `pageUrl`, `pageTitle`, `visibleText`, `links[].url`, `forms[]`, `context`) and call `analyze()`. `page.js` sends `forms` as `{ action, hasPassword, hasPaymentField }` instead of `hasPassword` / `formActions`.
+- [x] **B:** `guard.js` and `page.js` interrupt only for `GO_BACK` / `DO_NOT_ENTER_INFO`, never by reading reason codes or counting reasons.
+- [x] **B:** `warning.js` and the Gmail panel show `title` / `explanation` per reason, may style by `code`, and show unknown codes from `title` / `explanation`. Gmail says "No warning signs found", never "safe". `unknown` is not shown as no warning signs.
+- [x] **B:** The old frame-to-main-page message is gone: the click guard runs in every frame and asks the service worker for the extension's own warning page (`OPEN_WARNING_PAGE`), which covers the whole tab. `SHOW_WARNING` is still answered by the service worker but nothing sends it.
+- [x] **B:** Test the scanner's real output with `validateInput` from `tests/contract.js`, including that no field values are ever collected.
 
-- [x] `extension/content/click-guard.js` and the extension-owned `extension/ui/warning.html`; limits in `docs/click-guard-limits.md`.
-- [x] Shared interface (`ui/explain.js`, `ui/warning-view.js`): large headline with icon and word, top 3 reasons plus "show more", Go back to safety, read aloud, false-alarm report (`chrome.storage.local`), Continue only for `warn`, keyboard focus, labels, high contrast.
-- [x] Tests: `tests/explain.test.js`, `tests/browser/click-guard.test.js`.
-- [ ] **B:** Screen-reader behavior is checked through ARIA attributes only; try a real screen reader.
-- [ ] **B:** Read-aloud can't be verified in headless tests; check it by hand.
-- [x] Saved false-alarm reports can be counted, saved, and deleted on the settings page.
+## Load order (A touched B's files: please review)
 
-## Done (Phase 1, Person B)
+- [x] **B:** The engine's files load before `rules.js` in every list: `background/content-scripts.js` (BASE), `blocked.html`, `tests/fake-gmail.html`, and `tests/practice-*.html`.
 
-- [x] `extension/content/page-scanner.js`: initial scan, debounced and de-duplicated dynamic scan, size limits, no typed values. Tests: `tests/scanner-merge.test.js`, `tests/browser/scanner.test.js`.
-- [ ] **B:** Scanner does not look inside iframes or shadow DOM; decide whether ads need that (Phase 6).
-- [ ] **B:** `dynamic-ad.html` and the other practice pages are only checked by hand; add them to the browser tests.
+## Phase 2: known threats (A changed `threat-list.js`; B's blocking needs to follow)
 
-## Permissions and privacy
+- [x] **A (Phase 5):** Chrome rules for `KNOWN_THREAT_URLS`: that address and everything below it, nothing else on the website.
+- [x] **A (Phase 5):** only trusted entries become Chrome hard blocks.
+- [x] **B:** `page.js` should send `hasPaymentField` for card-number boxes, so payment pages get the same checks as sign-in pages (free hosting, sent elsewhere, sent without encryption).
 
-- [ ] **B:** `<all_urls>` host access: confirm each use is needed and write the justification for the Web Store listing.
-- [ ] **B:** New `storage` permission is used only for false-alarm reports (host, verdict, up to 5 reason sentences, source, time; last 100 kept; never leaves the browser). Disclose in the listing.
-- [ ] **Both:** README Privacy section matches what is actually sent anywhere (nothing, until a threat provider is added).
+## Phase 3: connecting the branches
 
-## Testing
+- [ ] **Both:** The two `docs/interfaces.md` files disagree. Running the other branch's real `page-scanner.js` output through this branch's contract checker gives 7 problems on a sign-in page:
+  - `forms[].hasPayment` there, `hasPaymentField` here (the engine accepts both for now). Suggestion: keep `hasPayment`, because the scanner and its tests already use it, and only the doc, `tests/contract.js`, and fixtures change here.
+  - `forms[].method` and `forms[].fieldCount`: add them to the contract as optional.
+  - `context.scan` and `context.truncated` (webpage): add them as optional.
+  - `context.mainHeadings`: the scanner doesn't send it. The engine copes (title only), but headings make fake sign-in pages easier to spot.
+  - `visibleText` length: the scanner sends up to 40,000 characters. The contract now allows 50,000.
+- [x] **B (this branch):** `page.js` reads only the first 5,000 characters of a page, so a scam pop-up added to the end of a LONG page is missed. The engine reads up to 50,000. Shown as a KNOWN ISSUE by `tests/browser/acceptance.test.js`; turn it into a normal test once fixed. (The other branch's scanner doesn't have this problem.)
+- [ ] **B:** When a remote lookup is added, follow "Remote lookups" in `docs/interfaces.md`: hold the click when `whenToLookUp()` says `before_opening`, show "Checking this link…", and never let a slow or failed lookup open the link by itself.
 
-- [x] **B:** Browser test that a suspicious click is stopped before navigation.
-- [x] **B:** Unusual click paths: new tab, keyboard, modified clicks, SVG, shadow DOM. Scripted navigation is a documented limit.
-- [ ] **Both:** Measure scams caught and safe pages wrongly flagged on a larger example set.
+## Phase 5: service worker and threat lookups (A built the service worker)
+
+- [ ] **B (please review):** to support the service worker, A touched B's files: `manifest.json` (added the `storage` permission and `threat-sync.js`), and `blocked.html` / `blocked.js` (they can now show any analyzer result from `OPEN_WARNING_PAGE`: title, reasons, and "Open it anyway" for a warning only). Restyle or replace with your warning page as you see fit; keep the `?t=` token flow.
+- [ ] **B:** `content/click-guard.js`: when `whenToLookUp(result)` says `before_opening` and remote lookups are on, hold the click, show "Checking this link…", send `LOOKUP_URL`, and pass the answer to `analyze(input, { lookup })`. On `error`, show the local warning and let the person choose: never open the link by itself, and never say it was "checked" or "safe".
+- [ ] **B:** consider `OPEN_WARNING_PAGE` for `block` results: a website can hide or fake an in-page warning, but not the extension's own page.
+- [x] **A (Phase 6):** the settings page (`settings.html`): protection on/off, website access, reading and text, permissions explained, the false-positive list. Remote lookups get a switch only once a real provider is chosen.
+- [ ] **Both:** choose the threat-intelligence provider and privacy model (`docs/threat-intelligence.md`) before adding one.
+
+## Phase 6: permissions, settings, and reading aloud (A, touching B's files: please review)
+
+- [x] **B:** page scripts are registered by the service worker (`background/content-scripts.js`). `BASE` and `desiredScripts()` now list the merged scripts (`content/*`, `ui/*`, `panel.js`, `page.js`); `tests/service-worker.test.js` checks every listed file exists.
+- [x] **B:** reading aloud goes through `speech.js` in `ui/warning-view.js` (so in the in-page card, the Gmail panel, and `blocked.js`); text size comes from `settings-sync.js` (`card font-size = 24px x zoom`).
+- [x] **B:** stopped clicks (warn and block) open the extension's own warning page; the in-page card is used for page-level warnings, the Gmail panel, and as a fallback if the extension can't be reached.
+
+## Tests
+
+- [x] **Both:** Browser test proving a risky click is stopped before the browser asks for the address, including a click inside an ad frame and a typed known-dangerous address: `tests/browser/acceptance.test.js` (Phase 3 acceptance).
+- [x] **B:** Less common ways of opening a link are tested (`tests/browser/systematic.test.js`, `click-matrix.test.js`): keyboard, modified clicks, SVG, shadow DOM, frames, and pages that navigate with their own code. Right-click "Open in new tab" cannot be driven by the test browser; check it by hand.
+- [ ] **Both:** Measure scams caught and false alarms on a set of examples nobody tuned the rules on.
+
+## Permissions and privacy (Chrome Web Store)
+
+- [ ] **B:** Access to all `http`/`https` websites: write the justification for the store listing, and check whether optional per-site access would be enough for any feature.
+- [ ] **B:** `declarativeNetRequest`: needed for blocking known dangerous websites before they load. Write the justification.
+- [ ] **Both:** Before adding a threat-lookup service or AI: update the README Privacy section with exactly what is sent, to whom, and when.

@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  Practice page: a FAKE sign-in page pretending to be PayPal, on a look-alike address.
+  Open this file in Chrome (no extension needed). The "Be careful on this page"
+  warning should appear right away.
+
+  data-practice-url makes the checks treat this file as if it were on that website.
+  This form sends nothing anywhere. Don't change it to a real address.
+-->
+<html lang="en" data-practice-url="https://paypa1-login.example/signin">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in to your PayPal account</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; }
+    form { max-width: 360px; margin: 60px auto; padding: 28px; background: #fff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
+    h1 { color: #003087; font-size: 30px; margin-top: 0; }
+    label { display: block; margin-top: 14px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; }
+    button { margin-top: 18px; width: 100%; padding: 12px; font-size: 16px; background: #0070ba; color: #fff; border: 0; border-radius: 20px; }
+  </style>
+</head>
+<body>
+  <form action="https://collect.example/p.php" onsubmit="return false">
+    <h1>PayPal</h1>
+    <p>We noticed unusual activity. Please confirm your identity.</p>
+    <label>Email <input type="email" autocomplete="off"></label>
+    <label>Password <input type="password" autocomplete="off"></label>
+    <button>Log In</button>
+  </form>
+
+  <!-- The same files the extension loads into every website -->
+  <script src="../extension/threat-list.js"></script>
+  <script src="../extension/core/url-normalizer.js"></script>
+  <script src="../extension/core/domain-rules.js"></script>
+  <script src="../extension/core/url-rules.js"></script>
+  <script src="../extension/core/text-rules.js"></script>
+  <script src="../extension/core/risk-policy.js"></script>
+  <script src="../extension/core/explanations.js"></script>
+  <script src="../extension/core/analyzer.js"></script>
+  <script src="../extension/rules.js"></script>
+  <script src="../extension/settings-sync.js"></script>
+  <script src="../extension/speech.js"></script>
+  <script src="../extension/panel-styles.js"></script>
+  <script src="../extension/ui/explain.js"></script>
+  <script src="../extension/ui/warning-view.js"></script>
+  <script src="../extension/panel.js"></script>
+  <script src="../extension/content/ad-signals.js"></script>
+  <script src="../extension/content/click-guard.js"></script>
+  <script src="../extension/content/page-scanner.js"></script>
+  <script src="../extension/page.js"></script>
+</body>
+</html>

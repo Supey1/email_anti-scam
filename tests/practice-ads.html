@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  Practice page: a pretend news website with ads and links.
+  Open this file in Chrome (no extension needed) and click the links.
+  Scam-style links should bring up the "Stop and check" warning. Normal links
+  should do nothing (this page never really opens them).
+
+  data-practice-url makes the checks treat this file as if it were on that website.
+  All addresses end in .example, which can never be real websites.
+  Don't change them to real scam links.
+-->
+<html lang="en" data-practice-url="https://news.example/today">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Practice: news page with ads</title>
+  <style>
+    body { font-family: Georgia, serif; margin: 0; background: #fafafa; color: #222; }
+    header { padding: 12px 20px; background: #1d3557; color: #fff; font-size: 26px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; max-width: 980px; margin: 20px auto; padding: 0 16px; }
+    article { background: #fff; padding: 16px 20px; border-radius: 8px; }
+    article h2 { margin-top: 0; }
+    aside { display: flex; flex-direction: column; gap: 16px; }
+    .ad { position: relative; padding: 14px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-family: Arial, sans-serif; }
+    .ad::before { content: 'Advertisement'; display: block; font-size: 11px; color: #777; margin-bottom: 6px; }
+    .ad.prize { background: #fff7d6; }
+    .ad.alarm { background: #ffe5e5; }
+    .ad a { display: inline-block; margin-top: 8px; padding: 6px 12px; background: #1a56db; color: #fff; text-decoration: none; border-radius: 6px; }
+    .key { font-family: Arial, sans-serif; font-size: 14px; color: #555; }
+    @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>The Daily Example</header>
+  <main>
+    <div>
+      <article>
+        <h2><a href="https://other-news.example/lottery">Local woman wins lottery jackpot</a></h2>
+        <p>Officials say the winner will collect the prize next week. <span class="key">(Normal: should open without a warning.)</span></p>
+      </article>
+      <article>
+        <h2>Bank customers report fake messages</h2>
+        <p>Readers sent us this link from a message they received:
+          <a href="https://chase-secure-login.example/verify">www.chase.com</a>
+          <span class="key">(Scam: the words say chase.com, but it goes somewhere else.)</span></p>
+        <p>Track your packages at <a href="https://tools.usps.com/go/TrackConfirmAction">USPS Tracking</a>.
+          <span class="key">(Normal: real USPS website.)</span></p>
+        <p>Read the <a href="https://known-phish.example/start">full report</a>.
+          <span class="key">(Known dangerous website from threat-list.js: blocked, no way through.)</span></p>
+      </article>
+    </div>
+    <aside>
+      <div class="ad prize">
+        <strong>Congratulations!</strong> You have won a $2,000 gift card. Claim your reward before midnight.
+        <br><a href="https://claim-reward-now.example/claim">Claim now</a>
+      </div>
+      <div class="ad prize">
+        You have been selected to receive a free Amazon gift card. Just pay $1.99 shipping to claim your prize.
+        <br><a href="https://reward-center.example/amzn" target="_blank">Get my gift card</a>
+      </div>
+      <div class="ad alarm">
+        WARNING! Your computer is infected. Call support at 1-800-555-0199 now. Do not close this window.
+        <br><a href="https://pc-repair-help.example/">Get help now</a>
+      </div>
+      <div class="ad">
+        Spring sale: 20% off garden tools. Limited time only.
+        <br><a href="https://garden-store.example/sale">Shop the sale</a>
+        <div class="key">(Normal ad: should open without a warning.)</div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // Never really open practice links. (The extension's checks run before this.)
+    document.addEventListener('click', e => { if (e.target.closest('a')) e.preventDefault(); });
+  </script>
+
+  <!-- The click-checking files the extension loads into every website.
+       page.js is left out on purpose: these practice ads sit right in the page,
+       so the whole page would get a warning. Real ads usually load in their own
+       frame. (See "Known limits" in the README.) -->
+  <script src="../extension/threat-list.js"></script>
+  <script src="../extension/core/url-normalizer.js"></script>
+  <script src="../extension/core/domain-rules.js"></script>
+  <script src="../extension/core/url-rules.js"></script>
+  <script src="../extension/core/text-rules.js"></script>
+  <script src="../extension/core/risk-policy.js"></script>
+  <script src="../extension/core/explanations.js"></script>
+  <script src="../extension/core/analyzer.js"></script>
+  <script src="../extension/rules.js"></script>
+  <script src="../extension/settings-sync.js"></script>
+  <script src="../extension/speech.js"></script>
+  <script src="../extension/panel-styles.js"></script>
+  <script src="../extension/ui/explain.js"></script>
+  <script src="../extension/ui/warning-view.js"></script>
+  <script src="../extension/panel.js"></script>
+  <script src="../extension/content/ad-signals.js"></script>
+  <script src="../extension/content/click-guard.js"></script>
+</body>
+</html>

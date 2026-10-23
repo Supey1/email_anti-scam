@@ -1,13 +1,19 @@
 // page-scanner.js: collects EVIDENCE from an ordinary webpage. It never decides whether
 // the evidence looks like a scam; that is the analyzer's job (see docs/interfaces.md).
 //
-// Evidence has the shape of the analyzer input:
+// Evidence is exactly the analyzer input in docs/interfaces.md (checked by tests/contract.js):
 //   { source: 'webpage', pageUrl, pageTitle, visibleText, links: [{ text, url }],
-//     forms: [{ action, method, fieldCount, hasPassword, hasPayment }], context: {...} }
+//     forms: [{ action, hasPassword, hasPaymentField }], context: { mainHeadings } }
+// Extra facts about a scan (which pass it was, whether a size limit cut something off) are NOT part of the
+// evidence: they come as a second argument, onEvidence(evidence, meta).
 //
 // Privacy: the scanner never reads what a person typed. It does not read the `value` of any
 // input, and it skips text inside inputs, text boxes, drop-downs, and editable areas. For
 // forms it records only that a password or payment field EXISTS.
+//
+// Advertisements are not treated separately here: their words are part of the page text and their links are
+// page links, and the engine judges them with everything else. (content/ad-signals.js recognizes ads only to
+// describe the words around a clicked link.)
 //
 // Two passes:
 //   initial scan: the whole page, once, when the scanner starts
@@ -21,21 +27,20 @@ const PageScanner = (() => {
   'use strict';
 
   const DEFAULT_LIMITS = {
-    maxTextChars: 20000,       // visible text per scan
+    maxTextChars: 40000,       // visible text per scan (the contract allows 50,000)
     maxNodesVisited: 5000,     // page elements and text pieces examined per scan
     maxLinks: 100,             // links reported per scan
     maxLinksExamined: 1000,    // links looked at per scan, before choosing which to report
     maxLinkTextChars: 100,
     maxForms: 20,
-    maxAds: 20,                // advertisements reported per scan
     maxTitleChars: 300,
     maxAddedNodesPerScan: 200, // new elements examined per dynamic scan
     maxDynamicScans: 100,      // after this many, stop watching the page
     maxSeen: 2000,             // remembered links, forms, so repeats are not sent again
     debounceMs: 1500,
-    maxMergedText: 40000,      // limits for merge()
+    maxMergedText: 50000,      // limits for merge(): the contract's limit
     maxMergedLinks: 300,
-    maxMergedAds: 50,
+    keepHeadChars: 10000,      // when merged text is too long, the middle is trimmed: new text arrives at the END and matters most
   };
 
   const OWN_HOST_ID = 'email-anti-scam-warning'; // our own warning card: never scan it
@@ -156,20 +161,20 @@ const PageScanner = (() => {
   // Looks at a field's kind and name only, never its value.
   const isPaymentField = f => /^cc-/.test(f.autocomplete || '') || PAYMENT_NAME.test(`${f.name} ${f.id}`);
 
-  function describeForm(action, method, fields) {
+  function describeForm(action, fields) {
     return {
       action,
-      method,
-      fieldCount: fields.length,
       hasPassword: fields.some(f => f.type === 'password'),
-      hasPayment: fields.some(isPaymentField),
+      hasPaymentField: fields.some(isPaymentField),
     };
   }
 
   function collectForms(roots, limits, seen) {
     const forms = [];
     const add = description => {
-      const key = [description.action, description.method, description.fieldCount, description.hasPassword, description.hasPayment].join('|');
+      // The contract asks only for forms with something sensitive in them: a password or a card number.
+      if (!description.hasPassword && !description.hasPaymentField) return;
+      const key = [description.action, description.hasPassword, description.hasPaymentField].join('|');
       if (forms.length < limits.maxForms && remember(seen, key, limits.maxSeen)) forms.push(description);
     };
     for (const root of roots) {
@@ -177,90 +182,65 @@ const PageScanner = (() => {
       const found = root.localName === 'form' ? [root] : [];
       found.push(...root.querySelectorAll('form'));
       for (const form of found) {
-        if (!insideSkipped(form)) add(describeForm(form.action || location.href, (form.method || 'get').toLowerCase(), [...form.querySelectorAll('input, select, textarea')]));
+        if (!insideSkipped(form)) add(describeForm(form.action || location.href, [...form.querySelectorAll('input, select, textarea')]));
       }
       // Pages built with scripts often have password or card boxes that are not inside any <form>.
       const inputs = [...root.querySelectorAll('input')];
       if (root.localName === 'input') inputs.push(root);
       const loose = inputs.filter(i => !i.form && !insideSkippedAncestor(i));
       const sensitive = loose.filter(i => i.type === 'password' || isPaymentField(i));
-      if (sensitive.length) add(describeForm(location.href, 'get', loose));
+      if (sensitive.length) add(describeForm(location.href, loose));
     }
     return forms;
   }
 
-  // ---------- advertisements ----------
-  // Evidence only: what the ad says, where it leads, and why we think it is an ad.
-  // Same-origin ad frames are read; cross-origin ad frames can't be, so they are only counted.
-
-  function collectAds(roots, limits, seen) {
-    if (typeof AdSignals === 'undefined') return { ads: [], frames: { readable: 0, unreadable: 0 }, containers: new Set() };
-    const ads = [];
-    const frames = { readable: 0, unreadable: 0 };
-    const add = (container, inFrame) => {
-      if (ads.length >= limits.maxAds) return;
-      const ad = AdSignals.describe(container);
-      if (!ad.link && !ad.text) return;
-      const key = `${ad.link ? ad.link.url : ''}\u0000${ad.text.slice(0, 80)}`;
-      if (remember(seen, key, limits.maxSeen)) ads.push({ ...ad, signals: inFrame ? ['frame:ad-frame', ...ad.signals].slice(0, 6) : ad.signals, frame: inFrame });
-    };
-    const containers = new Set(AdSignals.find(roots));
-    for (const container of containers) add(container, false);
-
-    for (const root of roots) {
-      if (root.nodeType !== Node.ELEMENT_NODE) continue;
-      const list = root.localName === 'iframe' ? [root] : [];
-      list.push(...root.querySelectorAll('iframe'));
-      for (const frame of list) {
-        if (!AdSignals.isAdFrame(frame)) continue;
-        let doc = null;
-        try { doc = frame.contentDocument; } catch (e) { doc = null; }
-        if (!doc || !doc.body) { frames.unreadable++; continue; }
-        frames.readable++;
-        const inside = AdSignals.find([doc.body]);
-        // A whole ad frame is one ad even if nothing inside carries a marker.
-        for (const container of inside.length ? inside : [doc.body]) add(container, true);
-      }
-    }
-    return { ads, frames, containers };
-  }
-
   // ---------- evidence ----------
 
-  function makeEvidence(scan, text, links, forms, truncated, adInfo) {
+  // Practice pages opened as files say which website they pretend to be (data-practice-url); real pages never do.
+  const practiceUrl = () => (location.protocol === 'file:' && document.documentElement.getAttribute('data-practice-url')) || '';
+
+  // The page's main headings (up to 3): a fake sign-in page often names the company in its heading.
+  function mainHeadings(limits) {
+    return [...document.querySelectorAll('h1')]
+      .filter(h => isVisible(h) && !insideSkipped(h))
+      .map(h => collapse(h.textContent || '').slice(0, 120))
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+
+  function makeEvidence(text, links, forms, limits) {
     return {
       source: 'webpage',
-      pageUrl: location.href,
-      pageTitle: collapse(document.title || ''),
+      pageUrl: practiceUrl() || location.href,
+      pageTitle: collapse(document.title || '').slice(0, limits.maxTitleChars),
       visibleText: text,
       links,
       forms,
-      context: { scan, truncated, ads: adInfo.ads, adFrames: adInfo.frames },
+      context: { mainHeadings: mainHeadings(limits) },
     };
+  }
+
+  // Joins text, keeping the NEWEST text when it is too long: a scam pop-up added late sits at the end.
+  function joinText(base, added, limits) {
+    const all = added ? `${base} ${added}` : base;
+    if (all.length <= limits.maxMergedText) return all;
+    return all.slice(0, limits.keepHeadChars) + ' ' + all.slice(all.length - (limits.maxMergedText - limits.keepHeadChars - 1));
   }
 
   // Combines the page's evidence so far with a dynamic scan's new evidence, within limits.
   function merge(base, delta, limits = DEFAULT_LIMITS) {
     const keys = new Set(base.links.map(l => `${l.text}\u0000${l.url}`));
     const links = base.links.concat(delta.links.filter(l => !keys.has(`${l.text}\u0000${l.url}`))).slice(0, limits.maxMergedLinks);
-    const text = delta.visibleText ? `${base.visibleText} ${delta.visibleText}` : base.visibleText;
+    const formKey = f => `${f.action}|${f.hasPassword}|${f.hasPaymentField}`;
+    const seenForms = new Set(base.forms.map(formKey));
     return {
       ...base,
       pageUrl: delta.pageUrl,
       pageTitle: delta.pageTitle,
-      visibleText: text.slice(0, limits.maxMergedText),
+      visibleText: joinText(base.visibleText, delta.visibleText, limits),
       links,
-      forms: base.forms.concat(delta.forms).slice(0, limits.maxForms * 2),
-      context: {
-        ...base.context,
-        ads: (base.context.ads || []).concat(delta.context.ads || []).slice(0, limits.maxMergedAds),
-        adFrames: {
-          readable: ((base.context.adFrames || {}).readable || 0) + ((delta.context.adFrames || {}).readable || 0),
-          unreadable: ((base.context.adFrames || {}).unreadable || 0) + ((delta.context.adFrames || {}).unreadable || 0),
-        },
-        scan: delta.context.scan,
-        truncated: { text: base.context.truncated.text || delta.context.truncated.text, links: base.context.truncated.links || delta.context.truncated.links },
-      },
+      forms: base.forms.concat(delta.forms.filter(f => !seenForms.has(formKey(f)))).slice(0, limits.maxForms * 2),
+      context: { mainHeadings: base.context.mainHeadings.length ? base.context.mainHeadings : delta.context.mainHeadings },
     };
   }
 
@@ -272,7 +252,6 @@ const PageScanner = (() => {
     const limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
     const seenLinks = new Set();
     const seenForms = new Set();
-    const seenAds = new Set();
     let knownText = '';
     const queue = new Set();
     let timer = null;
@@ -280,19 +259,17 @@ const PageScanner = (() => {
     let dynamicScans = 0;
     let stopped = false;
 
-    function emit(evidence) {
-      try { options.onEvidence(evidence); } catch (error) { if (options.onError) options.onError(error); }
+    function emit(evidence, meta) {
+      try { options.onEvidence(evidence, meta); } catch (error) { if (options.onError) options.onError(error); }
     }
 
     function initialScan() {
       const root = document.body || document.documentElement;
-      // Ads are judged on their own (with the "this is an ad" context), so their text is kept out of the page text.
-      const adInfo = collectAds([document.documentElement], limits, seenAds);
-      const { text, truncated: textTruncated } = collectText(root, limits, adInfo.containers);
+      const { text, truncated: textTruncated } = collectText(root, limits);
       const { links, truncated: linksTruncated } = collectLinks([document.documentElement], limits, seenLinks);
       const forms = collectForms([document.documentElement], limits, seenForms);
       knownText = text;
-      emit(makeEvidence('initial', text, links, forms, { text: textTruncated, links: linksTruncated }, adInfo));
+      emit(makeEvidence(text, links, forms, limits), { scan: 'initial', truncated: { text: textTruncated, links: linksTruncated } });
     }
 
     function dynamicScan() {
@@ -306,12 +283,10 @@ const PageScanner = (() => {
       // A new element that is inside another new element is covered by its parent.
       const roots = added.filter(n => !added.some(other => other !== n && other.nodeType === Node.ELEMENT_NODE && other.contains(n)));
 
-      const adInfo = collectAds(roots, limits, seenAds);
       let text = '';
       let textTruncated = false;
       for (const root of roots) {
-        if (typeof AdSignals !== 'undefined' && AdSignals.containerFor(root)) continue; // new content inside an ad: reported as an ad
-        const piece = collectText(root, limits, adInfo.containers);
+        const piece = collectText(root, limits);
         textTruncated = textTruncated || piece.truncated;
         if (piece.text && !knownText.includes(piece.text) && text.length < limits.maxTextChars) text += (text ? ' ' : '') + piece.text;
       }
@@ -320,8 +295,8 @@ const PageScanner = (() => {
 
       const { links, truncated: linksTruncated } = collectLinks(roots, limits, seenLinks);
       const forms = collectForms(roots, limits, seenForms);
-      if (!text && !links.length && !forms.length && !adInfo.ads.length && !adInfo.frames.unreadable) return; // nothing new
-      emit(makeEvidence('dynamic', text, links, forms, { text: textTruncated, links: linksTruncated }, adInfo));
+      if (!text && !links.length && !forms.length) return; // nothing new
+      emit(makeEvidence(text, links, forms, limits), { scan: 'dynamic', truncated: { text: textTruncated, links: linksTruncated } });
     }
 
     function schedule() {
@@ -352,7 +327,6 @@ const PageScanner = (() => {
       if (observer) observer.disconnect();
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
-      document.removeEventListener('load', onFrameLoad, true);
       queue.clear();
       timer = null;
     }
@@ -361,17 +335,8 @@ const PageScanner = (() => {
     observer = new MutationObserver(onMutations);
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
     document.addEventListener('visibilitychange', onVisible);
-    // An ad frame's content arrives after the frame is inserted: look again when it finishes loading.
-    const onFrameLoad = event => {
-      if (event.target && event.target.localName === 'iframe' && !stopped && queue.size < limits.maxAddedNodesPerScan) {
-        queue.add(event.target);
-        schedule();
-      }
-    };
-    document.addEventListener('load', onFrameLoad, true);
-
     return {
-      scanNow: () => { queue.clear(); seenLinks.clear(); seenForms.clear(); seenAds.clear(); initialScan(); },
+      scanNow: () => { queue.clear(); seenLinks.clear(); seenForms.clear(); initialScan(); },
       stop,
       stats: () => ({ dynamicScans, queued: queue.size, seenLinks: seenLinks.size, stopped }),
     };

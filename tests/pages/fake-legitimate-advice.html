@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Town library newsletter: stay safe</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: a KNOWN FALSE POSITIVE (docs/findings.md). A library's anti-scam newsletter with a member login.
+       The words are honest advice, but the engine reads "never pay with gift cards" as a payment demand and joins it
+       to the urgency and the contest winner, then tells people not to type on the page. Expected today: a warning
+       card (wrong). When the engine is fixed, this page should show NO card and the test should be flipped.
+       All addresses are made-up ".example" names. -->
+  <h1>Town library newsletter: stay safe</h1>
+  <p>Urgent: volunteers are needed for the book sale. Act now to reserve a shift!</p>
+  <p>Beware of scams: never pay with gift cards or wire transfers, and never share your password or social security number.</p>
+  <p>Congratulations to Dot, winner of last month's reading challenge! Claim your coupon at the front desk.</p>
+  <form action="/login" method="post" onsubmit="return false"><h2>Member login</h2><input name="u"><input type="password" name="pw"><button>Log in</button></form>
+</body></html>

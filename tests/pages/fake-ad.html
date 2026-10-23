@@ -2,10 +2,10 @@
 <html lang="en"><head><meta charset="utf-8"><title>Garden club news</title></head>
 <body style="font-family:Arial;max-width:680px;margin:30px auto">
   <!-- Test page: promotional text and suspicious destinations. All addresses are made-up ".example" names.
-       Expected: ONLY the prize advertisement (#ad-prize) is reported, and clicking it is stopped.
+       Expected: clicking a prize advertisement (#ad-prize, #ad-late) is stopped.
        The sale ad and the book ad are ordinary and must stay untouched. Nothing is hidden or removed.
        #ad-late appears after the page loads. #ad-tracked is an ordinary ad whose link goes through an
-       ad tracker (a known false alarm, see docs/test-results.md). -->
+       ad tracker: a weak warning that never interrupts the click. -->
   <h1>Garden club news</h1>
   <p>The spring plant sale is on Saturday at the community hall.</p>
 

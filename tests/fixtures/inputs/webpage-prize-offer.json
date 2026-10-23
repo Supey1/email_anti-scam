@@ -1,0 +1,11 @@
+{
+  "source": "webpage",
+  "pageUrl": "https://example.example/offer",
+  "pageTitle": "Claim Your Prize",
+  "visibleText": "Congratulations! You have won a $2,000 gift card. Claim your reward now. Pay a small processing fee to receive your prize. Offer expires today.",
+  "links": [
+    { "text": "Claim reward", "url": "https://example.example/claim" }
+  ],
+  "forms": [],
+  "context": { "mainHeadings": ["You have won!"] }
+}

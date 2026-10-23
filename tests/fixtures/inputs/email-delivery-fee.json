@@ -1,0 +1,15 @@
+{
+  "source": "email",
+  "pageUrl": "https://mail.google.com/mail/u/0/#inbox/FMfcgzExample3",
+  "pageTitle": "Your package is on hold - Gmail",
+  "visibleText": "Your package is on hold. Pay the $1.99 redelivery fee to release your package within 24 hours.",
+  "links": [
+    { "text": "Reschedule delivery", "url": "https://usps-redelivery.example/track" }
+  ],
+  "forms": [],
+  "context": {
+    "senderName": "USPS Delivery",
+    "senderEmail": "notice@usps-redelivery.example",
+    "subject": "Your package is on hold"
+  }
+}

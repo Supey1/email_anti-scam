@@ -1,9 +1,9 @@
 // warning-view.js: builds the warning interface from an Explain.describe() model.
-// Used by the extension-owned warning page and by the in-page panel, so both look and behave the same.
+// Used by the extension's warning page (blocked.html) and by the in-page panel, so both look and behave the same.
 //
 // Accessibility: dialog role with a label, announced when it appears, focus moves to the safe
 // action and is kept inside the card, visible focus outlines, every severity shown as an icon
-// AND a word (never colour alone), and a keyboard-reachable "read to me".
+// AND a word (never colour alone), and a keyboard-reachable "read to me" (speech.js).
 // Safety: everything from the web is added with textContent, never innerHTML.
 
 const WarningView = (() => {
@@ -17,14 +17,6 @@ const WarningView = (() => {
     }
     for (const child of [].concat(children)) if (child) node.append(child);
     return node;
-  }
-
-  function speak(text, onEnd, rate = 0.9) {
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(text);
-    speech.rate = rate;
-    speech.onend = speech.onerror = onEnd;
-    window.speechSynthesis.speak(speech);
   }
 
   // Keeps Tab and Shift+Tab inside `root`. Works inside a shadow root too.
@@ -43,14 +35,15 @@ const WarningView = (() => {
 
   // model = Explain.describe(result)
   // options = {
-  //   textSizePx: the person's text size, speechRate: how fast to read aloud, showRead: false hides "Read to me",
-  //   primaryLabel: text of the main button (default "Go back to safety"),
+  //   key: what this card reads aloud (so a redraw does not restart the speech),
+  //   rate: () => speech speed, textSizePx: the person's text size, showRead: false hides "Read to me",
+  //   primaryLabel: text of the main button (default: the model's),
   //   extras: [{ heading, lines: [{ text, muted?, flag? }] }] shown after the advice,
   //   destination: a line (or array of lines) shown above the reasons, such as what a link says and where it really goes,
   //   corner: true for a small card in the corner instead of a centered one,
   //   onBack, onContinue (only used when model.canContinue), onReport (optional), onHide (optional)
   // }
-  // Returns { card, primary, startReading } where primary is the button to focus.
+  // Returns { card, primary, speakNow } where primary is the button to focus.
   function render(model, options = {}) {
     const announce = el('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
     const reasons = model.top.map(r => el('li', {}, [
@@ -64,21 +57,16 @@ const WarningView = (() => {
         ])
       : null;
 
-    const primary = el('button', { class: 'primary', text: options.primaryLabel || 'Go back to safety', onclick: () => options.onBack && options.onBack() });
-    const read = el('button', { text: '🔊 Read to me', 'aria-pressed': 'false' });
-    let reading = false;
-    const toggleReading = () => {
-      if (reading) { window.speechSynthesis.cancel(); return; }
-      reading = true;
-      read.setAttribute('aria-pressed', 'true');
-      read.textContent = '⏹ Stop reading';
-      speak(Explain.spokenText(model), () => {
-        reading = false;
-        read.setAttribute('aria-pressed', 'false');
-        read.textContent = '🔊 Read to me';
-      }, options.speechRate);
-    };
-    read.addEventListener('click', toggleReading);
+    const primary = el('button', { class: 'primary', text: options.primaryLabel || model.primaryLabel, onclick: () => options.onBack && options.onBack() });
+
+    // One "Read to me" / "Stop reading" button, the same everywhere (speech.js).
+    const key = options.key || `warning|${model.verdict}|${model.top.map(r => r.code).join(',')}`;
+    const parts = () => Explain.spokenParts(model);
+    const rate = options.rate || (() => 0.9);
+    const read = typeof GranblockSpeech !== 'undefined'
+      ? GranblockSpeech.makeButton(document, { getParts: parts, key, rate })
+      : null;
+    const speakNow = () => { if (typeof GranblockSpeech !== 'undefined') GranblockSpeech.speak(parts(), { rate: rate(), key }); };
 
     const report = options.onReport ? el('button', { class: 'quiet', text: 'This is a false alarm', onclick: () => {
       options.onReport();
@@ -125,8 +113,8 @@ const WarningView = (() => {
     announce.textContent = `${model.label}. ${model.headline}`;
     if (options.textSizePx) card.style.fontSize = `${options.textSizePx}px`;
     trapFocus(card);
-    return { card, primary, startReading: toggleReading };
+    return { card, primary, speakNow };
   }
 
-  return { render, el, speak };
+  return { render, el };
 })();

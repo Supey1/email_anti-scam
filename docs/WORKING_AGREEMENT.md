@@ -2,43 +2,47 @@
 
 How the two of us build this together without stepping on each other.
 
-| | Workstream | Owns |
-|---|---|---|
-| **Person A** | Detection engine | `rules.js`, `analyzer.js`, `threats.js`, rule tests, threat intelligence |
-| **Person B** | Browser protection | `page.js`, `content/` (scanner, ad-signals, click-guard, Gmail adapter), `settings.js`, `ui/` (popup, options, warning), `guard.js`, `panel.js`, `panel-styles.js`, `service-worker.js`, `blocked.*`, `manifest.json`, settings, accessibility, read-aloud |
+## Who owns what
 
-## Rules
+| | Workstream | Branch | Owns |
+|---|---|---|---|
+| **Person A** | Detection engine | `feature/detection-engine` | `extension/rules.js`, `extension/core/*.js`, `extension/threat-list.js`, `extension/threat-sync.js`, `tests/rules.test.js`, test fixtures, threat intelligence: `extension/service-worker.js`, `extension/background/*.js`, `tests/service-worker.test.js` (from Phase 5); permissions, storage, settings, and reading aloud: `extension/settings.*`, `extension/speech.js`, `extension/settings-sync.js`, `tests/speech.test.js` (from Phase 6) |
+| **Person B** | Browser protection | `feature/browser-protection` | `extension/content/*` (page scanner, click guard, Gmail adapter, ad signals), `extension/page.js`, `extension/panel.js`, `extension/panel-styles.js`, `extension/ui/*` (shared warning words and layout, popup), `extension/blocked.html`, `extension/blocked.js`, `extension/manifest.json`, `tests/fake-gmail.html`, `tests/practice-*.html`, `tests/pages/*`, `tests/corpus/*`, `tests/metrics.js`, `tests/usability*`, `tests/browser/*` except `acceptance.test.js` (shared), `docs/testing.md`, `docs/usability-*.md`, `docs/click-guard-limits.md`, `docs/ad-support-matrix.md` |
 
-1. **One feature branch per workstream**, for example `feature/detection-engine` and `feature/browser-protection`. Nobody commits directly to the main branch.
-2. **Stay in your lane.** Person A never edits Person B's warning-panel code to add a rule. Person A returns a new structured reason through the analyzer interface, and Person B decides how that reason looks.
-3. **No second scoring engine.** Person B never writes scam-scoring logic in any content script (`page-scanner.js`, `gmail-adapter.js`, `click-guard.js`, `page.js`) or the panel. Collect evidence, pass it to the shared analyzer, and display what comes back.
-4. **Never wait for each other.** Until the analyzer is ready, Person B develops against fixed mock results. Until the webpage scanner is ready, Person A develops against static JSON fixtures (`tests/fixtures/`).
-5. **The contract is in `docs/interfaces.md`.** Changing it needs a pull request that both of us review. Bump `schemaVersion` for breaking changes.
-6. **Tests before merge.** Every completed feature includes its tests and is merged only when they pass:
+The analyzer interface (below) belongs to both of us. Neither person changes it alone.
+
+## The rules
+
+1. **One feature branch per workstream**, for example `feature/detection-engine` and `feature/browser-protection`. Nobody makes overlapping changes directly on the main branch.
+
+2. **Person A never edits Person B's warning interface to add a rule.** To add a rule, Person A returns a new structured reason through the agreed analyzer interface. Person B then decides how that reason appears in the interface.
+
+3. **Person B never writes its own scam-scoring logic** in the content scripts (`content/*`, `page.js`) or the warning interface (`ui/*`, `panel.js`, `blocked.js`). Person B collects evidence, passes it to the shared analyzer, and displays what comes back.
+
+4. **Nobody waits for the other person.**
+   - Until Person A's analyzer is ready, Person B develops against **fixed mock results**.
+   - Until Person B's webpage scanner is ready, Person A develops against **static JSON fixtures**.
+
+5. **Every completed feature includes its relevant tests, and is merged only when those tests pass.** Today that means:
    ```
-   npm test        # runs every test below (browser tests need Playwright: npm install)
+   npm test        # everything; browser tests need Playwright (npm install)
    ```
-   The files are listed in `docs/testing.md`. Changes to rules or wording also re-run `node tests/metrics.js`: detection must not rise by letting false positives rise. Add browser-level checks for anything that changes click interception or the warning interface.
-7. **Keep a short shared checklist** of integration problems in `docs/integration-checklist.md` instead of making overlapping edits on the main branch.
-8. **Privacy and permissions are part of development, not a publishing step.** The Chrome Web Store requires accurate disclosure of data handling and the narrowest permissions the features need. So:
-   - Any change to `manifest.json` permissions or host access says why in the pull request.
-   - Any new data leaving the browser (threat lookups, AI) is recorded in the README's Privacy section in the same pull request.
-   - The scanner never collects values typed into password or other sensitive fields. It may record that a field exists, never what is in it.
-9. **Manifest V3.** Content scripts inspect pages, the service worker handles extension events, and `declarativeNetRequest` blocks or redirects matching requests. The service worker can stop when idle, so keep persistent state in storage, never only in memory.
-10. **Be honest in wording.** `no_warning_signs` is never described as "safe". Do not claim an interception works until it has been tested for that navigation path.
+   (`docs/testing.md` lists every file.) A change to rules or wording also re-runs `node tests/metrics.js`: detection must not rise by letting false alarms rise. A feature that changes how clicks are stopped or how warnings appear also needs a browser test for that behavior.
 
-## Order of execution
+6. **Keep a short shared checklist of integration issues** in [`integration-checklist.md`](integration-checklist.md). When something in the other person's area needs to change, add it to the checklist instead of editing their code.
 
-1. Agree on the analyzer input/output contract and write `docs/interfaces.md`.
-2. A builds the analyzer and automated rule tests; B builds generic webpage extraction against mock results.
-3. A finishes URL and domain rules; B builds click interception and the warning interface.
-4. Integrate both and prove that a suspicious click is stopped before navigation.
-5. Add Gmail as one adapter inside the same architecture, not a separate product.
-6. Expand to advertisements and dynamic page content, then add browser-level blocking and a real threat-intelligence provider.
-7. Add settings, permission handling, accessibility, and read-aloud.
-8. Run the full automated and browser test suites, fix false positives, and run usability tests with older adults.
-9. Finish the demo, verify every privacy claim, and update the README to match what is actually implemented.
+7. **Chrome Web Store rules apply during development, not only at publication.** The Web Store requires accurate disclosure of data handling and the narrowest permissions the product needs. So:
+   - Any pull request that changes `manifest.json` permissions or website access explains why the extension needs it and why something narrower won't work.
+   - Any pull request that sends new data out of the browser (a threat lookup, AI) updates the README's Privacy section in the same pull request.
+   - The scanner may record that a password or card field exists. It never reads what someone typed into it.
 
-## Phase 0 (both of us, before splitting)
+## The analyzer interface
 
-Agree on one data structure connecting the webpage scanner, the detection engine, and the warning interface. It is recorded in [`interfaces.md`](interfaces.md). Both workstreams build against it from day one.
+The contract is [`interfaces.md`](interfaces.md): the input (evidence), the output (result), what each verdict means, the reason codes, and the exact message formats. Phase 0 is agreeing on it, together, before either of us builds on a feature branch. Confirm the "Decisions to confirm" list at the bottom of that file first.
+
+After that:
+- Person A builds and tests the engine against the fixed inputs in `tests/fixtures/inputs/`.
+- Person B builds the interface and the browser behavior against the fixed results in `tests/fixtures/results/`.
+- Any change to the contract is a pull request that both of us review, with `interfaces.md`, the fixtures, and `tests/contract.js` updated together.
+
+**The current code doesn't follow the contract yet.** It was written before Phase 0. Moving it over is listed in [`integration-checklist.md`](integration-checklist.md), split between A and B.

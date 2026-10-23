@@ -3,15 +3,19 @@
 <body style="font-family:Arial;max-width:640px;margin:30px auto">
   <h1>Click guard practice page</h1>
   <!-- All addresses are made-up ".example" names that can never be real websites. -->
-  <h2>Should be stopped</h2>
-  <p><a id="bad" href="https://other-site.example/x">www.mybank.example/statement</a> words say one site, goes to another</p>
-  <p><a id="bad-blank" target="_blank" href="https://other-site.example/blank">www.mybank.example/blank</a></p>
+  <h2>Should be stopped (look-alike of a company the engine knows)</h2>
+  <p><a id="bad" href="https://paypa1-secure.example/x">Log in to PayPal</a> a link made to look like PayPal</p>
+  <p><a id="bad-blank" target="_blank" href="https://paypa1-secure.example/blank">Log in to PayPal</a></p>
   <p><a id="known" href="https://known-phish.example/login">Open your statement</a> known dangerous site</p>
-  <p><a id="nested" href="https://other-site.example/nested"><span><b id="nested-inner">www.mybank.example/nested</b></span></a></p>
-  <p><a id="unusual" href="https://other-site.example/u" rel="noopener noreferrer" referrerpolicy="no-referrer" ping="https://ping.example/p">www.mybank.example/unusual</a></p>
-  <p><svg width="260" height="24"><a id="svg" href="https://other-site.example/svg"><text x="0" y="18">www.mybank.example/svg</text></a></svg></p>
+  <p><a id="nested" href="https://paypa1-secure.example/nested"><span><b id="nested-inner">Log in to PayPal</b></span></a></p>
+  <p><a id="unusual" href="https://paypa1-secure.example/u" rel="noopener noreferrer" referrerpolicy="no-referrer" ping="https://ping.example/p">Log in to PayPal</a></p>
+  <p><svg width="260" height="24"><a id="svg" href="https://paypa1-secure.example/svg"><text x="0" y="18">Log in to PayPal</text></a></svg></p>
   <p><span id="shadow-host"></span></p>
-  <p><a id="onclick-pass" href="https://other-site.example/onclick" onclick="window.__sawClick = true">www.mybank.example/onclick</a> the page's own click handler also runs only if the link is allowed</p>
+  <p><a id="onclick-pass" href="https://paypa1-secure.example/onclick" onclick="window.__sawClick = true">Log in to PayPal</a> the page's own click handler also runs only if the link is allowed</p>
+
+  <h2>Weak warning only (shown elsewhere, never interrupts a click)</h2>
+  <p><a id="weak" href="https://other-site.example/weak">www.mybank.example/statement</a> words say one site, goes to another</p>
+  <p><a id="weak-number" href="http://192.168.4.20/login">Open</a> a raw number address</p>
 
   <h2>Should work normally</h2>
   <p><a id="fine" href="https://recipes.example/soup">Read a soup recipe</a></p>
@@ -26,6 +30,6 @@
 
   <script>
     const root = document.getElementById('shadow-host').attachShadow({ mode: 'open' });
-    root.innerHTML = '<a id="shadow-link" href="https://other-site.example/shadow">www.mybank.example/shadow</a>';
+    root.innerHTML = '<a id="shadow-link" href="https://paypa1-secure.example/shadow">Log in to PayPal</a>';
   </script>
 </body></html>

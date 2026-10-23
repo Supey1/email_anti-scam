@@ -6,7 +6,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { launch } = require('./harness');
-const { analyze } = require('../../extension/analyzer.js');
+const { analyze } = require('../../extension/rules.js');
 const cases = require('../corpus/cases.js');
 const { run: runCase } = require('../metrics.js');
 
@@ -51,7 +51,7 @@ const LONGTASKS = () => {
   record('Huge page: number of long tasks (over 50 ms) while loading', String(loadTasks.length));
 
   // ---------- the scanner and analyzer on that page, timed in the page itself ----------
-  for (const f of ['rules.js', 'threats.js', 'analyzer.js', 'content/ad-signals.js', 'content/page-scanner.js']) await page.addScriptTag({ path: path.join(EXT, f) });
+  for (const f of ['threat-list.js', 'core/url-normalizer.js', 'core/domain-rules.js', 'core/url-rules.js', 'core/text-rules.js', 'core/risk-policy.js', 'core/explanations.js', 'core/analyzer.js', 'rules.js', 'content/ad-signals.js', 'content/page-scanner.js']) await page.addScriptTag({ path: path.join(EXT, f) });
   const inPage = await page.evaluate(() => {
     const t0 = performance.now();
     let evidence;
@@ -64,11 +64,14 @@ const LONGTASKS = () => {
     // What happens on one click: ad context plus link analysis.
     const anchor = document.querySelector('.ad-slot a');
     const t2 = performance.now();
-    for (let i = 0; i < 100; i++) analyzeLink({ text: anchor.textContent, href: anchor.href }, { ad: AdSignals.contextFor(anchor) });
+    for (let i = 0; i < 100; i++) {
+      const ad = AdSignals.contextFor(anchor);
+      analyze({ source: 'link', pageUrl: location.href, pageTitle: '', visibleText: '', links: [{ text: anchor.textContent, url: anchor.href }], forms: [], context: { nearbyText: ad ? ad.text : '', insideFrame: false } });
+    }
     const clickMs = (performance.now() - t2) / 100;
-    return { scanMs, analyzeMs, clickMs, links: evidence.links.length, ads: evidence.context.ads.length, textChars: evidence.visibleText.length, verdict: result.verdict };
+    return { scanMs, analyzeMs, clickMs, links: evidence.links.length, textChars: evidence.visibleText.length, verdict: result.verdict };
   });
-  record('Scanner: first scan of the huge page', `${inPage.scanMs.toFixed(0)} ms (kept ${inPage.links} links, ${inPage.ads} ads, ${inPage.textChars} characters)`, inPage.scanMs < BUDGET.scanMs, `budget ${BUDGET.scanMs} ms`);
+  record('Scanner: first scan of the huge page', `${inPage.scanMs.toFixed(0)} ms (kept ${inPage.links} links, ${inPage.textChars} characters)`, inPage.scanMs < BUDGET.scanMs, `budget ${BUDGET.scanMs} ms`);
   record('Analyzer: that page\'s evidence, in the browser', `${inPage.analyzeMs.toFixed(1)} ms`, inPage.analyzeMs < BUDGET.analyzeMs, `budget ${BUDGET.analyzeMs} ms`);
   record('Click guard: work done on one click, on that page', `${inPage.clickMs.toFixed(2)} ms`, inPage.clickMs < BUDGET.clickMs, `budget ${BUDGET.clickMs} ms`);
 

@@ -5,16 +5,18 @@
 const assert = require('assert');
 const path = require('path');
 const { launch, run } = require('./harness');
+const { validateInput } = require('../contract.js');
+const { analyze } = require('../../extension/rules.js');
 
 const EXT = path.join(__dirname, '..', '..', 'extension');
-const WARNING = /\/ui\/warning\.html/;
+const WARNING = /\/blocked\.html/;
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
 // Pages are opened over https (https://pages.example/) unless a test asks for plain http.
-const open = async ({ context, base, secure }, file, wait = 600, plainHttp = false) => {
+const open = async ({ context, plain, secure }, file, wait = 600, plainHttp = false) => {
   const page = await context.newPage();
-  await page.goto((plainHttp ? base : secure) + file);
+  await page.goto((plainHttp ? plain : secure) + file);
   await page.waitForTimeout(wait);
   return page;
 };
@@ -23,14 +25,17 @@ const card = page => page.evaluate(() => {
   return h ? h.shadowRoot.querySelector('.card').innerText.replace(/\s+/g, ' ') : null;
 });
 const text = page => page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
-const worker = env => env.context.serviceWorkers()[0];
 
-// Runs the scanner (and ad detector) inside the page and returns the first evidence it produces.
+// Runs the page scanner inside the page and returns the first evidence it produces. The evidence must follow the
+// contract, and the engine's answer for it is computed here in Node with the real engine: the same two steps the
+// extension does (scanner, then analyze), checked across the boundary.
 async function evidenceOf(page) {
-  await page.addScriptTag({ path: path.join(EXT, 'content', 'ad-signals.js') });
   await page.addScriptTag({ path: path.join(EXT, 'content', 'page-scanner.js') });
-  return page.evaluate(() => new Promise(resolve => { const s = PageScanner.start({ onEvidence: e => { resolve(e); s.stop(); } }); }));
+  const evidence = await page.evaluate(() => new Promise(resolve => { const s = PageScanner.start({ onEvidence: e => { resolve(e); s.stop(); } }); }));
+  assert.deepStrictEqual(validateInput(evidence), [], 'scanner output breaks the contract');
+  return evidence;
 }
+const engineSays = e => { const r = analyze(e); return { verdict: r.verdict, action: r.recommendedAction, codes: r.reasons.map(x => x.code) }; };
 
 // ======================= fake-webpage.html: generic extraction and warnings =======================
 
@@ -44,46 +49,50 @@ test('webpage: extraction keeps visible text and real link destinations, and ski
   assert.strictEqual(mismatch.text, 'www.mybank.example/summary', 'the displayed text and the real destination are both kept');
   assert.ok(e.links.some(l => /fake-legitimate\.html$/.test(l.url)));
   assert.ok(!e.links.some(l => /^mailto:|#visible$/.test(l.url)), 'fragment and mailto links are not destinations');
-  assert.deepStrictEqual(e.forms.map(f => [f.action, f.hasPassword, f.hasPayment]), [['https://collect-login.example/post', true, false]]);
+  assert.deepStrictEqual(e.forms.map(f => [f.action, f.hasPassword, f.hasPaymentField]), [['https://collect-login.example/post', true, false]]);
+  assert.deepStrictEqual(e.context.mainHeadings, ['Account Notice']);
   await page.close();
 });
 
-test('webpage: a lone password form to another site is ambiguous (single sign-on looks the same): no page warning over https, a warning over plain http', async env => {
-  const secure = await open(env, 'fake-webpage.html', 1800);
-  assert.strictEqual(await card(secure), null, 'by design, one cross-site password form alone is not enough');
-  await secure.close();
-  const plain = await open(env, 'fake-webpage.html', 1800, true);
-  const c = await card(plain);
-  assert.match(c, /CAUTION/);
-  assert.match(c, /sends it to a different website \(collect-login\.example\)/);
-  assert.match(c, /without a secure connection/);
-  await plain.close();
+test('webpage: a lone password form to another site is only a weak warning: the engine says "verify", so no page card covers the page', async env => {
+  for (const plainHttp of [false, true]) {
+    const page = await open(env, 'fake-webpage.html', 1800, plainHttp);
+    const said = engineSays(await evidenceOf(page));
+    assert.strictEqual(said.verdict, 'warn');
+    assert.strictEqual(said.action, 'VERIFY_INDEPENDENTLY', `plainHttp=${plainHttp}: ${JSON.stringify(said)}`);
+    assert.ok(said.codes.includes('CREDENTIALS_SENT_ELSEWHERE'));
+    assert.strictEqual(await card(page), null, 'a weak warning must not cover the page');
+    await page.close();
+  }
 });
 
-test('webpage: the link whose words name another site is stopped; fragment and same-site links work', async env => {
+test('webpage: a link made to look like PayPal is stopped; a hidden destination alone, fragment and same-site links are not', async env => {
   const page = await open(env, 'fake-webpage.html');
-  await page.click('#mismatch');
+  await page.click('#lookalike');
   await page.waitForURL(WARNING);
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   const body = await text(page);
-  assert.match(body, /says it goes to mybank\.example, but it really goes to other-site\.example/);
+  assert.match(body, /You clicked a link that says: \u201cLog in to PayPal\u201d/);
+  assert.match(body, /It really goes to: paypa1-secure\.example/);
   await page.goBack();
   await page.waitForURL(/fake-webpage\.html/);
   await page.click('#fragment');
-  await page.click('#same');
-  await page.waitForURL(/fake-legitimate\.html/);
+  await page.click('#mismatch');
+  await page.waitForURL(/other-site\.example\/summary/);
+  assert.ok(!WARNING.test(page.url()), 'a hidden destination alone is a weak warning and does not stop the click');
   await page.close();
 });
 
 // ======================= fake-ad.html: promotional text and suspicious destinations =======================
 
-test('ads: only the prize ads are reported; ordinary ads stay in place and their links work', async env => {
+test('ads: a prize advertisement makes the page warn; ordinary ads stay in place, unnamed, and their links work', async env => {
   const page = await open(env, 'fake-ad.html', 3500);
   const c = await card(page);
   assert.ok(c, 'no warning card');
-  assert.match(c, /claim-gift\.example/);
-  for (const name of ['garden-store', 'books.example']) assert.ok(!c.includes(name), `${name} was reported`);
+  assert.match(c, /prize/i);
+  for (const name of ['garden-store', 'books.example', 'shoes']) assert.ok(!c.includes(name), `${name} was reported`);
   for (const id of ['ad-prize', 'ad-sale', 'ad-book', 'ad-tracked', 'ad-late']) assert.ok(await page.locator(`#${id}`).isVisible(), `${id} must stay on the page`);
+  await page.evaluate(() => document.getElementById('email-anti-scam-warning')?.remove());
   await page.click('#ad-sale-link');
   await page.waitForURL(/garden-store\.example\/sale/);
   await page.close();
@@ -105,21 +114,19 @@ test('ads: the prize ad, and an ad inserted later, are stopped before navigation
   await popup.close(); await page.close();
 });
 
-test('ads: KNOWN FALSE ALARM: an ordinary ad that goes through an ad tracker is stopped, and the person can still continue', async env => {
+test('ads: an ordinary ad that goes through an ad tracker is a weak warning only: its click is not interrupted', async env => {
   const page = await open(env, 'fake-ad.html', 600);
+  await page.evaluate(() => document.getElementById('email-anti-scam-warning')?.remove());
   await page.click('#ad-tracked-link');
-  await page.waitForURL(WARNING);
-  assert.match(await text(page), /ad\.doubleclick\.net/);
-  await page.click('text=I understand the risk');
-  await page.waitForURL(/ad\.doubleclick\.net\/click/, { timeout: 5000 }).catch(() => {});
-  assert.ok(env.reached('ad.doubleclick.net') || /doubleclick/.test(page.url()), 'continue must lead on to the destination');
+  await page.waitForURL(/ad\.doubleclick\.net\/click/, { timeout: 8000 });
+  assert.ok(!WARNING.test(page.url()));
   await page.close();
 });
 
 // ======================= fake-redirect.html: redirects and click interception =======================
 
-test('redirects: a redirect wrapper around a number address, a look-alike, and a known-dangerous link are all stopped', async env => {
-  for (const [id, host] of [['wrapped-bad', '192.168.4.20'], ['direct-bad', 'paypa1-secure.example'], ['known-bad', 'known-phish.example']]) {
+test('redirects: a redirect wrapper around a look-alike, a plain look-alike, and a known-dangerous link are all stopped', async env => {
+  for (const [id, host] of [['wrapped-bad', 'paypa1-secure.example'], ['direct-bad', 'paypa1-secure.example'], ['known-bad', 'known-phish.example']]) {
     const page = await open(env, 'fake-redirect.html');
     await page.click(`#${id}`);
     await page.waitForURL(WARNING);
@@ -133,47 +140,51 @@ test('redirects: the backstop: a page that redirects itself to a KNOWN dangerous
   await page.click('#meta-known');
   await page.waitForURL(WARNING, { timeout: 8000 });
   assert.match(await text(page), /DANGER/);
-  assert.strictEqual(await page.locator('text=Continue anyway').count(), 0);
+  assert.strictEqual(await page.getByRole('button', { name: /continue/i }).count(), 0);
   await page.close();
 });
 
 // ======================= fake-form.html: form destinations =======================
 
-test('forms: metadata is right, no typed value is collected, and a lone card form to a payment site is not alarming', async env => {
-  const page = await open(env, 'fake-form.html', 2500);
+test('forms: metadata is right and no typed value is collected', async env => {
+  const page = await open(env, 'fake-form.html', 1500);
   const e = await evidenceOf(page);
   assert.ok(!JSON.stringify(e).includes('LOOSE-SECRET'));
-  const byAction = Object.fromEntries(e.forms.map(f => [f.action.replace(/^https?:\/\/[^/]+/, '') || f.action, f]));
   const own = e.forms.find(f => /\/login$/.test(f.action));
   const search = e.forms.find(f => /search\.example/.test(f.action));
   const pay = e.forms.find(f => /pay-now\.example/.test(f.action));
   const loose = e.forms.find(f => f.action === page.url());
-  assert.ok(own.hasPassword && !own.hasPayment);
-  assert.ok(!search.hasPassword && !search.hasPayment, 'a search form is not sensitive');
-  assert.ok(pay.hasPayment);
+  assert.ok(own.hasPassword && !own.hasPaymentField);
+  assert.strictEqual(search, undefined, 'a search form is not sensitive, so it is not reported at all');
+  assert.ok(pay.hasPaymentField);
   assert.ok(loose && loose.hasPassword, 'a password box outside any form is still noticed');
-  // Design decision (docs/testing.md): one card form to another site is common (payment providers), so it alone is not a warning.
-  assert.strictEqual(await card(page), null);
   await page.close();
 });
 
-test('forms: on a plain-http page the same card form IS warned about (no secure connection)', async env => {
-  const page = await open(env, 'fake-form.html', 2500, true);
-  const c = await card(page);
-  assert.match(c, /without a secure connection/);
-  assert.match(c, /card number, but sends it to a different website \(pay-now\.example\)/);
-  await page.close();
+test('forms: what the engine makes of those forms, over https and over plain http', async env => {
+  const secure = await open(env, 'fake-form.html', 1200);
+  const s = engineSays(await evidenceOf(secure));
+  assert.ok(s.codes.includes('CREDENTIALS_SENT_ELSEWHERE'), JSON.stringify(s));
+  assert.ok(!s.codes.includes('INSECURE_FORM'));
+  assert.strictEqual(s.action, 'VERIFY_INDEPENDENTLY', 'a card form that goes to a payment site is weak on its own');
+  await secure.close();
+  const plain = await open(env, 'fake-form.html', 1200, true);
+  const p = engineSays(await evidenceOf(plain));
+  assert.ok(p.codes.includes('INSECURE_FORM'), `plain http must add the "no secure connection" sign: ${JSON.stringify(p)}`);
+  await plain.close();
 });
 
-test('forms: a password form that sends the password to a different website IS warned about (fake-login)', async env => {
+test('forms: a fake sign-in page that sends the password elsewhere covers the page with "do not type" (fake-login)', async env => {
   const page = await open(env, 'fake-login.html', 1500);
-  assert.match(await card(page), /sends it to a different website \(collect-login\.example\)/);
+  const c = await card(page);
+  assert.match(c, /Do not type anything on this page/);
+  assert.match(c, /looks like a PayPal sign-in page/);
   await page.close();
 });
 
 // ======================= fake-legitimate.html: false positives =======================
 
-test('legitimate page: scary words and well-known links cause no warning card and stop no link', async env => {
+test('legitimate page: scary words one at a time and well-known links cause no warning and stop no link', async env => {
   const page = await open(env, 'fake-legitimate.html', 3000);
   assert.strictEqual(await card(page), null, `unexpected warning: ${await card(page)}`);
   for (const [id, pattern] of [['paypal', /paypal\.com\/donate/], ['amazon', /amazon\.com\/wishlist/], ['short', /bit\.ly\/library-events/], ['partner', /county-books\.example/], ['ad', /bakery\.example/]]) {
@@ -186,34 +197,40 @@ test('legitimate page: scary words and well-known links cause no warning card an
   await page.close();
 });
 
-// ======================= new tabs, dynamic elements, frames =======================
+test('KNOWN FALSE POSITIVE (engine): an anti-scam newsletter with urgency, a contest winner, and a login is wrongly told "do not type"', async env => {
+  const page = await open(env, 'fake-legitimate-advice.html', 1800);
+  const c = await card(page);
+  assert.ok(c && /Do not type anything on this page/.test(c), 'documented false positive: when the engine is fixed this page should show no card; flip this test');
+  await page.close();
+});
 
-test('dynamic: a suspicious link added to the page after it loaded is stopped', async env => {
+test('dynamic: a look-alike link added to the page after it loaded is stopped', async env => {
   const page = await open(env, 'fake-webpage.html');
   await page.evaluate(() => {
     const a = document.createElement('a');
-    a.id = 'late'; a.href = 'https://other-site.example/late'; a.textContent = 'www.mybank.example/late';
+    a.id = 'late'; a.href = 'https://paypa1-secure.example/late'; a.textContent = 'Log in to PayPal';
     document.body.append(a);
   });
   await page.click('#late');
   await page.waitForURL(WARNING);
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   await page.close();
 });
 
-test('frames: a same-origin ad frame is read, but a link clicked INSIDE a frame is not intercepted (limit)', async env => {
-  const page = await open(env, 'fake-iframes.html', 2500);
-  assert.match(await card(page), /claim-gift\.example/, 'the same-origin ad frame was read');
-  await page.frameLocator('#same-origin').locator('#frame-link').click();
-  await page.waitForTimeout(800);
-  assert.ok(env.reached('claim-gift.example'), 'documented limit: clicks inside frames are not guarded');
-  await page.close();
+test('frames: a click on a risky link inside an ad frame is stopped, and the warning opens for the whole tab', async env => {
+  for (const frame of ['#same-origin', '#srcdoc']) {
+    const page = await open(env, 'fake-iframes.html', 1500);
+    await page.frameLocator(frame).locator('#frame-link').click();
+    await page.waitForURL(WARNING);
+    assert.ok(!env.reached('claim-gift.example'), `${frame}: the destination was requested`);
+    await page.close();
+  }
 });
 
-test('frames: a cross-origin frame cannot be read, and the page is not claimed to be checked inside it (limit)', async env => {
+test('frames: a cross-origin frame is not read by the page scanner (its words never reach the evidence)', async env => {
   const page = await open(env, 'fake-iframes.html', 1500);
   const e = await evidenceOf(page);
-  assert.strictEqual(e.context.adFrames.unreadable, 1);
+  assert.ok(!e.visibleText.includes('Destination reached'), 'the cross-origin frame content must not appear in the page text');
   await page.close();
 });
 

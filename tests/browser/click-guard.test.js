@@ -6,7 +6,7 @@
 const assert = require('assert');
 const { launch, run } = require('./harness');
 
-const WARNING = /\/ui\/warning\.html/;
+const WARNING = /\/blocked\.html/;
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
@@ -25,12 +25,12 @@ test('suspicious link: navigation is cancelled and a useful warning is shown', a
   const page = await open(env);
   await page.click('#bad');
   await page.waitForURL(WARNING);
-  assert.ok(!env.reached('other-site.example'), 'the browser still asked for the suspicious site');
+  assert.ok(!env.reached('paypa1-secure.example'), 'the browser still asked for the suspicious site');
   const body = await text(page);
   assert.match(body, /Stop and check this first/);
-  assert.match(body, /You clicked a link that says: \u201cwww\.mybank\.example\/statement\u201d/);
-  assert.match(body, /It really goes to: other-site\.example/);
-  assert.match(body, /says it goes to mybank\.example, but it really goes to other-site\.example/);
+  assert.match(body, /You clicked a link that says: \u201cLog in to PayPal\u201d/);
+  assert.match(body, /It really goes to: paypa1-secure\.example/);
+  assert.match(body, /pretends to be PayPal/);
   assert.ok(await page.locator('text=I understand the risk').count(), 'warn should offer a way to continue');
   await page.close();
 });
@@ -39,9 +39,9 @@ test('Go back to safety returns to the original page', async env => {
   const page = await open(env);
   await page.click('#bad');
   await page.waitForURL(WARNING);
-  await page.click('text=Go back to safety');
+  await page.getByRole('button', { name: 'Go back to safety' }).click();
   await page.waitForURL(/click-guard\.html/);
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   await page.close();
 });
 
@@ -57,7 +57,7 @@ test('suspicious target=_blank link: warning opens in a new tab, no request, ori
   const page = await open(env);
   const [popup] = await Promise.all([env.context.waitForEvent('page'), page.click('#bad-blank')]);
   await popup.waitForURL(WARNING);
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   assert.match(page.url(), /click-guard\.html/);
   await popup.close();
   await page.close();
@@ -67,7 +67,7 @@ test('Go back in a warning tab closes that tab', async env => {
   const page = await open(env);
   const [popup] = await Promise.all([env.context.waitForEvent('page'), page.click('#bad-blank')]);
   await popup.waitForURL(WARNING);
-  await Promise.all([popup.waitForEvent('close'), popup.click('text=Go back to safety')]);
+  await Promise.all([popup.waitForEvent('close'), popup.getByRole('button', { name: 'Go back to safety' }).click()]);
   await page.close();
 });
 
@@ -78,7 +78,7 @@ test('Ctrl-click, Shift-click, and middle-click are stopped too', async env => {
     await popup.waitForURL(WARNING);
     await popup.close();
   }
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   assert.match(page.url(), /click-guard\.html/);
   await page.close();
 });
@@ -88,7 +88,7 @@ test('keyboard: Enter on a focused suspicious link is stopped', async env => {
   await page.focus('#bad');
   await page.keyboard.press('Enter');
   await page.waitForURL(WARNING);
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   await page.close();
 });
 
@@ -99,14 +99,14 @@ test('unusual links are stopped: nested element, SVG, shadow DOM, odd attributes
     await page.waitForURL(WARNING, { timeout: 5000 }).catch(() => { throw new Error(`${selector} was not stopped`); });
     await page.close();
   }
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
 });
 
 test("the page's own click handler does not run for a stopped link", async env => {
   const page = await open(env);
   await page.click('#onclick-pass');
   await page.waitForURL(WARNING);
-  assert.ok(!env.reached('other-site.example'));
+  assert.ok(!env.reached('paypa1-secure.example'));
   await page.close();
 });
 
@@ -128,19 +128,29 @@ test('Continue (warn only) goes on to the destination after the warning', async 
   await page.click('#bad');
   await page.waitForURL(WARNING);
   await page.click('text=I understand the risk');
-  await page.waitForURL(/other-site\.example\/x/);
+  await page.waitForURL(/paypa1-secure\.example\/x/);
   assert.match(await text(page), /Destination reached/);
   await page.close();
 });
 
-test('a "block" cannot be continued even if the warning page is asked to', async env => {
+test('a "block" has no way through on the page, and no continue button exists at all', async env => {
   const page = await open(env);
   await page.click('#known');
   await page.waitForURL(WARNING);
-  const reply = await page.evaluate(() => chrome.runtime.sendMessage({ type: 'CONTINUE', url: 'https://known-phish.example/login', text: '' }));
-  assert.strictEqual(reply.ok, false);
+  assert.strictEqual(await page.getByRole('button', { name: /continue/i }).count(), 0);
+  await page.evaluate(() => document.querySelector('button.primary').focus());
   assert.match(page.url(), WARNING);
   await page.close();
+});
+
+test('a weak warning never interrupts a click: a hidden destination and a number address open normally', async env => {
+  for (const [id, pattern] of [['weak', /other-site\.example\/weak/], ['weak-number', /192\.168\.4\.20/]]) {
+    const page = await open(env);
+    await page.click(`#${id}`);
+    await page.waitForURL(pattern);
+    assert.ok(!WARNING.test(page.url()), `${id} was stopped, but weak warnings must not interrupt`);
+    await page.close();
+  }
 });
 
 test('normal behavior is not broken: new tab, same site, page anchor, mailto, page scripts', async env => {
@@ -193,10 +203,9 @@ test('a local fake webpage is analyzed automatically and shows the expected card
   });
   assert.strictEqual(card.role, 'alertdialog');
   assert.strictEqual(card.label, 'CAUTION');
-  assert.strictEqual(card.headline, 'Stop and check this first');
+  assert.strictEqual(card.headline, 'Do not type anything on this page');
   assert.ok(card.topReasons >= 1 && card.topReasons <= 3, `shows ${card.topReasons} top reasons`);
-  assert.ok(card.hasMore, 'extra reasons should be behind "Show more"');
-  assert.strictEqual(card.primary, 'Go back to safety');
+  assert.strictEqual(card.primary, 'Leave this page');
   assert.ok(card.hasRead && card.hasReport && card.live);
   await page.close();
 });
@@ -205,7 +214,7 @@ test('false-alarm report is saved locally with no page content', async env => {
   const page = await open(env, 'fake-login.html');
   await page.waitForFunction(() => !!document.getElementById('email-anti-scam-warning'), null, { timeout: 5000 });
   await page.evaluate(() => [...document.getElementById('email-anti-scam-warning').shadowRoot.querySelectorAll('button')].find(b => /false alarm/.test(b.textContent)).click());
-  const worker = env.context.serviceWorkers()[0];
+  const worker = env.worker;
   await page.waitForTimeout(500);
   const { falseAlarms } = await worker.evaluate(() => chrome.storage.local.get('falseAlarms'));
   assert.ok(falseAlarms && falseAlarms.length >= 1);

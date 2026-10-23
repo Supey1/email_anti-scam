@@ -1,0 +1,14 @@
+{
+  "source": "link",
+  "pageUrl": "https://news.example/today",
+  "pageTitle": "The Daily Example",
+  "visibleText": "",
+  "links": [
+    { "text": "Reschedule now", "url": "https://usps-redelivery.example/track" }
+  ],
+  "forms": [],
+  "context": {
+    "nearbyText": "USPS: Your package is on hold. Pay the $1.99 redelivery fee within 24 hours. Reschedule now",
+    "insideFrame": true
+  }
+}
