@@ -48,9 +48,11 @@
     },
     HIDDEN_DESTINATION: {
       title: 'Link goes somewhere else',
-      explain: d => d.variant === 'via_service'
-        ? `A link says it goes to ${d.shown}, but it first passes through ${d.service}, a service that counts clicks, so we can't see where it really ends up.`
-        : `A link says it goes to ${d.shown}, but it really goes to ${d.host}.`,
+      explain: d => {
+        if (d.variant === 'via_service') return `A link says it goes to ${d.shown}, but it first passes through ${d.service}, a service that counts clicks, so we can't see where it really ends up.`;
+        if (d.shownBrand) return `A link says it goes to ${d.shown}, ${d.shownBrand}'s real website, but it really goes to ${d.host}.`;
+        return `A link says it goes to ${d.shown}, but it really goes to ${d.host}.`;
+      },
       flag: () => 'hidden destination',
     },
     MISLEADING_URL: {
@@ -101,7 +103,7 @@
       explain: d => {
         if (d.variant === 'address_in_name') return `The sender's name shows the address ${d.shown}, but the email really came from ${d.address}.`;
         if (d.variant === 'free_mail') return `The sender's name says ${d.brand}, but it came from a free personal email account (${d.address}). ${d.brand} never does this.`;
-        if (d.variant === 'alert') return `This looks like an account or payment notice from ${d.brand}, but it came from ${d.address}, not one of ${d.brand}'s own email addresses.`;
+        if (d.variant === 'alert') return `This looks like an official notice from ${d.brand}, but it came from ${d.address}, not one of ${d.brand}'s own email addresses.`;
         return `The sender's name says ${d.brand}, but the email address (${d.address}) is not from ${d.brand}. Companies sometimes send ads through other services, so this alone isn't proof.`;
       },
     },
@@ -115,7 +117,7 @@
     },
     FAKE_SIGN_IN_PAGE: {
       title: 'Fake sign-in page',
-      explain: d => `This page looks like a ${d.brand} sign-in page, but it is on ${d.host}, not ${d.brand}'s real website.`,
+      explain: d => `This page looks like a sign-in or payment page for ${d.brand}, but it is on ${d.host}, not ${d.brand}'s real website.`,
     },
     SIGN_IN_ON_FREE_HOSTING: {
       title: 'Sign-in on a free website',
@@ -144,7 +146,7 @@
     },
     PAY_TO_CLAIM: {
       title: 'Pay first',
-      explain: () => 'It asks you to pay first, or to pay with gift cards, crypto, or a wire transfer. Real prizes and real companies don\'t work this way.',
+      explain: () => 'It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don\'t work this way.',
     },
     PAYMENT_METHOD_REQUEST: {
       title: 'Hard-to-refund payment',
@@ -179,6 +181,10 @@
     FAMILY_EMERGENCY: {
       title: 'Family emergency',
       explain: () => 'It says a family member is in trouble and needs help fast. Call that person directly using a phone number you already have.',
+    },
+    UNEXPECTED_CHARGE: {
+      title: 'Surprise charge, call to cancel',
+      explain: () => 'It says you were charged for something and gives a phone number to cancel or get a refund. This is how "refund" scams start. Don\'t call: check your bank or card statement yourself.',
     },
     PAYMENT_DEMAND: {
       title: 'Asks for money',

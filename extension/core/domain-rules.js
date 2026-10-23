@@ -95,6 +95,16 @@
     return isOfficialFor(domain, brand) || (brand.emailDomains || []).some(d => isSameOrSubdomain(domain, d));
   }
 
+  // The company whose own email address this is ("alerts@notify.wellsfargo.com"
+  // -> Wells Fargo), or null. Free personal accounts never count, even a
+  // company's own (icloud.com).
+  function officialSender(senderEmail) {
+    const address = (senderEmail || '').toLowerCase().trim();
+    const domain = address.includes('@') ? address.split('@').pop() : '';
+    if (!domain || FREE_MAIL.has(domain)) return null;
+    return BRANDS.find(b => sendsEmailFrom(domain, b)) || null;
+  }
+
   // 'email' for an email service, 'ad' for an ad network, or ''.
   function serviceKind(hostname) {
     if (EMAIL_SERVICES.some(d => isSameOrSubdomain(hostname, d))) return 'email';
@@ -126,6 +136,12 @@
   function hostTokens(hostname) {
     const suffix = publicSuffix(hostname);
     return hostname.slice(0, -(suffix.length + 1)).split(/[.-]/).filter(Boolean);
+  }
+
+  // "amazom" for "amazon": one letter changed or added, same first letter.
+  // Never one letter LESS: "cloud" is a word, not a misspelled "icloud".
+  function misspells(token, key) {
+    return key.length >= 6 && token.length >= key.length && token[0] === key[0] && editDistanceIsOne(token, key);
   }
 
   function editDistanceIsOne(a, b) {
@@ -178,8 +194,8 @@
       if (brand) return { brand, technique: 'other_alphabet' };
     }
 
-    const name = registrableDomain(hostname).split('.')[0];
-    brand = BRANDS.find(b => b !== owner && b.keys.some(k => k.length >= 6 && editDistanceIsOne(name, k)));
+    const candidates = [registrableDomain(hostname).split('.')[0], ...tokens];
+    brand = BRANDS.find(b => b !== owner && b.keys.some(k => candidates.some(t => misspells(t, k))));
     if (brand) return { brand, technique: 'misspelling' };
     return null;
   }
@@ -290,7 +306,7 @@
 
   core.domainRules = {
     BRANDS, FREE_MAIL, EMAIL_SERVICES, AD_NETWORKS, normalizeLookalikes, officialBrandFor, brandNamedIn, lookalikeOf,
-    serviceKind, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage,
+    serviceKind, officialSender, isOfficialFor, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage,
   };
   if (typeof module !== 'undefined') module.exports = core.domainRules;
 })();

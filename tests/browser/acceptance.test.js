@@ -169,7 +169,7 @@ test('fake sign-in page: analyzed automatically, "Be careful on this page" with 
   const url = base + 'fake-sign-in.html';
   const expected = analyzePage({ url, title: 'Log in to your PayPal account', headings: 'PayPal', text: await page.evaluate(() => document.body.innerText), hasPassword: true, formActions: ['https://collect.example/p.php'] });
   assert.deepStrictEqual(warning.reasons, expected.reasons.slice(0, 4));
-  assert.ok(warning.reasons.some(r => /PayPal sign-in page/.test(r)), warning.reasons.join(' | '));
+  assert.ok(warning.reasons.some(r => /sign-in or payment page for PayPal/.test(r)), warning.reasons.join(" | "));
   await page.close();
 });
 
@@ -557,6 +557,35 @@ restartTest('a browser restart keeps the settings, the rules, the page scripts, 
     await page.close();
   } finally {
     await second.close();
+  }
+});
+
+// ---------- Phase 7: security checks in the real browser ----------
+
+test('a scam email can\'t inject HTML into the panel or the warning: names, subject, and link text show as plain text', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto('https://mail.google.com/mail/u/0/?msg=hostile');
+  await settle(page, 900);
+  const panel = await page.evaluate(() => {
+    const root = document.getElementById('email-anti-scam-host').shadowRoot;
+    return { images: root.querySelectorAll('img, script').length, text: root.textContent };
+  });
+  assert.strictEqual(panel.images, 0, 'HTML from the email became real elements in the panel');
+  assert.ok(panel.text.includes('<img src=x onerror="window.__pwned=1"> PayPal'), 'the sender name should be shown, as text');
+  await page.click('#hostile-link');
+  await settle(page, 300);
+  const warning = await page.evaluate(() => {
+    const root = document.getElementById('email-anti-scam-warning').shadowRoot;
+    return { images: root.querySelectorAll('img, script').length };
+  });
+  assert.strictEqual(warning.images, 0, 'HTML became real elements in the warning');
+  assert.strictEqual(await page.evaluate(() => window.__pwned), undefined, 'injected code ran');
+  await page.close();
+});
+
+test('Chrome\'s blocking can\'t be dodged with capital letters, a trailing dot, or a port', async ({ context }) => {
+  for (const url of ['https://KNOWN-PHISH.example/', 'https://Login.Known-Phish.EXAMPLE/x', 'https://known-phish.example./', 'https://known-phish.example:8443/']) {
+    assert.strictEqual(await typeAddress(context, url), 'blocked', url);
   }
 });
 

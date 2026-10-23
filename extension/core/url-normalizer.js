@@ -191,12 +191,20 @@
 
   // Finds a website name written in text, like a link that SAYS "www.chase.com".
   // Email addresses don't count. Returns '' if there isn't one.
+  // Looks at one word at a time, with a length limit: searching the whole text
+  // with one pattern got slower and slower on text like "a.a.a.a..." (a
+  // scammer's email could freeze the Gmail tab that way).
+  const DOMAIN = /^(?:[a-z0-9-]{1,63}\.){1,10}[a-z]{2,63}$/i;
   function findDomainInText(text) {
-    const withoutEmails = (text || '').replace(/\S+@\S+/g, '');
-    const match = withoutEmails.match(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/i);
-    if (!match) return '';
-    const parsed = parseUrl('http://' + match[1]);
-    return parsed.ok ? parsed.host : '';
+    const words = String(text || '').slice(0, 2000).split(/[\s<>()"',;\[\]{}|]+/);
+    for (const word of words) {
+      if (!word || word.length > 300 || word.includes('@')) continue;
+      const candidate = word.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split(/[/?#:]/)[0].replace(/[.!?]+$/, '');
+      if (!DOMAIN.test(candidate)) continue;
+      const parsed = parseUrl('http://' + candidate);
+      if (parsed.ok) return parsed.host;
+    }
+    return '';
   }
 
   // ---------- letters from other alphabets ----------

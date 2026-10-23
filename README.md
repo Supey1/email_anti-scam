@@ -27,6 +27,9 @@ It protects at three levels. The stronger the evidence, the stronger the respons
 - Notices when an email says it's from a company but none of its links go to that company's website
 - Checks the wording: gift cards and wire transfers, "your account is locked," rushing, secrecy, prizes, fake delivery notices and redelivery fees, tech-support scams, the "grandparent scam," and **urgent demands for money** ("pay today or you will be arrested")
 - Knows that the IRS says it never emails people first to ask for money or personal details
+- Catches "refund" scams (a surprise charge and a phone number to cancel it) and "Hi Mom, this is my new number" messages
+- Doesn't warn about real bank alerts and newsletters sent from the company's own address with links only to the company, about ordinary marketing ("sale ends tonight"), or about newsletters that warn *about* scams
+- Hidden characters and look-alike letters ("Pay\u200bPal", "ＰａｙＰａｌ") can't sneak a company name or a scam phrase past the checks
 - **New:** clicking *any* link in an email that looks like a scam brings up the "Stop and check" warning first
 
 **On every website** (new in 0.2):
@@ -130,16 +133,20 @@ Every warning comes from a rule a person can read and understand, so the extensi
 If you have [Node.js](https://nodejs.org) installed, run this from the project folder:
 
 ```
-node tests/contract.test.js
-node tests/rules.test.js
-node tests/service-worker.test.js
-node tests/speech.test.js
-node tests/browser/acceptance.test.js
+node tests/run-all.js                   # every test that doesn't need a browser
+node tests/browser/acceptance.test.js   # the real extension in Chromium
 ```
+
+Or one at a time: `contract`, `rules`, `regression`, `robustness`, `service-worker`, and `speech` (each `node tests/<name>.test.js`).
 
 The last one loads the real extension into Chromium, opens local fake pages (a normal page, a fake sign-in page, a news page with ads, a pop-up, and a pretend Gmail inbox), and checks that suspicious clicks are stopped before the browser even asks for the address. It also checks the settings page, a fresh install without website access, and a browser restart. (Chrome's own "Allow" prompt can't be clicked by a test, so most of it runs on a copy of the extension that already has website access.) It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
 
-`contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md). `rules.test.js` checks the scam rules. `service-worker.test.js` checks threat lookups and the blocking rules Chrome gets (including that normal addresses are never blocked).
+- `contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md).
+- `rules.test.js` checks each scam rule: an example that should trigger it and one that should not.
+- `regression.test.js` runs 67 realistic scam and legitimate examples in ten groups (fake account alerts, prizes, delivery fees, tech support, grandparent scams, look-alike addresses, link mismatches, real bank alerts, real marketing, and articles about scams), each with the verdict it should get and the exact explanation the person reads. Readable version: [`docs/regression-cases.md`](docs/regression-cases.md).
+- `robustness.test.js` checks hostile input: huge or tricky text can't slow the checks down, invisible or look-alike letters can't hide a company name, address tricks can't get past the known-dangerous list, and malformed input never crashes anything.
+- `service-worker.test.js` checks threat lookups and the blocking rules Chrome gets (including that normal addresses are never blocked).
+- `speech.test.js` checks reading aloud.
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
 
@@ -153,7 +160,7 @@ False alarms (normal): 0/15
 
 Every rule has at least one example that should trigger it and one that should not, and the policy tests check which combinations of signs lead to each verdict (for example, a strange website ending or an urgent phrase on its own never stops a click). The tests also check the trickiest address cases directly: `paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, and two `github.io` sites belong to different people.
 
-Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
+Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. The same goes for the 67 regression examples. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
 
 **When you add a new rule, add a test that should trigger it AND a normal example that should not.**
 
@@ -172,6 +179,7 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 - **A sign-in page with a company's name on it** (in its title or main heading) that isn't on that company's website gets a warning, even if it's a real partner site.
 - Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `gmail.js`.
 - Rules can't catch every scam, especially new tricks, and scammers can avoid our exact wording.
+- **An email from a company's own address, with links only to that company, is trusted like the company's website.** That stops false alarms on real bank alerts, but a forged sender address on a real company's domain would get the same trust. Gmail usually rejects or flags those, but not always.
 - **Shortened and tracking links aren't followed.** We never open a link to see where it goes (that could warn the scammer, and the answer can change depending on who asks). A shortened link stays a weak warning sign. Only well-known pass-through services that write the destination into the link are followed.
 - **The lists of email services and ad networks (`core/domain-rules.js`) are hand-picked.** A real company's newsletter sent through a service that isn't listed may get a mild "check first" note; a scam sent through a listed service is still checked on everything else.
 - **Gmail only shows us the sender's name and address.** The hidden email headers that would prove who really sent a message aren't visible to the extension.

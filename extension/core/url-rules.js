@@ -165,10 +165,12 @@
     if (!parsed.ok || !parsed.isWeb) return [];
     const shown = findDomainInText(linkText);
     if (!shown || sameSite(shown, parsed.hostname)) return [];
+    // Showing a company's REAL website and going elsewhere is impersonation.
+    const shownBrand = core.domainRules.officialBrandFor(shown);
     return [{
       code: 'HIDDEN_DESTINATION',
       subject: 'link',
-      data: { shown, host: parsed.host },
+      data: { shown, host: parsed.host, shownBrand: shownBrand ? shownBrand.label : null },
       evidence: { kind: 'url', value: parsed.href },
     }];
   }

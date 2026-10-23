@@ -62,6 +62,18 @@ The code was written before the contract. Today `rules.js` takes three different
 - [ ] **B (please review):** reading aloud now goes through `speech.js` in `warning.js`, `gmail.js`, and `blocked.js` (one "Read to me" / "Stop reading" button, no restart when a panel redraws, a visible message when speech fails). Text size comes from `settings-sync.js` (`zoom` on the warning, the Gmail panel, and the warning page). The practice pages load the two new files.
 - [ ] **B:** the Gmail panel and the in-page warning could use the extension's warning page for `block` results (not changed).
 
+## Phase 7: what testing found (A)
+
+Fixed in the engine, each with a regression case in `tests/fixtures/regression/`:
+- [x] False stops on scam-awareness newsletters (a bank's "we'll never ask for gift cards", a senior center's scam alert) and false notes on real bank alerts, marketing deadlines, and tracked newsletter links.
+- [x] Missed or under-rated: link text showing a company's real website but going elsewhere, other-alphabet look-alikes, misspellings inside longer names, the "refund" scam, "your PC may be at risk" ads, "Hi Mom, new number".
+- [x] Explanations: "a the Post Office", "a Apple", "real prizes" on delivery fees, duplicate gift-card reasons, the fee-before-or-after-prize wording.
+- [x] Security: a 1 MB link text could freeze the checks for about half an hour (a scam email could freeze the Gmail tab); invisible and full-width letters could hide a company name; "nothing to check" was reported as "no warning signs" instead of "unknown".
+
+For B:
+- [x] **B (verified in the browser):** a hostile email's sender name, subject, and link text show as plain text in the panel and the warning (no HTML runs).
+- [ ] **B:** `page.js` still cuts page text at 5,000 characters (the KNOWN ISSUE in the browser test).
+
 ## Tests
 
 - [x] **Both:** Browser test proving a risky click is stopped before the browser asks for the address, including a click inside an ad frame and a typed known-dangerous address: `tests/browser/acceptance.test.js` (Phase 3 acceptance).

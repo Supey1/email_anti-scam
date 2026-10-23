@@ -1,0 +1,282 @@
+{
+  "category": "fake-account-security",
+  "cases": [
+    {
+      "id": "paypal-suspended-lookalike",
+      "kind": "scam",
+      "summary": "PayPal \"account suspended\" email from a look-alike address, link text shows paypal.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your account has been suspended - Gmail",
+        "visibleText": "We noticed unusual activity on your account. Verify your account within 24 hours or it will be closed.",
+        "links": [
+          {
+            "text": "www.paypal.com",
+            "url": "https://paypa1-secure.example/login"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "PayPal Security",
+          "senderEmail": "alerts@paypa1-secure.example",
+          "subject": "Your account has been suspended"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "HIDDEN_DESTINATION",
+            "explanation": "A link says it goes to paypal.com, PayPal's real website, but it really goes to paypa1-secure.example."
+          },
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be PayPal, but it goes to paypa1-secure.example, not PayPal's real website."
+          },
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "This looks like an official notice from PayPal, but it came from alerts@paypa1-secure.example, not one of PayPal's own email addresses."
+          },
+          {
+            "code": "LOOKALIKE_SENDER",
+            "explanation": "The sender's address (alerts@paypa1-secure.example) pretends to be PayPal, but it isn't PayPal's real address."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "This email says it's from PayPal, but none of its links go to PayPal's real website (one goes to paypa1-secure.example)."
+          },
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says something is wrong with your account. This is a common trick to get you to log in on a fake page."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "Fake sender, look-alike address, a link that says paypal.com but goes elsewhere, and an account threat."
+    },
+    {
+      "id": "microsoft-signin-free-mail",
+      "kind": "scam",
+      "summary": "\"Microsoft account team\" from a free Gmail account about an unusual sign-in",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Unusual sign-in activity - Gmail",
+        "visibleText": "We detected a sign-in to your account from a new location. Click below to secure your account.",
+        "links": [
+          {
+            "text": "Secure my account",
+            "url": "https://secure-account-review.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Microsoft account team",
+          "senderEmail": "ms.account.team.alerts@gmail.com",
+          "subject": "Unusual sign-in activity"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "The sender's name says Microsoft, but it came from a free personal email account (ms.account.team.alerts@gmail.com). Microsoft never does this."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "This email says it's from Microsoft, but none of its links go to Microsoft's real website (one goes to secure-account-review.example)."
+          },
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says something is wrong with your account. This is a common trick to get you to log in on a fake page."
+          }
+        ]
+      },
+      "why": "Microsoft never sends account alerts from a free personal email account."
+    },
+    {
+      "id": "apple-id-signin-free-hosting",
+      "kind": "scam",
+      "summary": "Apple ID sign-in page on a free hosting website",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://appleid-verify.netlify.app/",
+        "pageTitle": "Sign in with your Apple ID",
+        "visibleText": "Apple ID. Password. Sign in.",
+        "links": [],
+        "forms": [
+          {
+            "action": "https://appleid-verify.netlify.app/s",
+            "hasPassword": true,
+            "hasPaymentField": false
+          }
+        ],
+        "context": {
+          "mainHeadings": [
+            "Apple ID"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "DO_NOT_ENTER_INFO",
+        "reasons": [
+          {
+            "code": "FAKE_SIGN_IN_PAGE",
+            "explanation": "This page looks like a sign-in or payment page for Apple, but it is on appleid-verify.netlify.app, not Apple's real website."
+          },
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "This website's name pretends to be Apple, but appleid-verify.netlify.app is not Apple's real website."
+          },
+          {
+            "code": "SIGN_IN_ON_FREE_HOSTING",
+            "explanation": "This page asks for a password or card number, but it's on appleid-verify.netlify.app, a free website anyone can make. Real banks and companies never do this."
+          }
+        ]
+      },
+      "why": "A company sign-in page on a free website anyone can make, under a look-alike name."
+    },
+    {
+      "id": "wells-fargo-locked-link-free-hosting",
+      "kind": "scam",
+      "summary": "Ad-style \"account locked\" text with a sign-in link to a free hosting website",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Verify your account",
+            "url": "https://wellsfargo-secure.web.app/login"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Your Wells Fargo account is locked. Verify your account to restore access.",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be Wells Fargo, but it goes to wellsfargo-secure.web.app, not Wells Fargo's real website."
+          },
+          {
+            "code": "SIGN_IN_ON_FREE_HOSTING",
+            "explanation": "A sign-in link goes to wellsfargo-secure.web.app, a free website anyone can make. Real banks and companies never put their sign-in pages there."
+          },
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says your account or computer has a serious problem."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "The offer mentions Wells Fargo, but the link goes to wellsfargo-secure.web.app, not Wells Fargo's real website."
+          }
+        ]
+      },
+      "why": "A bank name in a free-hosting address, a sign-in link there, and an account-problem story."
+    },
+    {
+      "id": "netflix-payment-declined-lookalike",
+      "kind": "scam",
+      "summary": "Netflix \"payment declined\" from a look-alike address, link to another website",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Payment declined - Gmail",
+        "visibleText": "We couldn't process your payment. Update your payment details to keep watching.",
+        "links": [
+          {
+            "text": "Update payment",
+            "url": "https://nflx-billing-update.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Netflix",
+          "senderEmail": "billing@netflix-billing.example",
+          "subject": "Payment declined"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "This looks like an official notice from Netflix, but it came from billing@netflix-billing.example, not one of Netflix's own email addresses."
+          },
+          {
+            "code": "LOOKALIKE_SENDER",
+            "explanation": "The sender's address (billing@netflix-billing.example) pretends to be Netflix, but it isn't Netflix's real address."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "This email says it's from Netflix, but none of its links go to Netflix's real website (one goes to nflx-billing-update.example)."
+          },
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says something is wrong with your account. This is a common trick to get you to log in on a fake page."
+          }
+        ]
+      },
+      "why": "An account notice from an address that only imitates Netflix, linking away from Netflix."
+    },
+    {
+      "id": "chase-signin-official-domain-in-front",
+      "kind": "scam",
+      "summary": "Chase sign-in page whose address starts with chase.com but belongs to someone else",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://chase.com.secure-login.example/",
+        "pageTitle": "Chase Online - Sign in",
+        "visibleText": "Username. Password. Your account is locked. Sign in to restore access.",
+        "links": [],
+        "forms": [
+          {
+            "action": "https://chase.com.secure-login.example/s",
+            "hasPassword": true,
+            "hasPaymentField": false
+          }
+        ],
+        "context": {
+          "mainHeadings": [
+            "Chase"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "DO_NOT_ENTER_INFO",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "This website's address starts with chase.com, but it really belongs to secure-login.example, not Chase."
+          },
+          {
+            "code": "FAKE_SIGN_IN_PAGE",
+            "explanation": "This page looks like a sign-in or payment page for Chase, but it is on chase.com.secure-login.example, not Chase's real website."
+          },
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says your account or computer has a serious problem."
+          }
+        ]
+      },
+      "why": "Writing chase.com in front of another website has no innocent use."
+    }
+  ]
+}

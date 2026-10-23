@@ -382,9 +382,10 @@ const RULE_TESTS = [
       link('https://hacked-blog.example/2024/recipes'), link('https://hacked-blog.example/wp-content/uploads/secure-ish/')] },
   { code: 'LOOKALIKE_DOMAIN',
     triggers: [link('https://paypa1-secure.example/login'), link('https://paypal.com.fake-domain.example/'), link('https://xn--pypal-4ve.example/'), link('https://amazom.example/'), link('https://applesupport.example/')],
-    doesNot: [link('https://www.paypal.com/signin'), link('https://www.paypal.co.uk/'), link('https://applebees.example/'), link('https://bucket.s3.amazonaws.com/file'), link('https://purchase-confirm.example/')] },
+    doesNot: [link('https://www.paypal.com/signin'), link('https://www.paypal.co.uk/'), link('https://applebees.example/'), link('https://bucket.s3.amazonaws.com/file'), link('https://purchase-confirm.example/'),
+      link('https://cloud-storage.example/'), link('https://amazing-deals.example/')] },
   { code: 'HIDDEN_DESTINATION',
-    triggers: [link('https://u123.ct.sendgrid.net/ls/click?upn=abc', 'www.garden-store.example'), link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
+    triggers: [email({ name: 'PayPal', address: 'alerts@mail.example', links: [{ text: 'www.paypal.com', url: 'https://u1.ct.sendgrid.net/ls/click?upn=x' }] }), link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
     doesNot: [link('https://secure.chase.com/x', 'www.chase.com'), link('https://news.bbc.co.uk/x', 'bbc.co.uk'),
       link('https://www.google.com/url?q=https://www.paypal.com/', 'www.paypal.com')] },
   { code: 'MISLEADING_URL',
@@ -447,7 +448,7 @@ const RULE_TESTS = [
     doesNot: [link('https://bit.ly/claim', 'Claim', 'You have won a gift card.')] },
   { code: 'PAY_TO_CLAIM',
     triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a $4.99 processing fee to claim your prize.' }),
-      email({ text: 'Pay the $1.99 redelivery fee.' }), link('https://parcel.example/', 'Pay', 'Your package is on hold. Pay the $1.99 redelivery fee now.')],
+      email({ text: 'Pay the $1.99 redelivery fee.' }), email({ text: 'To release your winnings, pay a $250 processing fee.' }), link('https://parcel.example/', 'Pay', 'Your package is on hold. Pay the $1.99 redelivery fee now.')],
     doesNot: [page({ url: 'https://garden-store.example/', text: 'Free shipping on orders over $50. Pay at checkout.' })] },
   { code: 'PAYMENT_METHOD_REQUEST',
     triggers: [email({ text: 'Please buy gift cards and send me the numbers.' })],
@@ -473,6 +474,11 @@ const RULE_TESTS = [
   { code: 'FAMILY_EMERGENCY',
     triggers: [email({ text: 'Grandma, I was arrested and need bail money.' })],
     doesNot: [email({ text: 'Grandma, the hospital visit went fine. See you Sunday!' })] },
+  { code: 'UNEXPECTED_CHARGE',
+    triggers: [email({ text: 'Your subscription was renewed for $399.99. To cancel, call 1-800-555-0177.' }),
+      page({ url: 'https://order-alert.example/', text: 'Your order of $499.00 was placed. If you did not make this purchase, call (888) 555-0100 for a refund.', forms: [] })],
+    doesNot: [email({ text: 'Your order of $45.00 has shipped. Questions? Call us at 1-800-555-0100.' }),
+      email({ text: 'Your subscription was renewed for $9.99. Manage or cancel it in your account settings.' })] },
   { code: 'PAYMENT_DEMAND',
     triggers: [email({ text: 'You owe $500. Pay now.' }), page({ url: 'https://bill.example/', text: 'Your outstanding balance must be paid. Pay now, or you will be arrested.' })],
     doesNot: [email({ text: 'Thanks for paying me back for lunch!' }), email({ text: 'Your payment of $45 is due on May 3.' })] },
@@ -611,9 +617,12 @@ const COMBINED_TESTS = [
 
 // ---------- context: email services, ad networks, and kinds of message ----------
 const CONTEXT_TESTS = [
-  ['a store newsletter whose links go through an email-tracking service: never stopped, and the reason says why', () => {
+  ['a store newsletter whose links go through an email-tracking service: no warning on that alone', () => {
     const r = analyze(email({ name: 'Garden Store', address: 'news@garden-store.example', subject: 'Spring sale', text: '20% off. Unsubscribe.', links: [{ text: 'www.garden-store.example', url: 'https://u123.ct.sendgrid.net/ls/click?upn=abc' }] }));
-    assert.notStrictEqual(r.recommendedAction, 'GO_BACK');
+    assert.strictEqual(r.verdict, 'no_warning_signs');
+  }],
+  ['...but next to real warning signs, the reason explains why the link couldn\'t be checked', () => {
+    const r = analyze(email({ name: 'PayPal', address: 'alerts@mail.example', subject: 'Account locked', text: 'Your account is locked.', links: [{ text: 'www.paypal.com', url: 'https://u1.ct.sendgrid.net/ls/click?upn=x' }] }));
     assert.match(explanationOf(r, 'HIDDEN_DESTINATION'), /sendgrid\.net, a service that counts clicks/);
   }],
   ['a real IRS newsletter sent through GovDelivery: no warning signs', () => {
@@ -630,7 +639,7 @@ const CONTEXT_TESTS = [
     const newsletter = analyze(email({ name: 'Netflix', address: 'deals@partner-offers.example', subject: 'New this week', text: 'Shop now. Unsubscribe.' }));
     const alert = analyze(email({ name: 'Netflix', address: 'billing@partner-offers.example', subject: 'Payment declined', text: 'Update your payment details.' }));
     assert.match(tierOf(newsletter), /this alone isn't proof/);
-    assert.match(tierOf(alert), /account or payment notice/);
+    assert.match(tierOf(alert), /official notice/);
     assert.strictEqual(newsletter.recommendedAction, 'VERIFY_INDEPENDENTLY');
   }],
   ['a Google ad click with its destination written in: checked where it really goes', () => {

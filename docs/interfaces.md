@@ -97,6 +97,8 @@ context: {
 
 The analyzer ignores fields it doesn't know about. The scanner must not rely on that to send extra data: only the fields listed here are allowed.
 
+The analyzer doesn't trust its input: it shortens every field to a sensible length, removes invisible characters, and turns look-alike letters into plain ones before any check. Adapters don't need to clean text for the engine. (They still must never collect typed values.)
+
 ---
 
 ## 2. Output: result
@@ -219,6 +221,7 @@ Which actions go with which verdicts:
 | `FAMILY_EMERGENCY` | moderate | email | Says a family member is in trouble and needs money fast. |
 | `PRESSURE_TACTICS` | weak | all | Tries to rush you. |
 | `PAYMENT_DEMAND` | weak | all | Asks you to pay or send money (a normal bill does too). |
+| `UNEXPECTED_CHARGE` | moderate | all | A surprise charge plus a phone number to cancel or get a refund (the "refund" scam). |
 | `THREAT_OF_CONSEQUENCES` | moderate | all | Threatens YOU with arrest, legal action, or losing benefits. |
 | `URGENT_PAYMENT_REQUEST` | moderate | all | Asks for money AND rushes or threatens you ("urgent financial action"). |
 | `AGENCY_DOES_NOT_EMAIL` | moderate | email | Claims to be an organization that says it never emails first to ask for money or personal details (the IRS), and asks for exactly that. |

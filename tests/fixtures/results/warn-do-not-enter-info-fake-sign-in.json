@@ -5,7 +5,7 @@
     {
       "code": "FAKE_SIGN_IN_PAGE",
       "title": "Fake sign-in page",
-      "explanation": "This page looks like a PayPal sign-in page, but it is on paypa1-login.example, not PayPal's real website."
+      "explanation": "This page looks like a sign-in or payment page for PayPal, but it is on paypa1-login.example, not PayPal's real website."
     },
     {
       "code": "LOOKALIKE_DOMAIN",

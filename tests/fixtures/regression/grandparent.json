@@ -1,0 +1,180 @@
+{
+  "category": "grandparent",
+  "cases": [
+    {
+      "id": "grandson-bail-gift-cards",
+      "kind": "scam",
+      "summary": "Grandson arrested, needs bail in gift cards, don't tell mom",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Grandma please help - Gmail",
+        "visibleText": "Grandma, it's me. I was in an accident and need bail money. Please buy gift cards and don't tell mom.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Tommy",
+          "senderEmail": "tommy83920@gmail.com",
+          "subject": "Grandma please help"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "SECRECY_REQUEST",
+            "explanation": "It asks you to keep a secret. Real family and real companies don't ask that."
+          },
+          {
+            "code": "FAMILY_EMERGENCY",
+            "explanation": "It says a family member is in trouble and needs help fast. Call that person directly using a phone number you already have."
+          }
+        ]
+      },
+      "why": "A family emergency, gift cards, and secrecy."
+    },
+    {
+      "id": "grandpa-hospital-wire",
+      "kind": "scam",
+      "summary": "Grandchild in a hospital abroad needs a wire transfer, don't tell parents",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Grandpa I need help - Gmail",
+        "visibleText": "Grandpa, I'm in the hospital in Mexico after a car accident. Please wire $2,000 for the doctors. Don't tell Mom and Dad.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Emily",
+          "senderEmail": "emily.travel.help@gmail.com",
+          "subject": "Grandpa I need help"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SECRECY_REQUEST",
+            "explanation": "It asks you to keep a secret. Real family and real companies don't ask that."
+          },
+          {
+            "code": "FAMILY_EMERGENCY",
+            "explanation": "It says a family member is in trouble and needs help fast. Call that person directly using a phone number you already have."
+          }
+        ]
+      },
+      "why": "A family emergency, a wire transfer, and secrecy."
+    },
+    {
+      "id": "hi-mom-new-number",
+      "kind": "scam",
+      "summary": "\"Hi Mom, new number, can you send money today\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Hi Mom - Gmail",
+        "visibleText": "Hi Mom, I dropped my phone in the sink, this is my new number. Can you send $900 for a bill today? I'll pay you back.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Unknown",
+          "senderEmail": "new.number.4471@gmail.com",
+          "subject": "Hi Mom"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "VERIFY_INDEPENDENTLY",
+        "reasons": [
+          {
+            "code": "FAMILY_EMERGENCY",
+            "explanation": "It says a family member is in trouble and needs help fast. Call that person directly using a phone number you already have."
+          },
+          {
+            "code": "PAYMENT_DEMAND",
+            "explanation": "It asks you to pay or send money."
+          }
+        ]
+      },
+      "why": "A \"new number\" plus a money request: check by calling the number you already have."
+    },
+    {
+      "id": "grandchild-thank-you",
+      "kind": "legitimate",
+      "summary": "Grandchild thanks grandma for birthday money",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Thank you! - Gmail",
+        "visibleText": "Grandma, thank you so much for the birthday money! I bought a new book. Love you!",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Lily",
+          "senderEmail": "lily.m@gmail.com",
+          "subject": "Thank you!"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Money is mentioned, but nothing is asked for."
+    },
+    {
+      "id": "grandchild-small-accident",
+      "kind": "legitimate",
+      "summary": "Grandchild mentions a small accident, asks for nothing",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Soccer - Gmail",
+        "visibleText": "Grandpa, I had a small accident at soccer but I'm fine. See you Sunday!",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Max",
+          "senderEmail": "max.k@gmail.com",
+          "subject": "Soccer"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "An accident, but no money request."
+    },
+    {
+      "id": "family-recipe-request",
+      "kind": "legitimate",
+      "summary": "Family member asks for a recipe",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Recipe? - Gmail",
+        "visibleText": "Mom, can you send me the soup recipe? The kids loved it.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Sarah",
+          "senderEmail": "sarah.j@gmail.com",
+          "subject": "Recipe?"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Asks for a recipe, not money."
+    }
+  ]
+}

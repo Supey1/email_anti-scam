@@ -79,6 +79,7 @@
     PRESSURE_TACTICS: { tier: 'weak', points: 1, group: 'pressure' },
     PAYMENT_DEMAND: { tier: 'weak', points: 1, group: 'request' },
     UNVERIFIED_PRIZE_CLAIM: { tier: 'weak', points: 0, group: 'destination' },
+    UNEXPECTED_CHARGE: { tier: 'moderate', points: 3, group: 'claim' },
   };
 
   const TEXT_GROUPS = new Set(['claim', 'request', 'pressure']);
@@ -108,6 +109,10 @@
     if (finding.code === 'BRAND_NAME_MISMATCH' && d.variant === 'message' && d.alert) return 'moderate';
     // A link through an email service or ad network: we can't see where it ends up.
     if (finding.code === 'HIDDEN_DESTINATION' && d.variant === 'via_service') return 'weak';
+    // A link that SHOWS a company's real website (www.irs.gov) but goes elsewhere: no innocent use.
+    if (finding.code === 'HIDDEN_DESTINATION' && d.shownBrand) return 'strong';
+    // Letters from another alphabet to spell a company's name: no innocent use either.
+    if (finding.code === 'LOOKALIKE_DOMAIN' && d.technique === 'other_alphabet') return 'strong';
     if (finding.code === 'KNOWN_THREAT' && !d.trusted) return 'strong';
     // Writing a company's real website in front of a fake one has no innocent use.
     if (finding.code === 'LOOKALIKE_DOMAIN' && d.technique === 'official_domain_in_front') return 'strong';
@@ -121,6 +126,10 @@
   function pointsFor(finding, source) {
     const rule = RULES[finding.code];
     if (!rule) return 0;
+    // Through a click-counting service we can't see where a link ends up. Worth
+    // saying alongside other warning signs, but no reason to warn on its own:
+    // every normal newsletter does this.
+    if (finding.code === 'HIDDEN_DESTINATION' && (finding.data || {}).variant === 'via_service') return 0;
     const tier = tierFor(finding);
     if (tier === 'strong' && rule.tier !== 'strong') return STOP_AT;
     if (tier === 'moderate' && rule.tier === 'weak') return 3;
@@ -133,14 +142,23 @@
   }
 
   // Which wording findings count?
-  // Emails are written TO the person, so all their wording counts.
   // On websites and around links, one scary phrase alone is too common
   // (a bank's safety tips say "your account is locked" too). Wording counts
   // only if another kind of evidence backs it up, or if it tells two parts
   // of a scam story (like "you won" + "pay a fee"). On a page that talks
   // ABOUT scams, wording counts only with other evidence.
-  function keepText(textFindings, otherFindings, source, isScamAdvice) {
-    if (source === 'email') return textFindings;
+  // Emails are written TO the person, so their wording usually counts, except:
+  //   officialSource  sent from a company's own address, and every link goes
+  //                   to that company: like the company's own website, a real
+  //                   bank alert says "unusual activity" too. Nothing to count.
+  //   isScamAdvice    a newsletter warning ABOUT scams: needs other evidence
+  //   marketing       a newsletter or ad: "act now" alone is ordinary, so the
+  //                   same rule as websites
+  function keepText(textFindings, otherFindings, source, isScamAdvice, { marketing = false, officialSource = false } = {}) {
+    if (source === 'email') {
+      if (officialSource) return [];
+      if (!isScamAdvice && !marketing) return textFindings;
+    }
     const backedUp = otherFindings.some(f => pointsFor(f, source) > 0);
     if (backedUp) return textFindings;
     if (isScamAdvice) return [];

@@ -1,0 +1,154 @@
+{
+  "category": "security-awareness",
+  "cases": [
+    {
+      "id": "phishing-guide-page",
+      "kind": "legitimate",
+      "summary": "Consumer guide on recognizing phishing, quoting scam phrases",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://consumer-advice.example/phishing",
+        "pageTitle": "How to Recognize and Avoid Phishing Scams",
+        "visibleText": "Scammers send messages saying your account is locked or that you have won a prize. They may ask you to pay with gift cards or call a number like 1-800-555-0100. Do not click. Report phishing.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Phishing scams"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Talks about scams; asks the reader for nothing."
+    },
+    {
+      "id": "grandparent-scam-article",
+      "kind": "legitimate",
+      "summary": "Article explaining the grandparent scam",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://seniors-news.example/grandparent-scams",
+        "pageTitle": "Grandparent scams: what to know",
+        "visibleText": "A caller says: 'Grandma, I'm in jail and need bail money, don't tell Mom.' Scammers rely on panic. Hang up and call your grandchild directly.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Grandparent scams"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Describes the scam to warn readers."
+    },
+    {
+      "id": "bank-scam-newsletter",
+      "kind": "legitimate",
+      "summary": "Chase newsletter: we will never ask for your password or gift cards",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Protect yourself from scams - Gmail",
+        "visibleText": "Chase will never ask for your password or ask you to pay with gift cards. Learn how to spot scams and report phishing.",
+        "links": [
+          {
+            "text": "Learn more",
+            "url": "https://www.chase.com/security"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Chase",
+          "senderEmail": "no.reply@chase.com",
+          "subject": "Protect yourself from scams"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Scam words, but explaining them, from the bank, linking to the bank."
+    },
+    {
+      "id": "senior-center-scam-alert",
+      "kind": "legitimate",
+      "summary": "Community newsletter: scam alert quoting scam lines",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Scam alert - Gmail",
+        "visibleText": "Scam alert: scammers say 'you've won the lottery' and ask you to buy gift cards. Never do this. Report scams to the police.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Senior Center",
+          "senderEmail": "news@senior-center.example",
+          "subject": "Scam alert"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Quotes scam lines to warn readers."
+    },
+    {
+      "id": "bank-security-center",
+      "kind": "legitimate",
+      "summary": "Wells Fargo security center page on wellsfargo.com",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://www.wellsfargo.com/privacy-security/fraud/",
+        "pageTitle": "Fraud and scams",
+        "visibleText": "We will never call to ask for your PIN. Your account is locked? Sign in to unlock it.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Fraud and scams"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "The bank's own website."
+    },
+    {
+      "id": "tech-scam-news-story",
+      "kind": "legitimate",
+      "summary": "News story quoting a fake virus pop-up",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://news.example/tech-scams",
+        "pageTitle": "Watch out for fake virus pop-ups",
+        "visibleText": "Scammers show pop-ups saying \"Your computer is infected. Call 1-800-555-0142.\" Experts say these scams target older adults. Close the page instead.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Fake virus pop-ups"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Quotes a scam to warn readers."
+    }
+  ]
+}

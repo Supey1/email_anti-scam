@@ -1,0 +1,316 @@
+{
+  "category": "delivery-fee",
+  "cases": [
+    {
+      "id": "usps-redelivery-fee-email",
+      "kind": "scam",
+      "summary": "USPS \"package on hold\" email from a look-alike address with a redelivery fee",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your package is on hold - Gmail",
+        "visibleText": "Your package is on hold. Pay the $1.99 redelivery fee to release your package within 24 hours.",
+        "links": [
+          {
+            "text": "Reschedule delivery",
+            "url": "https://usps-redelivery.example/track"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "USPS Delivery",
+          "senderEmail": "notice@usps-redelivery.example",
+          "subject": "Your package is on hold"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be the Post Office (USPS), but it goes to usps-redelivery.example, not the Post Office (USPS)'s real website."
+          },
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "This looks like an official notice from the Post Office (USPS), but it came from notice@usps-redelivery.example, not one of the Post Office (USPS)'s own email addresses."
+          },
+          {
+            "code": "LOOKALIKE_SENDER",
+            "explanation": "The sender's address (notice@usps-redelivery.example) pretends to be the Post Office (USPS), but it isn't the Post Office (USPS)'s real address."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "This email says it's from the Post Office (USPS), but none of its links go to the Post Office (USPS)'s real website (one goes to usps-redelivery.example)."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          },
+          {
+            "code": "DELIVERY_PROBLEM_CLAIM",
+            "explanation": "It says a package couldn't be delivered or needs a fee. Fake delivery notices are a very common scam. Check the tracking number on the shipper's real website instead."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "Fake USPS sender and website, a fee to release a package, and a deadline."
+    },
+    {
+      "id": "fedex-customs-fee",
+      "kind": "scam",
+      "summary": "FedEx customs fee from a look-alike address, link to another website",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your parcel is held at customs - Gmail",
+        "visibleText": "Your parcel is held at customs. Pay the $3.99 customs fee to release your parcel.",
+        "links": [
+          {
+            "text": "Pay now",
+            "url": "https://fdx-customs.example/pay"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "FedEx",
+          "senderEmail": "no-reply@fedex-delivery-support.example",
+          "subject": "Your parcel is held at customs"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "This looks like an official notice from FedEx, but it came from no-reply@fedex-delivery-support.example, not one of FedEx's own email addresses."
+          },
+          {
+            "code": "LOOKALIKE_SENDER",
+            "explanation": "The sender's address (no-reply@fedex-delivery-support.example) pretends to be FedEx, but it isn't FedEx's real address."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "This email says it's from FedEx, but none of its links go to FedEx's real website (one goes to fdx-customs.example)."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          },
+          {
+            "code": "DELIVERY_PROBLEM_CLAIM",
+            "explanation": "It says a package couldn't be delivered or needs a fee. Fake delivery notices are a very common scam. Check the tracking number on the shipper's real website instead."
+          }
+        ]
+      },
+      "why": "Look-alike FedEx sender, a fee to release a parcel, and links away from FedEx."
+    },
+    {
+      "id": "ad-redelivery-fee",
+      "kind": "scam",
+      "summary": "Ad: USPS package on hold, pay the fee within 24 hours",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Reschedule now",
+            "url": "https://usps-redelivery.example/track"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "USPS: Your package is on hold. Pay the $1.99 redelivery fee within 24 hours.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be the Post Office (USPS), but it goes to usps-redelivery.example, not the Post Office (USPS)'s real website."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          },
+          {
+            "code": "DELIVERY_PROBLEM_CLAIM",
+            "explanation": "It says a package couldn't be delivered or needs a fee. Fake delivery notices are a very common scam. Check the tracking number on the shipper's real website instead."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "The offer mentions the Post Office (USPS), but the link goes to usps-redelivery.example, not the Post Office (USPS)'s real website."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you."
+          }
+        ]
+      },
+      "why": "Look-alike USPS address plus a fee and a deadline."
+    },
+    {
+      "id": "redelivery-payment-page",
+      "kind": "scam",
+      "summary": "USPS-branded payment page off USPS, card number sent elsewhere",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://usps-redelivery.example/schedule",
+        "pageTitle": "USPS - Schedule a Redelivery",
+        "visibleText": "Your package is on hold. Pay the $1.99 redelivery fee to release your package within 24 hours. Card number.",
+        "links": [],
+        "forms": [
+          {
+            "action": "https://pay-portal.example/charge",
+            "hasPassword": false,
+            "hasPaymentField": true
+          }
+        ],
+        "context": {
+          "mainHeadings": [
+            "USPS Tracking"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "DO_NOT_ENTER_INFO",
+        "reasons": [
+          {
+            "code": "FAKE_SIGN_IN_PAGE",
+            "explanation": "This page looks like a sign-in or payment page for the Post Office (USPS), but it is on usps-redelivery.example, not the Post Office (USPS)'s real website."
+          },
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "This website's name pretends to be the Post Office (USPS), but usps-redelivery.example is not the Post Office (USPS)'s real website."
+          },
+          {
+            "code": "CREDENTIALS_SENT_ELSEWHERE",
+            "explanation": "What you type on this page would be sent to a different website (pay-portal.example)."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          },
+          {
+            "code": "DELIVERY_PROBLEM_CLAIM",
+            "explanation": "It says a package couldn't be delivered or needs a fee. Fake delivery notices are a very common scam. Check the tracking number on the shipper's real website instead."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you."
+          }
+        ]
+      },
+      "why": "A USPS payment page on someone else's website, sending the card number to a third website."
+    },
+    {
+      "id": "ups-real-shipping",
+      "kind": "legitimate",
+      "summary": "Real UPS shipping notice from ups.com, tracking link on ups.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your UPS package is on the way - Gmail",
+        "visibleText": "Scheduled delivery: Thursday. Track your package for updates.",
+        "links": [
+          {
+            "text": "Track package",
+            "url": "https://www.ups.com/track?tracknum=1Z999"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "UPS",
+          "senderEmail": "mcinfo@ups.com",
+          "subject": "Your UPS package is on the way"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Sent from UPS, links only to UPS, asks for nothing."
+    },
+    {
+      "id": "usps-informed-delivery-real",
+      "kind": "legitimate",
+      "summary": "Real USPS Informed Delivery digest",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your Daily Digest - Gmail",
+        "visibleText": "You have 2 mailpieces and 1 package arriving today.",
+        "links": [
+          {
+            "text": "See all",
+            "url": "https://informeddelivery.usps.com/box"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "USPS Informed Delivery",
+          "senderEmail": "USPSInformeddelivery@email.informeddelivery.usps.com",
+          "subject": "Your Daily Digest"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Sent from USPS, links only to USPS."
+    },
+    {
+      "id": "amazon-delivered",
+      "kind": "legitimate",
+      "summary": "Amazon \"your package was delivered\" with an amazon.com link",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your package was delivered - Gmail",
+        "visibleText": "Your package was delivered to the front door. Track your package or return items in Your Orders.",
+        "links": [
+          {
+            "text": "Your Orders",
+            "url": "https://www.amazon.com/gp/your-account/order-history"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Amazon.com",
+          "senderEmail": "shipment-tracking@amazon.com",
+          "subject": "Your package was delivered"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Sent from Amazon, links only to Amazon."
+    }
+  ]
+}

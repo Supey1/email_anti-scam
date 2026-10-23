@@ -72,9 +72,12 @@ function legacyLinkReport(findings) {
   return { flags, knownThreat: findings.some(f => f.code === 'KNOWN_THREAT') };
 }
 
+// The older ways in clean their input the same way analyze() does.
+const evaluateClean = input => GranblockCore.analyzer.evaluate(GranblockCore.analyzer.cleanInput(input));
+
 // email = { senderName, senderEmail, subject, bodyText, links: [{ text, href }] }
 function analyzeEmail(email) {
-  const evaluation = GranblockCore.analyzer.evaluate({
+  const evaluation = evaluateClean({
     source: 'email',
     pageUrl: '',
     pageTitle: email.subject || '',
@@ -90,7 +93,7 @@ function analyzeEmail(email) {
 // link = { text, href }
 // context = { pageUrl, nearbyText, surroundingLevel: 'high' if the link is inside a scam email }
 function analyzeLink(link, context = {}) {
-  const evaluation = GranblockCore.analyzer.evaluate({
+  const evaluation = evaluateClean({
     source: 'link',
     pageUrl: context.pageUrl || '',
     pageTitle: '',
@@ -110,7 +113,7 @@ function analyzeLink(link, context = {}) {
 // page = { url, title, headings, text, hasPassword, formActions }
 function analyzePage(page) {
   const actions = page.formActions && page.formActions.length ? page.formActions : [page.url || ''];
-  const evaluation = GranblockCore.analyzer.evaluate({
+  const evaluation = evaluateClean({
     source: 'webpage',
     pageUrl: page.url || '',
     pageTitle: page.title || '',
