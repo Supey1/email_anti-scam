@@ -14,6 +14,14 @@
 //   5. Chrome's own network rules block known dangerous test addresses, and DON'T block
 //      normal addresses that look like them; updates, false positives, and lookup errors
 //      behave as described in docs/threat-intelligence.md.
+//   6. the settings page turns protection on and off, sets text size and reading aloud;
+//      a fresh install (no website access yet) still blocks known dangerous websites;
+//      and settings, rules, and page scripts survive a browser restart.
+//
+// Website access: the real extension asks for it on its welcome page, and Chrome shows a
+// prompt a test can't click. So most tests run on a COPY of the extension whose manifest
+// already grants it (as if the person clicked "Allow"), and the "fresh install" tests run
+// on an unchanged copy, with no access.
 //
 // Every test address is answered by this test, so an address that "loads" is one Chrome
 // let through; Chrome's blocking acts before that, so a blocked one never reaches it.
@@ -51,15 +59,31 @@ function serve() {
   return new Promise(resolve => server.listen(0, () => resolve({ server, base: `http://localhost:${server.address().port}/` })));
 }
 
-async function launch() {
+// A copy of the extension. access: true adds the website access the person would
+// give on the welcome page.
+function copyExtension(access) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'anti-scam-extension-'));
+  fs.cpSync(EXTENSION, dir, { recursive: true });
+  if (access) {
+    const manifestPath = path.join(dir, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.host_permissions = ['http://*/*', 'https://*/*'];
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  }
+  return dir;
+}
+
+//   access     give website access (see copyExtension above)
+//   extension  reuse this copy, and profile this browser profile (for the restart test)
+async function launch({ access = true, extension = copyExtension(access), profile = fs.mkdtempSync(path.join(os.tmpdir(), 'anti-scam-acceptance-')), keep = false } = {}) {
   const { server, base } = await serve();
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'anti-scam-acceptance-'));
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium',
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
+    args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
   });
   const requests = [];
+  const served = []; // test addresses that actually reached the network (Chrome let them through)
   context.on('request', r => requests.push(r.url()));
   // The pretend Gmail inbox: ?msg=scam or ?msg=real.
   await context.route(/^https:\/\/mail\.google\.com\//, route => {
@@ -68,18 +92,38 @@ async function launch() {
   });
   // Real company websites the tests click through to: answered here, never fetched.
   await context.route(/^https:\/\/((www\.)?googleadservices\.com|([^/]+\.)?usps\.com)\//, route => route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' }));
-  await context.route(/^https?:\/\/[^/]+\.example\//, route =>
-    route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' }));
-  // Wait for the extension's background script, so its blocking rules are in place.
+  await context.route(/^https?:\/\/[^/]+\.example\//, route => {
+    served.push(new URL(route.request().url()).hostname);
+    route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' });
+  });
+  // Wait for the extension's background script: its blocking rules, and (with access) its page scripts.
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
-  await new Promise(r => setTimeout(r, 500));
+  for (let i = 0; i < 50; i++) {
+    const [rules, scripts] = await worker.evaluate(async () => [
+      (await chrome.declarativeNetRequest.getDynamicRules()).length,
+      (await chrome.scripting.getRegisteredContentScripts()).length,
+    ]);
+    if (rules > 0 && (!access || scripts === 3)) break;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  await new Promise(r => setTimeout(r, 300));
   const reached = host => requests.some(u => { try { return new URL(u).hostname === host; } catch (e) { return false; } });
-  const close = async () => { await context.close(); server.close(); fs.rmSync(profile, { recursive: true, force: true }); };
+  const close = async () => {
+    await context.close();
+    server.close();
+    if (!keep) for (const dir of [profile, extension]) fs.rmSync(dir, { recursive: true, force: true });
+  };
   // Sends a message straight to the service worker, as the extension's own settings page would.
   const extensionOrigin = worker.url().replace(/service-worker\.js$/, '');
   const toWorker = (message, sender = { url: `${extensionOrigin}settings.html` }) =>
     worker.evaluate(([m, s]) => GranblockBackground.instance.handleMessage(m, s), [{ schemaVersion: 1, ...message }, sender]);
-  return { context, base, reached, close, worker, toWorker };
+  const settingsPage = async () => {
+    const page = await context.newPage();
+    await page.goto(`${extensionOrigin}settings.html`);
+    await page.waitForFunction(() => /Protection/.test(document.getElementById('status').textContent));
+    return page;
+  };
+  return { context, base, reached, served: host => served.includes(host), close, worker, toWorker, settingsPage, extensionOrigin, profile, extension };
 }
 
 // What the extension's warning shows, or null if there's no warning.
@@ -99,8 +143,12 @@ const settle = (page, ms = 600) => page.waitForTimeout(ms);
 
 // ---------- tests ----------
 
-const tests = [];
-const test = (name, fn) => tests.push({ name, fn });
+// Three groups, each in its own browser: with website access (most tests), a fresh
+// install without it, and a restart.
+const groups = { access: [], fresh: [], restart: [] };
+const test = (name, fn) => groups.access.push({ name, fn });
+const freshTest = (name, fn) => groups.fresh.push({ name, fn });
+const restartTest = (name, fn) => groups.restart.push({ name, fn });
 
 test('normal page: analyzed automatically, normal browsing (no warning)', async ({ context, base }) => {
   const page = await context.newPage();
@@ -287,12 +335,18 @@ test('scam ad whose link goes through an ad network: stopped by its wording, ad 
 // ---------- Phase 5: browser-level blocking and threat lookups ----------
 
 const BLOCKED = /^chrome-extension:\/\/[^/]+\/blocked\.html/;
-// Types an address and reports where the tab ended up: 'blocked' or 'loaded'.
+// Types an address and reports what happened:
+//   'blocked'           Chrome sent it to our blocked page
+//   'blocked by Chrome' Chrome stopped it with its own error page (no website access yet)
+//   'loaded'            it loaded
 async function typeAddress(context, url) {
   const page = await context.newPage();
-  await page.goto(url).catch(() => {});
+  let error = '';
+  await page.goto(url).catch(e => { error = e.message; });
   await page.waitForTimeout(200);
-  const where = BLOCKED.test(page.url()) ? 'blocked' : page.url() === url ? 'loaded' : `other: ${page.url()}`;
+  const where = BLOCKED.test(page.url()) ? 'blocked'
+    : /ERR_BLOCKED_BY_CLIENT/.test(error) ? 'blocked by Chrome'
+      : page.url() === url ? 'loaded' : `other: ${page.url()} ${error}`;
   await page.close();
   return where;
 }
@@ -383,6 +437,129 @@ test('the extension\'s own warning page shows an analyzer result, with "open any
   await page.close();
 });
 
+// ---------- Phase 6: settings, reading aloud, fresh install, restart ----------
+
+const warningZoom = page => page.evaluate(() => document.getElementById('email-anti-scam-warning').shadowRoot.querySelector('.dialog').style.zoom);
+const readButtonText = page => page.evaluate(() => document.getElementById('email-anti-scam-warning').shadowRoot.querySelector('.read').textContent);
+const openFakeSignIn = async (context, base) => {
+  const page = await context.newPage();
+  await page.goto(base + 'fake-sign-in.html');
+  await settle(page, 800);
+  return page;
+};
+
+test('settings page: says what protection is doing, in plain words, and explains each permission', async ({ settingsPage }) => {
+  const page = await settingsPage();
+  assert.match(await page.textContent('#status'), /Protection is on: checking websites, ads, and Gmail/);
+  assert.strictEqual(await page.getAttribute('#access-all', 'aria-pressed'), 'true');
+  const privacy = await page.textContent('#privacy-heading + table');
+  for (const words of ['Read and change your data on websites', 'Block content on any page', 'Storage', 'Scripting']) assert.ok(privacy.includes(words), words);
+  await page.close();
+});
+
+test('settings page: turning protection off stops warnings and blocking; turning it on brings them back', async ({ context, base, settingsPage }) => {
+  const settings = await settingsPage();
+  await settings.click('#toggle-protection');
+  await settings.waitForFunction(() => /Protection is off/.test(document.getElementById('status').textContent));
+  let page = await openFakeSignIn(context, base);
+  assert.strictEqual(await readWarning(page), null, 'still warning with protection off');
+  await page.close();
+  assert.strictEqual(await typeAddress(context, 'https://known-phish.example/'), 'loaded', 'still blocking with protection off');
+
+  await settings.click('#toggle-protection');
+  await settings.waitForFunction(() => /Protection is on/.test(document.getElementById('status').textContent));
+  await settle(settings, 500);
+  page = await openFakeSignIn(context, base);
+  assert.ok(await readWarning(page), 'no warning after turning protection back on');
+  await page.close();
+  assert.strictEqual(await typeAddress(context, 'https://known-phish.example/'), 'blocked');
+  await settings.close();
+});
+
+test('settings page: text size applies to warnings', async ({ context, base, settingsPage }) => {
+  const settings = await settingsPage();
+  await settings.check('input[name="textSize"][value="largest"]');
+  await settle(settings, 400);
+  const page = await openFakeSignIn(context, base);
+  assert.strictEqual(await warningZoom(page), '1.45');
+  await page.close();
+  await settings.check('input[name="textSize"][value="large"]');
+  await settle(settings, 300);
+  await settings.close();
+});
+
+test('read aloud: with no voices on this computer, the button says so and the warning stays on screen', async ({ context, base }) => {
+  const page = await openFakeSignIn(context, base);
+  assert.match(await readButtonText(page), /Read to me/);
+  await page.evaluate(() => document.getElementById('email-anti-scam-warning').shadowRoot.querySelector('.read').click());
+  await page.waitForFunction(() => /Couldn't read aloud|Stop reading/.test(document.getElementById('email-anti-scam-warning').shadowRoot.querySelector('.read').textContent));
+  const text = await readButtonText(page);
+  // This test browser has no voices. On a computer with voices it reads, and the button says "Stop reading".
+  assert.match(text, /Couldn't read aloud\. The warning is written on screen|Stop reading/);
+  assert.ok((await readWarning(page)).reasons.length > 0, 'the written warning must stay');
+  await page.close();
+});
+
+test('read aloud automatically: a new warning starts reading by itself when the setting is on', async ({ context, base, settingsPage }) => {
+  const settings = await settingsPage();
+  await settings.check('#autoRead');
+  await settle(settings, 400);
+  const page = await openFakeSignIn(context, base);
+  // It tried to read without a click: here (no voices) that shows as "Couldn't read aloud".
+  await page.waitForFunction(() => !/Read to me/.test(document.getElementById('email-anti-scam-warning').shadowRoot.querySelector('.read').textContent));
+  await page.close();
+  await settings.uncheck('#autoRead');
+  await settle(settings, 300);
+  await settings.close();
+});
+
+freshTest('fresh install: the welcome page opens by itself and explains what access is for', async ({ context }) => {
+  let welcome = context.pages().find(p => /settings\.html\?welcome=1/.test(p.url()));
+  for (let i = 0; !welcome && i < 30; i++) { await new Promise(r => setTimeout(r, 100)); welcome = context.pages().find(p => /settings\.html\?welcome=1/.test(p.url())); }
+  assert.ok(welcome, 'no welcome page');
+  await welcome.waitForFunction(() => /Protection/.test(document.getElementById('status').textContent));
+  assert.strictEqual(await welcome.isVisible('#welcome'), true);
+  assert.match(await welcome.textContent('#status'), /can only block known dangerous websites/);
+  assert.strictEqual(await welcome.getAttribute('#access-none', 'aria-pressed'), 'true');
+});
+
+freshTest('fresh install: no website access means no page scripts at all', async ({ context, base, worker }) => {
+  assert.deepStrictEqual(await worker.evaluate(() => chrome.scripting.getRegisteredContentScripts()), []);
+  const page = await openFakeSignIn(context, base);
+  assert.strictEqual(await page.evaluate(() => !!document.getElementById('email-anti-scam-warning')), false);
+  await page.close();
+});
+
+freshTest('fresh install: known dangerous websites are STILL blocked (by Chrome), normal ones load', async ({ context, served }) => {
+  assert.strictEqual(await typeAddress(context, 'https://known-phish.example/'), 'blocked by Chrome');
+  assert.ok(!served('known-phish.example'));
+  for (const url of ['https://known-phish-news.example/', 'https://other-news.example/lottery']) assert.strictEqual(await typeAddress(context, url), 'loaded', url);
+});
+
+restartTest('a browser restart keeps the settings, the rules, the page scripts, and lookups', async () => {
+  const extension = copyExtension(true);
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'anti-scam-restart-'));
+  const first = await launch({ extension, profile, keep: true });
+  await first.toWorker({ type: 'SET_SETTINGS', settings: { textSize: 'largest', speechRate: 0.7 } });
+  await first.toWorker({ type: 'UPDATE_THREAT_RULES', add: [{ type: 'domain', value: 'kept-after-restart.example', source: 'test', trusted: true }] });
+  await first.close();
+
+  const second = await launch({ extension, profile });
+  try {
+    const { settings } = await second.toWorker({ type: 'GET_SETTINGS' });
+    assert.deepStrictEqual([settings.textSize, settings.speechRate, settings.protectionEnabled], ['largest', 0.7, true]);
+    assert.strictEqual(await typeAddress(second.context, 'https://kept-after-restart.example/'), 'blocked');
+    assert.strictEqual(await typeAddress(second.context, 'https://known-phish.example/'), 'blocked');
+    assert.strictEqual((await second.toWorker({ type: 'LOOKUP_URL', url: 'https://kept-after-restart.example/' }, {})).status, 'match');
+    const page = await openFakeSignIn(second.context, second.base);
+    assert.ok(await readWarning(page), 'page scripts not running after the restart');
+    assert.strictEqual(await warningZoom(page), '1.45');
+    await page.close();
+  } finally {
+    await second.close();
+  }
+});
+
 // Known issue, reported but not failing the run: see docs/integration-checklist.md.
 const knownIssues = [];
 test('KNOWN ISSUE (page.js): a pop-up at the end of a LONG page', async ({ context, base }) => {
@@ -403,19 +580,28 @@ test('the warning\'s words come from the analyzer, whichever adapter asked', asy
 // ---------- run ----------
 
 (async () => {
-  const env = await launch();
   let failed = 0;
-  for (const t of tests) {
-    try {
-      await t.fn(env);
-      console.log(`PASS  ${t.name}`);
-    } catch (err) {
-      failed++;
-      console.log(`FAIL  ${t.name}: ${err.message.split('\n')[0]}`);
+  let total = 0;
+  const runGroup = async (title, list, options) => {
+    if (!list.length) return;
+    console.log(`\n--- ${title} ---`);
+    const env = options ? await launch(options) : {};
+    for (const t of list) {
+      total++;
+      try {
+        await t.fn(env);
+        console.log(`PASS  ${t.name}`);
+      } catch (err) {
+        failed++;
+        console.log(`FAIL  ${t.name}: ${err.message.split('\n')[0]}`);
+      }
     }
-  }
-  await env.close();
+    if (options) await env.close();
+  };
+  await runGroup('with website access (as after the welcome page)', groups.access, { access: true });
+  await runGroup('fresh install, no website access yet', groups.fresh, { access: false });
+  await runGroup('browser restart', groups.restart, null);
   for (const issue of knownIssues) console.log(`KNOWN ISSUE  ${issue}`);
-  console.log(failed ? `\n${failed} test(s) failed` : `\nAll ${tests.length} acceptance tests passed`);
+  console.log(failed ? `\n${failed} test(s) failed` : `\nAll ${total} acceptance tests passed`);
   process.exit(failed ? 1 : 0);
 })();

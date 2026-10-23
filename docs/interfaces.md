@@ -321,6 +321,8 @@ Content scripts and extension pages talk to the service worker with `chrome.runt
 | `GET_SETTINGS` | anyone | `SETTINGS` |
 | `UPDATE_THREAT_RULES` | **only the extension's own pages** | `THREAT_RULES_UPDATED` |
 | `SET_SETTINGS` | **only the extension's own pages** | `SETTINGS` |
+| `GET_STATUS` | anyone | `STATUS` |
+| `ACCESS_CHANGED` | anyone (Chrome's permission events also trigger it) | `STATUS` |
 | `SHOW_WARNING` | a content script in a frame | `SHOW_WARNING_RESULT` |
 
 ```js
@@ -352,8 +354,17 @@ Content scripts and extension pages talk to the service worker with `chrome.runt
 { type: "SET_SETTINGS", schemaVersion: 1, settings: { protectionEnabled: false } }
 { type: "SETTINGS", schemaVersion: 1, settings: {
     protectionEnabled: true, remoteLookups: false, provider: "none",
-    providerOptions: {}, lookupTimeoutMs: 1500, allowlist: [] } }
+    providerOptions: {}, lookupTimeoutMs: 1500, allowlist: [],
+    textSize: "large" | "larger" | "largest", autoRead: false, speechRate: 0.9 } }   // speechRate 0.5 to 1.5
+
+// What's active right now (for the settings page)
+{ type: "GET_STATUS", schemaVersion: 1 }
+{ type: "STATUS", schemaVersion: 1, settings: { ... },
+  access: "all" | "gmail" | "none",   // the website access the person has given
+  rules: 9, activeEntries: 4 }
 ```
+
+Settings live in `chrome.storage.local` (they survive restarts). Page scripts read the reading and text settings from there (`settings-sync.js`); only the service worker writes them.
 
 ## 4. Fixtures: building without waiting for each other
 

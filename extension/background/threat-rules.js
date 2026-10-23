@@ -102,21 +102,25 @@
   }
 
   // The entries as Chrome rules. Only trusted entries become rules.
-  //   blockPage  the extension's blocked page address
+  //   blockPage    the extension's blocked page address
+  //   canRedirect  false when the person hasn't given website access: Chrome
+  //                only sends a page to our blocked page with that access, but
+  //                it can always stop it outright (Chrome shows its own error
+  //                page instead). Either way the dangerous page never loads.
   // Returns an array of rules with ids 1, 2, 3...
-  function buildRules(entries, blockPage) {
+  function buildRules(entries, blockPage, { canRedirect = true } = {}) {
     const trusted = entries.filter(e => e.trusted);
     const domains = trusted.filter(e => e.type === 'domain').map(e => e.value);
     const urls = trusted.filter(e => e.type === 'url');
     const rules = [];
     const add = (action, condition) => rules.push({ id: rules.length + 1, priority: 1, action, condition });
-    const redirectTo = site => ({ type: 'redirect', redirect: { url: `${blockPage}#${encodeURIComponent(site)}` } });
+    const redirectTo = site => (canRedirect ? { type: 'redirect', redirect: { url: `${blockPage}#${encodeURIComponent(site)}` } } : { type: 'block' });
 
     // Whole websites. The page you were trying to open -> our blocked page.
     if (domains.length <= PER_SITE_RULE_LIMIT) {
       for (const d of domains) add(redirectTo(d), { requestDomains: [d], resourceTypes: ['main_frame'] });
     } else {
-      add({ type: 'redirect', redirect: { url: blockPage } }, { requestDomains: domains, resourceTypes: ['main_frame'] });
+      add(canRedirect ? { type: 'redirect', redirect: { url: blockPage } } : { type: 'block' }, { requestDomains: domains, resourceTypes: ['main_frame'] });
     }
     // Inside a frame on another page (like an ad): just don't load it.
     for (let i = 0; i < domains.length; i += SUB_FRAME_CHUNK) {

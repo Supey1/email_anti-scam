@@ -6,6 +6,8 @@
 //   OPEN_WARNING_PAGE    show the extension's own warning page       -> WARNING_PAGE_OPENED
 //   GET_SETTINGS         read the protection settings                -> SETTINGS
 //   SET_SETTINGS         change them                                 -> SETTINGS
+//   GET_STATUS           settings + website access + what's active   -> STATUS
+//   ACCESS_CHANGED       website access was granted or taken away    -> STATUS
 //   SHOW_WARNING         pass a warning from a frame to the main page (also the older "granblock-warning")
 // Anything else gets { type: "ERROR" }.
 //
@@ -20,6 +22,7 @@
   const bg = globalThis.GranblockBackground = globalThis.GranblockBackground || {};
   if (typeof require !== 'undefined' && !bg.threatRules) require('./threat-rules.js');
   if (typeof require !== 'undefined' && !bg.threatLookup) require('./threat-lookup.js');
+  if (typeof require !== 'undefined' && !bg.contentScripts) require('./content-scripts.js');
 
   const SCHEMA_VERSION = 1;
 
@@ -30,7 +33,15 @@
     providerOptions: {},      // for the mock: { entries, delayMs, fail, trusted }
     lookupTimeoutMs: 1500,
     allowlist: [],            // website names or addresses removed as false positives
+    // Reading and text (warnings, the Gmail panel, the warning page)
+    textSize: 'large',        // 'large' | 'larger' | 'largest'
+    autoRead: false,          // read each new warning aloud without pressing the button
+    speechRate: 0.9,          // 0.5 (slow) to 1.5 (fast)
   });
+  const TEXT_SIZES = ['large', 'larger', 'largest'];
+  // Warnings kept for the warning page: enough to go back and forth, not a history.
+  const WARNING_KEEP_MS = 60 * 60 * 1000;
+  const WARNING_KEEP_MAX = 20;
   const VERDICTS = ['block', 'warn', 'no_warning_signs', 'unknown'];
 
   // Checks a settings change. Returns { settings } or { error }.
@@ -41,6 +52,7 @@
       switch (key) {
         case 'protectionEnabled':
         case 'remoteLookups':
+        case 'autoRead':
           if (typeof value !== 'boolean') return { error: `${key} must be true or false` };
           break;
         case 'provider':
@@ -51,6 +63,12 @@
           break;
         case 'lookupTimeoutMs':
           if (!Number.isInteger(value) || value < 100 || value > 10000) return { error: 'lookupTimeoutMs must be between 100 and 10000' };
+          break;
+        case 'textSize':
+          if (!TEXT_SIZES.includes(value)) return { error: `textSize must be one of ${TEXT_SIZES.join(', ')}` };
+          break;
+        case 'speechRate':
+          if (typeof value !== 'number' || !(value >= 0.5 && value <= 1.5)) return { error: 'speechRate must be between 0.5 and 1.5' };
           break;
         case 'allowlist':
           if (!Array.isArray(value) || value.length > 500 || value.some(v => typeof v !== 'string')) return { error: 'allowlist must be a list of up to 500 addresses' };
@@ -65,9 +83,11 @@
 
   // deps:
   //   storage        { get(key) -> Promise<value>, set(object) -> Promise }  (chrome.storage.local)
-  //   session        same, for short-lived data                            (chrome.storage.session)
+  //   session        same, plus remove(keys), for short-lived data         (chrome.storage.session)
   //   dnr            { getDynamicRules(), updateDynamicRules({ removeRuleIds, addRules }) }
   //   tabs           { update(tabId, { url }), sendMessage(tabId, message, { frameId }) }
+  //   permissions    { contains({ origins }) }  (chrome.permissions). Left out in tests: full access.
+  //   scripting      { getRegisteredContentScripts, registerContentScripts, unregisterContentScripts }. Optional.
   //   bundled()      the bundled list (threat-list.js) as raw entries
   //   blockPage      address of blocked.html
   //   extensionOrigin  "chrome-extension://<id>/"
@@ -78,6 +98,7 @@
     let settings = { ...DEFAULT_SETTINGS };
     let active = { entries: [], rejected: [] };
     let nextExpiry = null;
+    let access = 'none';
     let ready = null;
     let built = null; // has the active list been built since this service worker started?
     let queue = Promise.resolve(); // rule updates run one at a time, never on top of each other
@@ -92,20 +113,27 @@
     }
     const whenReady = () => (ready = ready || load());
 
-    // Rebuilds the active list and replaces ALL our Chrome rules in one step.
+    // Applies protection as it should be right now, in one step: rebuilds the
+    // active list, replaces ALL our Chrome rules, and registers the page
+    // scripts for the website access the person has given. Safe to run any
+    // number of times (each run replaces, never adds).
     function refreshRules() {
       queue = queue.then(async () => {
         await whenReady();
+        access = deps.permissions ? await bg.contentScripts.currentAccess(deps.permissions) : 'all';
         const updates = (await deps.storage.get('threatEntries')) || [];
         active = bg.threatRules.activeEntries([deps.bundled(), updates], { allowlist: settings.allowlist, now: now() });
         const expiries = active.entries.map(e => e.expiresAt).filter(Boolean);
         nextExpiry = expiries.length ? Math.min(...expiries) : null;
-        const rules = settings.protectionEnabled ? bg.threatRules.buildRules(active.entries, deps.blockPage) : [];
+        const rules = settings.protectionEnabled ? bg.threatRules.buildRules(active.entries, deps.blockPage, { canRedirect: access === 'all' }) : [];
         const old = await deps.dnr.getDynamicRules();
         await deps.dnr.updateDynamicRules({ removeRuleIds: old.map(r => r.id), addRules: rules });
         // The pages' engines use the same list as Chrome (threat-sync.js).
         await deps.storage.set({ activeThreats: settings.protectionEnabled ? bg.threatRules.forEngine(active.entries) : [] });
-        return { installedRules: rules.length, activeEntries: active.entries.length, rejected: active.rejected };
+        const scripts = deps.scripting
+          ? await bg.contentScripts.syncScripts(deps.scripting, bg.contentScripts.desiredScripts(access, settings.protectionEnabled))
+          : [];
+        return { installedRules: rules.length, activeEntries: active.entries.length, rejected: active.rejected, access, scripts };
       });
       const result = queue;
       queue = queue.catch(() => {}); // one failed update doesn't stop the next one
@@ -157,7 +185,19 @@
         if (!result || !VERDICTS.includes(result.verdict) || !Array.isArray(result.reasons)) return fail('OPEN_WARNING_PAGE needs an analyzer result');
         if (!sender || !sender.tab) return fail('OPEN_WARNING_PAGE must come from a tab');
         const token = deps.newToken();
-        await deps.session.set({ [`warning:${token}`]: { result, url: typeof message.url === 'string' ? message.url : '', createdAt: now() } });
+        // Session storage: gone when the browser closes. Only what the warning
+        // page shows: no evidence snippets, no page text.
+        const shown = {
+          verdict: result.verdict,
+          recommendedAction: result.recommendedAction,
+          reasons: result.reasons.slice(0, 10).map(r => ({ code: String(r.code || ''), title: String(r.title || ''), explanation: String(r.explanation || '') })),
+        };
+        // Keep the last hour's warnings, at most WARNING_KEEP_MAX; remove the rest.
+        const before = (await deps.session.get('warningIndex')) || [];
+        const kept = [...before.filter(w => w.createdAt > now() - WARNING_KEEP_MS), { token, createdAt: now() }].slice(-WARNING_KEEP_MAX);
+        const dropped = before.filter(w => !kept.some(k => k.token === w.token)).map(w => `warning:${w.token}`);
+        if (dropped.length) await deps.session.remove(dropped);
+        await deps.session.set({ warningIndex: kept, [`warning:${token}`]: { result: shown, url: typeof message.url === 'string' ? message.url : '', createdAt: now() } });
         await deps.tabs.update(sender.tab.id, { url: `${deps.blockPage}?t=${token}` });
         return reply('WARNING_PAGE_OPENED', { token });
       },
@@ -177,6 +217,17 @@
         lookup.clearCache();
         await refreshRules();
         return reply('SETTINGS', { settings });
+      },
+
+      async GET_STATUS() {
+        await ensureActive();
+        return reply('STATUS', { settings, access, rules: (await deps.dnr.getDynamicRules()).length, activeEntries: active.entries.length });
+      },
+
+      // Chrome said website access changed (chrome.permissions.onAdded / onRemoved).
+      async ACCESS_CHANGED() {
+        await refreshRules();
+        return handlers.GET_STATUS();
       },
 
       async SHOW_WARNING(message, sender) {

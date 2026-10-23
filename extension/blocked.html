@@ -20,6 +20,7 @@
     .buttons { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 22px 22px; }
     button { font: inherit; font-weight: bold; padding: 16px 20px; border: 3px solid #222222; border-radius: 12px; background: #ffffff; color: #111111; cursor: pointer; }
     button:hover, button:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
+    button:disabled { opacity: 0.7; cursor: default; }
     #continue { display: block; margin: 0 22px 20px; padding: 6px 10px; border: none; background: none; color: #444444; font-size: 17px; font-weight: normal; text-decoration: underline; }
     [hidden] { display: none !important; }
     #back { flex: 1; min-width: 260px; font-size: 26px; background: #1b7f3b; border-color: #0f4d23; color: #ffffff; }
@@ -49,6 +50,7 @@
       <button id="continue" hidden>Open it anyway (I understand the risk)</button>
     </div>
   </main>
+  <script src="speech.js"></script>
   <script src="blocked.js"></script>
 </body>
 </html>

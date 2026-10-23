@@ -6,7 +6,7 @@ How the two of us build this together without stepping on each other.
 
 | | Workstream | Branch | Owns |
 |---|---|---|---|
-| **Person A** | Detection engine | `feature/detection-engine` | `extension/rules.js`, `extension/core/*.js`, `extension/threat-list.js`, `extension/threat-sync.js`, `tests/rules.test.js`, test fixtures, threat intelligence: `extension/service-worker.js`, `extension/background/*.js`, `tests/service-worker.test.js` (from Phase 5) |
+| **Person A** | Detection engine | `feature/detection-engine` | `extension/rules.js`, `extension/core/*.js`, `extension/threat-list.js`, `extension/threat-sync.js`, `tests/rules.test.js`, test fixtures, threat intelligence: `extension/service-worker.js`, `extension/background/*.js`, `tests/service-worker.test.js` (from Phase 5); permissions, storage, settings, and reading aloud: `extension/settings.*`, `extension/speech.js`, `extension/settings-sync.js`, `tests/speech.test.js` (from Phase 6) |
 | **Person B** | Browser protection | `feature/browser-protection` | `extension/gmail.js`, `extension/page.js`, `extension/guard.js`, `extension/warning.js`, `extension/panel-styles.js`, `extension/blocked.html`, `extension/blocked.js`, `extension/manifest.json`, `tests/fake-gmail.html`, `tests/practice-*.html` |
 
 The analyzer interface (below) belongs to both of us. Neither person changes it alone.

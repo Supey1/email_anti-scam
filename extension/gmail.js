@@ -125,23 +125,24 @@
     panel.hidden = true;
     reopenButton.hidden = true;
     current = null;
-    window.speechSynthesis.cancel();
+    GranblockSpeech.stop();
   }
 
-  // Reads the verdict, reasons, and advice out loud.
-  function readAloud() {
-    if (!current) return;
+  // The verdict, why, and what to do: what "Read to me" says.
+  function spokenParts() {
+    if (!current) return [];
     const { email, result } = current;
     const v = VERDICTS[result.level];
-    speakAloud([
+    return [
       v.title + '.',
       email.senderName ? `This email is from ${email.senderName}.` : '',
       email.subject ? `It is about: ${email.subject}.` : '',
       ...result.reasons,
       'Here is what to do.',
       ...v.advice,
-    ]);
+    ];
   }
+  const speechKey = () => `gmail|${lastSignature}`;
 
   function render(email, result) {
     ensurePanel();
@@ -150,7 +151,7 @@
 
     const header = el('div', { class: 'header' }, [
       el('span', { class: 'title', text: 'Email Safety Check' }),
-      el('button', { text: '🔊 Read to me', onclick: readAloud }),
+      GranblockSpeech.makeButton(document, { getParts: spokenParts, key: speechKey(), rate: () => GranblockSettings.get().speechRate }),
       el('button', { text: 'Hide', 'aria-label': 'Hide safety panel', onclick: hidePanel }),
     ]);
 
@@ -197,8 +198,14 @@
     ]);
 
     panel.replaceChildren(...[header, verdict, who, about, why, links, todo].filter(Boolean));
+    panel.style.zoom = GranblockSettings.zoom(); // the person's text size
     panel.scrollTop = 0;
     showPanel(); // always show the panel again for each new email
+    // Read a warning aloud once per email, if the person asked for that. render()
+    // runs once per new email, and speak() won't restart what's already being read.
+    if (GranblockSettings.get().autoRead && result.level !== 'low') {
+      GranblockSpeech.speak(spokenParts(), { rate: GranblockSettings.get().speechRate, key: speechKey() });
+    }
   }
 
   function scan() {

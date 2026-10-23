@@ -41,7 +41,8 @@ It protects at three levels. The stronger the evidence, the stronger the respons
 - **Known dangerous websites** are blocked by Chrome itself, so typed addresses, redirects, and pop-ups are stopped too. Only a list from a trusted source blocks outright; everything else gets a warning the person can choose to go past.
 
 **Everywhere:**
-- **🔊 Read to me** on every warning
+- **🔊 Read to me** and **⏹ Stop reading** on every warning, at the speed you choose, optionally reading each warning as soon as it appears. If this computer can't read aloud, the button says so; the warning is always written on screen too.
+- A settings page (also the welcome page after installing): turn protection on or off, choose which websites to check, text size, reading aloud, and a plain explanation of every permission
 - Every warning lists the actual evidence that triggered it
 - Runs entirely on your computer; nothing you read or click is sent anywhere
 
@@ -66,10 +67,11 @@ The practice pages load the extension's files themselves, so open them as files,
 1. Open Chrome and go to `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and choose the `extension` folder.
-4. Chrome will say the extension can "read and change all your data on all websites." That's needed to check links and pages on every website (see [Privacy](#privacy)).
+4. The welcome page opens. Choose **Check all websites and Gmail**; Chrome then asks you to allow it to "read and change all your data on all websites." That's needed to check links and pages (see [Privacy](#privacy)). Until you allow it, the extension can only block known dangerous websites.
 5. Open Gmail and open any email: the panel appears on the right. Browse normally: warnings only appear when something looks wrong.
-6. To see blocking, type `known-phish.example` into the address bar. (It's on the practice list in `extension/threat-list.js`.)
-7. After changing any code, click the ↻ reload button on the extension's card, then refresh the page.
+6. Settings (protection on/off, which websites, text size, reading aloud) are on the extension's **Options** page, or right-click its icon → Options.
+7. To see blocking, type `known-phish.example` into the address bar. (It's on the practice list in `extension/threat-list.js`.)
+8. After changing any code, click the ↻ reload button on the extension's card, then refresh the page.
 
 ## How it works
 
@@ -111,6 +113,9 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/service-worker.js` | Connects Chrome to `background/`: blocking rules, threat lookups, settings, the warning page |
 | `extension/background/` | Turns the known-threat list into Chrome's blocking rules, answers threat lookups, and handles the service worker's messages |
 | `extension/threat-sync.js` | Gives the scam checks in each page the same known-threat list Chrome blocks with |
+| `extension/settings.html`, `settings.js` | Settings and welcome page: protection, website access, reading and text, privacy |
+| `extension/speech.js` | Reading warnings aloud: read, stop, no restarts, a message when it can't |
+| `extension/settings-sync.js` | Gives the warnings in each page the reading and text settings |
 | `extension/blocked.html`, `blocked.js` | The extension's own warning page: shown instead of a blocked website, or for any warning |
 | `tests/rules.test.js` | Automatic tests for the scam checks, with a caught / false-alarm count |
 | `tests/fake-gmail.html` | Practice page that imitates Gmail |
@@ -128,10 +133,11 @@ If you have [Node.js](https://nodejs.org) installed, run this from the project f
 node tests/contract.test.js
 node tests/rules.test.js
 node tests/service-worker.test.js
+node tests/speech.test.js
 node tests/browser/acceptance.test.js
 ```
 
-The last one loads the real extension into Chromium, opens local fake pages (a normal page, a fake sign-in page, a news page with ads, a pop-up, and a pretend Gmail inbox), and checks that suspicious clicks are stopped before the browser even asks for the address. It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
+The last one loads the real extension into Chromium, opens local fake pages (a normal page, a fake sign-in page, a news page with ads, a pop-up, and a pretend Gmail inbox), and checks that suspicious clicks are stopped before the browser even asks for the address. It also checks the settings page, a fresh install without website access, and a browser restart. (Chrome's own "Allow" prompt can't be clicked by a test, so most of it runs on a copy of the extension that already has website access.) It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
 
 `contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md). `rules.test.js` checks the scam rules. `service-worker.test.js` checks threat lookups and the blocking rules Chrome gets (including that normal addresses are never blocked).
 
@@ -194,13 +200,16 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 
 **What it saves, on your computer only:** the protection settings, updates to the known-dangerous list, and, until you close the browser, the warnings shown on the warning page (the link's address and the reasons). Nothing you type, and no browsing history.
 
-**Permissions it asks for, and why:**
+**Permissions it asks for, and why.** At install, only the three without website access. Website access is asked for on the welcome page, can be all websites or Gmail only, and can be taken back at any time; without it, known dangerous websites are still blocked.
 
-| Permission | Why |
-|---|---|
-| Access to all `http`/`https` websites | To check pages and links on any website, and inside ads. Chrome shows this as "read and change all your data on all websites." |
-| `declarativeNetRequest` | To have Chrome block known dangerous websites before they load. Chrome does this matching itself; the extension doesn't see your browsing history. |
-| `storage` | To keep the settings and the known-dangerous list, and to pass a warning to the extension's own warning page. |
+| Permission | When | Why |
+|---|---|---|
+| Access to `http`/`https` websites (optional) | Only when you choose it on the welcome or settings page | To check pages and links, inside ads, and in Gmail. Chrome shows this as "read and change all your data on all websites." Choose "Gmail only" to allow just `mail.google.com`. |
+| `declarativeNetRequest` | At install | To have Chrome block known dangerous websites before they load. Chrome does this matching itself; the extension doesn't see your browsing history. Chrome shows this as "block content on any page." |
+| `storage` | At install | To keep the settings and the known-dangerous list (`storage.local`), and to pass a warning to the extension's own warning page (`storage.session`, gone when the browser closes). |
+| `scripting` | At install | To start or stop checking pages when you give or take back website access, or turn protection off. |
+
+It never asks for cookies, browsing history, tabs, or anything else.
 
 If a threat-lookup service or AI is added later, this section must say exactly what is sent, to whom, and when, *before* that version ships. Don't promise that nothing leaves the browser once anything does. The Chrome Web Store also requires this disclosure, even for data that never leaves your computer.
 

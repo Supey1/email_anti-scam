@@ -53,8 +53,14 @@ The code was written before the contract. Today `rules.js` takes three different
 - [ ] **B (please review):** to support the service worker, A touched B's files: `manifest.json` (added the `storage` permission and `threat-sync.js`), and `blocked.html` / `blocked.js` (they can now show any analyzer result from `OPEN_WARNING_PAGE`: title, reasons, and "Open it anyway" for a warning only). Restyle or replace with your warning page as you see fit; keep the `?t=` token flow.
 - [ ] **B:** `guard.js`: when `whenToLookUp(result)` says `before_opening` and remote lookups are on, hold the click, show "Checking this link…", send `LOOKUP_URL`, and pass the answer to `analyze(input, { lookup })`. On `error`, show the local warning and let the person choose: never open the link by itself, and never say it was "checked" or "safe".
 - [ ] **B:** consider `OPEN_WARNING_PAGE` for `block` results: a website can hide or fake an in-page warning, but not the extension's own page.
-- [ ] **B:** a settings page for `protectionEnabled`, the false-positive list, and (later) remote lookups, explaining in plain words what turning lookups on sends away. Only extension pages can send `SET_SETTINGS` and `UPDATE_THREAT_RULES`.
+- [x] **A (Phase 6):** the settings page (`settings.html`): protection on/off, website access, reading and text, permissions explained, the false-positive list. Remote lookups get a switch only once a real provider is chosen.
 - [ ] **Both:** choose the threat-intelligence provider and privacy model (`docs/threat-intelligence.md`) before adding one.
+
+## Phase 6: permissions, settings, and reading aloud (A, touching B's files: please review)
+
+- [ ] **B (please review):** page scripts are no longer in `manifest.json`. The service worker registers them (`background/content-scripts.js`) only for the website access the person has given, and removes them when protection is off or access is taken away. To add or move a page script, change `BASE` / `desiredScripts()` there, not the manifest.
+- [ ] **B (please review):** reading aloud now goes through `speech.js` in `warning.js`, `gmail.js`, and `blocked.js` (one "Read to me" / "Stop reading" button, no restart when a panel redraws, a visible message when speech fails). Text size comes from `settings-sync.js` (`zoom` on the warning, the Gmail panel, and the warning page). The practice pages load the two new files.
+- [ ] **B:** the Gmail panel and the in-page warning could use the extension's warning page for `block` results (not changed).
 
 ## Tests
 

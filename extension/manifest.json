@@ -1,43 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Email Anti-Scam",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Helps older adults avoid scams: checks emails, websites, and links, and stops risky clicks with a big, plain-language warning.",
-  "permissions": ["declarativeNetRequest", "storage"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": ["declarativeNetRequest", "storage", "scripting"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "service-worker.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": [
-        "threat-list.js",
-        "core/url-normalizer.js",
-        "core/domain-rules.js",
-        "core/url-rules.js",
-        "core/text-rules.js",
-        "core/risk-policy.js",
-        "core/explanations.js",
-        "core/analyzer.js",
-        "rules.js", "threat-sync.js", "panel-styles.js", "warning.js", "guard.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true,
-      "match_origin_as_fallback": true
-    },
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "exclude_matches": ["https://mail.google.com/*"],
-      "js": ["page.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://mail.google.com/*"],
-      "js": ["gmail.js"],
-      "run_at": "document_idle"
-    }
-  ],
+  "options_page": "settings.html",
   "web_accessible_resources": [
     {
       "resources": ["blocked.html"],

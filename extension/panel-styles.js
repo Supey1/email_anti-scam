@@ -49,6 +49,7 @@ button {
   cursor: pointer;
 }
 button:hover, button:focus-visible { background: #e8eefc; outline: 3px solid #1a56db; }
+button:disabled { opacity: 0.7; cursor: default; }
 
 .verdict {
   display: flex;
@@ -162,6 +163,7 @@ button {
   cursor: pointer;
 }
 button:hover, button:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
+button:disabled { opacity: 0.7; cursor: default; }
 
 .back {
   flex: 1;

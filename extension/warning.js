@@ -35,12 +35,9 @@ const WARNING_TEXT = {
   },
 };
 
-// Reads sentences out loud, a little slower than normal.
-function speakAloud(parts) {
-  window.speechSynthesis.cancel();
-  const speech = new SpeechSynthesisUtterance(parts.filter(Boolean).join(' '));
-  speech.rate = 0.9;
-  window.speechSynthesis.speak(speech);
+// Reads sentences out loud at the person's chosen speed (speech.js, settings-sync.js).
+function speakAloud(parts, key) {
+  return GranblockSpeech.speak(parts, { rate: GranblockSettings.get().speechRate, key });
 }
 
 // Shows the warning. Only one at a time.
@@ -76,7 +73,7 @@ const showWarning = (() => {
     shadow.adoptedStyleSheets = [sheet];
 
     function close() {
-      window.speechSynthesis.cancel();
+      GranblockSpeech.stop();
       document.removeEventListener('keydown', onKey, true);
       if (host) host.remove();
       host = null;
@@ -90,15 +87,15 @@ const showWarning = (() => {
       }
     }
 
-    function readAloud() {
-      speakAloud([
-        text.title + '.',
-        result.host && kind !== 'page' ? `This link really goes to ${result.host}.` : '',
-        ...reasons,
-        'Here is what to do.',
-        ...text.advice,
-      ]);
-    }
+    // The verdict, why, and the safe next step.
+    const spoken = () => [
+      text.title + '.',
+      result.host && kind !== 'page' ? `This link really goes to ${result.host}.` : '',
+      ...reasons,
+      'Here is what to do.',
+      ...text.advice,
+    ];
+    const speechKey = `warning|${kind}|${text.title}|${reasons.join('|')}`;
 
     const back = el('button', {
       class: 'back',
@@ -126,7 +123,7 @@ const showWarning = (() => {
       ]),
       el('div', { class: 'buttons' }, [
         back,
-        el('button', { class: 'read', text: '🔊 Read to me', onclick: readAloud }),
+        GranblockSpeech.makeButton(document, { getParts: spoken, key: speechKey, rate: () => GranblockSettings.get().speechRate, className: 'read' }),
       ]),
       onContinue
         ? el('button', {
@@ -137,9 +134,11 @@ const showWarning = (() => {
         : null,
     ]);
 
+    dialog.style.zoom = GranblockSettings.zoom(); // the person's text size
     shadow.append(el('div', { class: 'backdrop' }, [dialog]));
     document.documentElement.append(host);
     document.addEventListener('keydown', onKey, true);
     back.focus();
+    if (GranblockSettings.get().autoRead) speakAloud(spoken(), speechKey);
   };
 })();
