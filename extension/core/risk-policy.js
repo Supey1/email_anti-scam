@@ -47,6 +47,14 @@
 
     FAKE_SIGN_IN_PAGE: { tier: 'strong', points: 5, group: 'identity' },
     INSIDE_SCAM_EMAIL: { tier: 'strong', points: 5, group: 'context' },
+    // Scam stories with no innocent version (text-rules.js checks for "not"/"never" first).
+    // story: the finding already needs two parts of the scam ("send crypto" AND
+    // "get more back"; a job AND a fee), so keepText counts it as two.
+    CRYPTO_GIVEAWAY: { tier: 'strong', points: 5, group: 'request', story: true },
+    JOB_FEE: { tier: 'strong', points: 5, group: 'request', story: true },
+    OVERPAYMENT: { tier: 'strong', points: 5, group: 'request', story: true },
+    RECOVERY_FEE: { tier: 'strong', points: 5, group: 'request', story: true },
+    SEXTORTION_THREAT: { tier: 'strong', points: 5, group: 'pressure', story: true },
 
     LOOKALIKE_DOMAIN: { tier: 'moderate', points: 4, group: 'destination' },
     HIDDEN_DESTINATION: { tier: 'moderate', points: 3, group: 'destination' },
@@ -70,6 +78,11 @@
     THREAT_OF_CONSEQUENCES: { tier: 'moderate', points: 3, group: 'pressure' },
     URGENT_PAYMENT_REQUEST: { tier: 'moderate', points: 2, group: 'combo' },
     AGENCY_DOES_NOT_EMAIL: { tier: 'moderate', points: 4, group: 'identity' },
+    INVESTMENT_PROMISE: { tier: 'moderate', points: 3, group: 'claim' },
+    CELEBRITY_ENDORSEMENT: { tier: 'moderate', points: 3, group: 'claim' },
+    INVESTMENT_PITCH: { tier: 'moderate', points: 2, group: 'combo' },
+    JOB_DETAILS_REQUEST: { tier: 'moderate', points: 4, group: 'request', story: true },
+    CHARGE_WITH_PRESSURE: { tier: 'moderate', points: 2, group: 'combo' },
 
     BRAND_NAME_MISMATCH: { tier: 'weak', points: 2, group: 'destination' },
     COMPANY_ON_FREE_EMAIL: { tier: 'weak', points: 2, group: 'identity' },
@@ -79,6 +92,8 @@
     PRESSURE_TACTICS: { tier: 'weak', points: 1, group: 'pressure' },
     PAYMENT_DEMAND: { tier: 'weak', points: 1, group: 'request' },
     UNVERIFIED_PRIZE_CLAIM: { tier: 'weak', points: 0, group: 'destination' },
+    // Normal at a real brokerage: explains an investment pitch, never warns alone.
+    DEPOSIT_TO_TRADE: { tier: 'weak', points: 0, group: 'request' },
     UNEXPECTED_CHARGE: { tier: 'moderate', points: 3, group: 'claim' },
   };
 
@@ -91,6 +106,12 @@
     // "Urgent financial action": asking for money, plus a deadline or a threat.
     // A normal bill ("payment due May 3") has the first part only.
     { groups: [['PAYMENT_DEMAND', 'PAYMENT_METHOD_REQUEST', 'PAY_TO_CLAIM'], ['PRESSURE_TACTICS', 'THREAT_OF_CONSEQUENCES']], adds: 'URGENT_PAYMENT_REQUEST' },
+    // "Refund" scam: a surprise charge AND a deadline to call. A real receipt
+    // with a number to cancel has no deadline.
+    { groups: [['UNEXPECTED_CHARGE'], ['PRESSURE_TACTICS', 'THREAT_OF_CONSEQUENCES']], adds: 'CHARGE_WITH_PRESSURE' },
+    // Investment scam: promised profits (or a famous name) AND putting money in.
+    // A brokerage's "fund your account to start trading" has the second part only.
+    { groups: [['INVESTMENT_PROMISE', 'CELEBRITY_ENDORSEMENT'], ['DEPOSIT_TO_TRADE', 'PAYMENT_METHOD_REQUEST', 'PAY_TO_CLAIM']], adds: 'INVESTMENT_PITCH' },
   ];
 
   // Some findings are stronger (or weaker) than their code's usual tier,
@@ -145,7 +166,8 @@
   // On websites and around links, one scary phrase alone is too common
   // (a bank's safety tips say "your account is locked" too). Wording counts
   // only if another kind of evidence backs it up, or if it tells two parts
-  // of a scam story (like "you won" + "pay a fee"). On a page that talks
+  // of a scam story (like "you won" + "pay a fee", or one "story" finding
+  // that needed two parts to be found at all). On a page that talks
   // ABOUT scams, wording counts only with other evidence.
   // Emails are written TO the person, so their wording usually counts, except:
   //   officialSource  sent from a company's own address, and every link goes
@@ -163,7 +185,8 @@
     if (backedUp) return textFindings;
     if (isScamAdvice) return [];
     const groups = new Set(textFindings.map(f => RULES[f.code].group));
-    return groups.size >= 2 ? textFindings : [];
+    const story = textFindings.some(f => RULES[f.code].story);
+    return groups.size >= 2 || story ? textFindings : [];
   }
 
   // Turns findings into a decision.

@@ -208,6 +208,50 @@
         ? 'It tries to rush you. Real companies give you time to think.'
         : 'It tries to rush you.',
     },
+    INVESTMENT_PROMISE: {
+      title: 'Promises big profits',
+      explain: () => 'It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in.',
+    },
+    CRYPTO_GIVEAWAY: {
+      title: 'Send crypto, get more back',
+      explain: () => 'It asks you to send crypto and promises to send back more. This is always a scam: nothing comes back.',
+    },
+    CELEBRITY_ENDORSEMENT: {
+      title: 'Famous name on an investment',
+      explain: d => `It uses the name ${d.name || 'of a famous person'} to sell an investment or crypto offer. Scammers put famous names and faces on fake ads without permission.`,
+    },
+    DEPOSIT_TO_TRADE: {
+      title: 'Deposit to start trading',
+      explain: () => 'It asks you to put money in, often in crypto, to start trading or investing.',
+    },
+    INVESTMENT_PITCH: {
+      title: 'Profits plus a deposit',
+      explain: () => 'It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing.',
+    },
+    JOB_FEE: {
+      title: 'Pay to start a job',
+      explain: () => 'It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them.',
+    },
+    OVERPAYMENT: {
+      title: 'Send back the difference',
+      explain: () => 'It asks you to deposit a check and send part of the money back. The check will bounce days later, and the money you sent will be gone.',
+    },
+    JOB_DETAILS_REQUEST: {
+      title: 'Job asks for private details',
+      explain: () => 'It offers a job and asks you to send private details, like your Social Security or bank account number, by email or text. Real employers collect these in person or on a secure form.',
+    },
+    RECOVERY_FEE: {
+      title: 'Pay to get money back',
+      explain: () => 'It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don\'t charge to help.',
+    },
+    SEXTORTION_THREAT: {
+      title: 'Blackmail threat',
+      explain: () => 'It threatens to send private videos or photos to people you know unless you pay. These emails are sent to millions of people, and the "recording" almost never exists. Don\'t pay and don\'t reply.',
+    },
+    CHARGE_WITH_PRESSURE: {
+      title: 'Surprise charge and a deadline',
+      explain: () => 'It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement.',
+    },
     INSIDE_SCAM_EMAIL: {
       title: 'Inside a scam email',
       explain: () => 'This link is inside an email that looks like a scam.',

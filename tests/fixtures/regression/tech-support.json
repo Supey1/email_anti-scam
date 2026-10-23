@@ -62,6 +62,10 @@
             "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
           },
           {
+            "code": "CHARGE_WITH_PRESSURE",
+            "explanation": "It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement."
+          },
+          {
             "code": "COMPANY_ON_FREE_EMAIL",
             "explanation": "The sender says it is a company or department, but it uses a free personal email address (billing.dept.norton@gmail.com)."
           },
@@ -199,6 +203,109 @@
         "reasons": []
       },
       "why": "Sent from Apple, links only to Apple."
+    },
+    {
+      "id": "geek-squad-refund-free-mail",
+      "kind": "scam",
+      "summary": "\"Geek Squad\" renewal for $299.99 from a free account, call within 24 hours to cancel",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Invoice #4471 - Gmail",
+        "visibleText": "Your Geek Squad membership renewed for $299.99. If you did not authorize this, call 1-800-555-0177 to cancel within 24 hours.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Geek Squad",
+          "senderEmail": "renewals.geeksquad@gmail.com",
+          "subject": "Invoice #4471"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          },
+          {
+            "code": "CHARGE_WITH_PRESSURE",
+            "explanation": "It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "A surprise charge, a number to call, and a deadline: the start of a refund scam."
+    },
+    {
+      "id": "pc-plan-refund-deadline",
+      "kind": "scam",
+      "summary": "Renewal for $349 from a company address, call within 24 hours for a refund",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Order confirmation - Gmail",
+        "visibleText": "Your PC Protect Plus plan was renewed for $349.00. If you did not authorize this, call 1-888-555-0193 within 24 hours to cancel and get a refund.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "PC Protect Billing",
+          "senderEmail": "billing@pcprotect-renewals.example",
+          "subject": "Order confirmation"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          },
+          {
+            "code": "CHARGE_WITH_PRESSURE",
+            "explanation": "It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "The deadline is there so you call before checking your statement."
+    },
+    {
+      "id": "gym-renewal-call-to-cancel",
+      "kind": "legitimate",
+      "summary": "Gym renewal receipt with a phone number to cancel, no deadline",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your membership renewed - Gmail",
+        "visibleText": "Your annual membership renewed for $89.00 on May 1. To cancel or request a refund, call us at 1-800-555-0123, Monday to Friday.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "City Gym",
+          "senderEmail": "members@city-gym.example",
+          "subject": "Your membership renewed"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "VERIFY_INDEPENDENTLY",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          }
+        ]
+      },
+      "why": "Real businesses do this too, so it is only noted, never stopped: check your statement yourself."
     }
   ]
 }

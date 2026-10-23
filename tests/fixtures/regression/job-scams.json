@@ -1,0 +1,295 @@
+{
+  "category": "job-scams",
+  "cases": [
+    {
+      "id": "remote-job-equipment-fee",
+      "kind": "scam",
+      "summary": "\"You have been selected\" for a remote job, send $200 for equipment, from a free email account",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Job offer: remote data entry - Gmail",
+        "visibleText": "Congratulations, you have been selected for a remote data entry job paying $45/hour. Send $200 for your equipment and training kit, then we will reimburse you.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "HR Department",
+          "senderEmail": "hr.recruiting.team@gmail.com",
+          "subject": "Job offer: remote data entry"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "JOB_FEE",
+            "explanation": "It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them."
+          },
+          {
+            "code": "COMPANY_ON_FREE_EMAIL",
+            "explanation": "The sender says it is a company or department, but it uses a free personal email address (hr.recruiting.team@gmail.com)."
+          },
+          {
+            "code": "PAYMENT_DEMAND",
+            "explanation": "It asks you to pay or send money."
+          }
+        ]
+      },
+      "why": "Real employers never charge you to start a job."
+    },
+    {
+      "id": "hired-reply-with-ssn",
+      "kind": "scam",
+      "summary": "\"You are hired!\" Reply with your Social Security number and bank routing number",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "You are hired! - Gmail",
+        "visibleText": "You are hired! To set up payroll, reply with your Social Security number, date of birth, and bank routing number.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Recruiter",
+          "senderEmail": "recruit@global-staffing-jobs.example",
+          "subject": "You are hired!"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "JOB_DETAILS_REQUEST",
+            "explanation": "It offers a job and asks you to send private details, like your Social Security or bank account number, by email or text. Real employers collect these in person or on a secure form."
+          },
+          {
+            "code": "PERSONAL_INFO_REQUEST",
+            "explanation": "It asks about private information like account numbers or passwords. Never send these by email."
+          }
+        ]
+      },
+      "why": "Hired without an interview, and asked to email the details used for identity theft."
+    },
+    {
+      "id": "mystery-shopper-overpaid-check",
+      "kind": "scam",
+      "summary": "Mystery shopper: deposit our check and send back the difference",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your first assignment - Gmail",
+        "visibleText": "Welcome to your mystery shopper assignment. We have mailed you a check for $2,450. Deposit it, keep $300 as your pay, and send back the difference by wire transfer to our vendor.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Shopper Services",
+          "senderEmail": "assign@secret-shopper-jobs.example",
+          "subject": "Your first assignment"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "OVERPAYMENT",
+            "explanation": "It asks you to deposit a check and send part of the money back. The check will bounce days later, and the money you sent will be gone."
+          },
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          }
+        ]
+      },
+      "why": "The check will bounce days later; the money you sent is gone."
+    },
+    {
+      "id": "approved-vendor-laptop",
+      "kind": "scam",
+      "summary": "Job offer: buy your laptop from \"our approved vendor\", reimbursed later",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your offer of employment - Gmail",
+        "visibleText": "Your offer of employment: Remote Customer Service Representative. Before your start date, purchase your laptop and software from our approved vendor. You will be reimbursed in your first paycheck.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Bright Careers HR",
+          "senderEmail": "hr@bright-careers.example",
+          "subject": "Your offer of employment"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "JOB_FEE",
+            "explanation": "It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them."
+          }
+        ]
+      },
+      "why": "The \"vendor\" is the scammer, and the reimbursement never comes."
+    },
+    {
+      "id": "work-from-home-registration-ad",
+      "kind": "scam",
+      "summary": "Ad: \"You've been selected\" to work from home, pay a $95 registration fee",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Start now",
+            "url": "https://easy-home-jobs.example/apply"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Work from home! You've been selected. Pay a $95 registration fee for your training to start earning.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "JOB_FEE",
+            "explanation": "It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them."
+          }
+        ]
+      },
+      "why": "A job you pay for is not a job."
+    },
+    {
+      "id": "real-job-offer",
+      "kind": "legitimate",
+      "summary": "Real job offer: bring your Social Security card on day one, we provide the laptop",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Job offer: Accountant - Gmail",
+        "visibleText": "Congratulations! We are pleased to offer you the position of Accountant at Riverside Clinic. Your start date is June 3. On your first day, please bring your Social Security card and photo ID for your I-9 form. We will provide your laptop and pay for your training.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Riverside Clinic HR",
+          "senderEmail": "hr@riverside-clinic.example",
+          "subject": "Job offer: Accountant"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "The employer pays for equipment and training, and asks for documents in person."
+    },
+    {
+      "id": "real-offer-equipment-stipend",
+      "kind": "legitimate",
+      "summary": "Real job offer: \"we'll send you a $500 stipend to buy equipment\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Welcome to Northwind - Gmail",
+        "visibleText": "Welcome to the team! Your start date is March 4. We'll send you a $500 stipend to buy equipment for your home office. Please complete your onboarding in our HR portal.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Northwind HR",
+          "senderEmail": "people@northwind.example",
+          "subject": "Welcome to Northwind"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "The employer pays you, not the other way around."
+    },
+    {
+      "id": "onboarding-portal",
+      "kind": "legitimate",
+      "summary": "HR onboarding: enter your direct deposit and tax details in the portal",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Welcome aboard - Gmail",
+        "visibleText": "Welcome aboard! Please log in to the onboarding portal to enter your direct deposit and tax information before your start date.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Riverside Clinic HR",
+          "senderEmail": "hr@riverside-clinic.example",
+          "subject": "Welcome aboard"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Payroll details go in the employer's portal, not in an email reply."
+    },
+    {
+      "id": "job-board-alert",
+      "kind": "legitimate",
+      "summary": "Job site alert: new data entry jobs near you",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "New jobs for you - Gmail",
+        "visibleText": "New jobs for you: Data Entry Clerk, $18/hour, full time. Apply now. Unsubscribe or manage your email preferences.",
+        "links": [
+          {
+            "text": "See jobs",
+            "url": "https://www.jobsite.example/jobs"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "JobSite Alerts",
+          "senderEmail": "alerts@jobsite.example",
+          "subject": "New jobs for you"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A normal job listing, no fee and no request for details."
+    },
+    {
+      "id": "job-scam-advice-page",
+      "kind": "legitimate",
+      "summary": "Article: how to spot job scams (quotes \"send back the difference\")",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://consumer-help.example/job-scams",
+        "pageTitle": "How to spot a job scam",
+        "visibleText": "Job scams are on the rise. Real employers never ask you to pay for equipment or training. If someone sends you a check and asks you to send back the difference, it's a scam.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Job scams"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Warns about the scam."
+    }
+  ]
+}

@@ -74,6 +74,21 @@ For B:
 - [x] **B (verified in the browser):** a hostile email's sender name, subject, and link text show as plain text in the panel and the warning (no HTML runs).
 - [ ] **B:** `page.js` still cuts page text at 5,000 characters (the KNOWN ISSUE in the browser test).
 
+## Phase 8: more kinds of scams (A)
+
+From the list of major scam categories: what the engine missed or only noted, now stopped, each with trigger and no-trigger tests in `tests/rules.test.js` and scam AND legitimate cases in `tests/fixtures/regression/`:
+- [x] Investment and crypto (`investment-crypto.json`): guaranteed or impossible profits (`INVESTMENT_PROMISE`), "send crypto, get more back" (`CRYPTO_GIVEAWAY`), famous names on investment offers (`CELEBRITY_ENDORSEMENT`, names in the new `data/people.js`), and a deposit to start trading (`DEPOSIT_TO_TRADE`, 0 points alone; with a promise it adds `INVESTMENT_PITCH`). Real savings offers, brokerage welcomes, "returns are not guaranteed" newsletters, and crypto news stay clean.
+- [x] Jobs (`job-scams.json`): pay for equipment or training (`JOB_FEE`), the fake check (`OVERPAYMENT`), and emailing your SSN or bank number for a job (`JOB_DETAILS_REQUEST`). Real offers where the employer pays, and onboarding portals, stay clean.
+- [x] Recovery (`recovery-scams.json`): "we can get back what you lost" for a fee (`RECOVERY_FEE`). "No upfront fees" law firms and bank provisional credits stay clean.
+- [x] Refund scam: a surprise charge plus a deadline now stops (`CHARGE_WITH_PRESSURE`); without a deadline it's still only noted.
+- [x] Blackmail (`sextortion.json`): explained as a threat (`SEXTORTION_THREAT`). "I have your password" no longer counts as asking for your password; `PERSONAL_INFO_REQUEST` now needs "enter / send / verify… your password".
+- [x] Policy: these story findings already need two parts ("send crypto" AND "get more back", a job AND a fee), so on websites they count without a second phrase (`story: true` in `risk-policy.js`). Pages about scams still need other evidence.
+- [x] Mutation-checked: removing any of the "not / never / if someone / we will pay / no upfront fee" exceptions, or any two-part requirement, fails a test.
+
+For B:
+- [ ] **B:** `data/people.js` is new. It's in `background/content-scripts.js` and the practice pages, before `core/`. Any other page that loads the engine needs it too: `core/text-rules.js` won't load without it.
+- [ ] **B:** new reason codes for the warning screen and panel: `INVESTMENT_PROMISE`, `CRYPTO_GIVEAWAY`, `CELEBRITY_ENDORSEMENT`, `DEPOSIT_TO_TRADE`, `INVESTMENT_PITCH`, `JOB_FEE`, `OVERPAYMENT`, `JOB_DETAILS_REQUEST`, `RECOVERY_FEE`, `SEXTORTION_THREAT`, `CHARGE_WITH_PRESSURE` (titles and explanations come with the result; nothing to word on B's side unless the screen uses its own icons per code).
+
 ## Section 8: dividing the work
 
 - [x] **A:** the data the engine uses moved out of the rule code into `extension/data/` (`companies.js`, `services.js`, `addresses.js`, `threat-list.js`), with no change in behavior (every test passes unchanged). `background/content-scripts.js` and the practice pages load them before `core/`.

@@ -191,8 +191,16 @@
             "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
           },
           {
+            "code": "INVESTMENT_PROMISE",
+            "explanation": "It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in."
+          },
+          {
             "code": "URGENT_PAYMENT_REQUEST",
             "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "INVESTMENT_PITCH",
+            "explanation": "It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing."
           },
           {
             "code": "PRESSURE_TACTICS",

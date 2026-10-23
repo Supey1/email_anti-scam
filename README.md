@@ -27,7 +27,8 @@ It protects at three levels. The stronger the evidence, the stronger the respons
 - Notices when an email says it's from a company but none of its links go to that company's website
 - Checks the wording: gift cards and wire transfers, "your account is locked," rushing, secrecy, prizes, fake delivery notices and redelivery fees, tech-support scams, the "grandparent scam," and **urgent demands for money** ("pay today or you will be arrested")
 - Knows that the IRS says it never emails people first to ask for money or personal details
-- Catches "refund" scams (a surprise charge and a phone number to cancel it) and "Hi Mom, this is my new number" messages
+- Catches "refund" scams (a surprise charge and a phone number to cancel it; with a deadline to call, it stops you) and "Hi Mom, this is my new number" messages
+- **New:** catches investment and crypto scams (guaranteed or impossible profits plus a deposit, "send crypto and get double back", famous names on fake investment offers, including the "sweetheart, I made 300% on this platform" end of romance scams), job scams (paying for equipment or training, "deposit our check and send back the difference", emailing your Social Security or bank number for a job), "we can recover the money you lost" for a fee, and blackmail emails ("pay or the video goes to your contacts"), explained as blackmail, not as a password request
 - Doesn't warn about real bank alerts and newsletters sent from the company's own address with links only to the company, about ordinary marketing ("sale ends tonight"), or about newsletters that warn *about* scams
 - Hidden characters and look-alike letters ("Pay\u200bPal", "ＰａｙＰａｌ") can't sneak a company name or a scam phrase past the checks
 - **New:** clicking *any* link in an email that looks like a scam brings up the "Stop and check" warning first
@@ -38,6 +39,7 @@ It protects at three levels. The stronger the evidence, the stronger the respons
   - links through well-known pass-through services (Google, Outlook, Facebook, YouTube) are checked where they really end up
   - number addresses, shortened links, and risky website endings
   - ads that say *you* won a prize, ask you to pay a fee or use gift cards first, say *your* package is on hold, say *your* computer is infected, or tell you to call a number
+  - ads that promise guaranteed profits for a deposit, use a famous name to sell crypto, ask you to pay to start a job, or charge to "recover" lost money
   - ad clicks that go through an ad network (like Google's) are checked where they really go when the link says so; when it doesn't, the ad's wording is still checked, but the engine doesn't pretend to know the destination
   - clicks inside ads that load in their own frame are caught too, and the warning covers the whole screen
 - **On the page itself:** warns if the page looks like a company's sign-in page but isn't on that company's website, sends your password to a different website or to a known dangerous one, asks for a password on a free hosting website, sends it without encryption, or is a fake virus or prize pop-up (including pop-ups that appear after the page loads)
@@ -107,7 +109,7 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/manifest.json` | Tells Chrome what the extension is, which files run where, and what it's allowed to do |
 | `extension/rules.js` | The front door to the scam checks: `analyze()` (see `docs/interfaces.md`) |
 | `extension/core/` | The scam checks, in groups: reading addresses, address rules, company-name rules, wording rules, the risk policy, and the plain-language explanations |
-| `extension/data/` | Facts the checks use, kept apart from the rules: companies and their official websites (`companies.js`), email services and ad networks (`services.js`), web-address lists (`addresses.js`), and the known-dangerous list (`threat-list.js`, practice addresses for now) |
+| `extension/data/` | Facts the checks use, kept apart from the rules: companies and their official websites (`companies.js`), email services and ad networks (`services.js`), web-address lists (`addresses.js`), famous names used on fake investment ads (`people.js`), and the known-dangerous list (`threat-list.js`, practice addresses for now) |
 | `extension/gmail.js` | Reads the open email in Gmail and builds the panel |
 | `extension/guard.js` | Stops risky link clicks before the browser leaves the page |
 | `extension/page.js` | Checks the website you're on, including pop-ups that appear later |
@@ -143,7 +145,7 @@ The last one loads the real extension into Chromium, opens local fake pages (a n
 
 - `contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md).
 - `rules.test.js` checks each scam rule: an example that should trigger it and one that should not.
-- `regression.test.js` runs 67 realistic scam and legitimate examples in ten groups (fake account alerts, prizes, delivery fees, tech support, grandparent scams, look-alike addresses, link mismatches, real bank alerts, real marketing, and articles about scams), each with the verdict it should get and the exact explanation the person reads. Readable version: [`docs/regression-cases.md`](docs/regression-cases.md).
+- `regression.test.js` runs 102 realistic scam and legitimate examples in fourteen groups (fake account alerts, prizes, delivery fees, tech support and refund scams, grandparent scams, investment and crypto, jobs, recovery, blackmail, look-alike addresses, link mismatches, real bank alerts, real marketing, and articles about scams), each with the verdict it should get and the exact explanation the person reads. Readable version: [`docs/regression-cases.md`](docs/regression-cases.md).
 - `robustness.test.js` checks hostile input: huge or tricky text can't slow the checks down, invisible or look-alike letters can't hide a company name, address tricks can't get past the known-dangerous list, and malformed input never crashes anything.
 - `service-worker.test.js` checks threat lookups and the blocking rules Chrome gets (including that normal addresses are never blocked).
 - `speech.test.js` checks reading aloud.
@@ -160,7 +162,7 @@ False alarms (normal): 0/15
 
 Every rule has at least one example that should trigger it and one that should not, and the policy tests check which combinations of signs lead to each verdict (for example, a strange website ending or an urgent phrase on its own never stops a click). The tests also check the trickiest address cases directly: `paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, and two `github.io` sites belong to different people.
 
-Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. The same goes for the 67 regression examples. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
+Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. The same goes for the 102 regression examples. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
 
 **When you add a new rule, add a test that should trigger it AND a normal example that should not.**
 
@@ -179,6 +181,8 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 - **A sign-in page with a company's name on it** (in its title or main heading) that isn't on that company's website gets a warning, even if it's a real partner site.
 - Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `gmail.js`.
 - Rules can't catch every scam, especially new tricks, and scammers can avoid our exact wording.
+- **Investment, job, recovery, and blackmail checks look for the moment money or details are asked for.** Romance and investment scams build trust for weeks, mostly in chat apps we can't see; the extension only helps once that conversation reaches an email, an ad, or a website. The famous-name list (`data/people.js`) is hand-picked, and a famous name alone never counts: only with an investment offer.
+- **Some honest messages are noted:** a real receipt that gives a phone number to cancel ("Be careful", never "Stop") and a CD or annuity ad that says "guaranteed returns" (on a website it needs a second sign). A real employer who asks you to *email* your bank or Social Security number gets "Stop and check" on purpose: an email can't show whether there was an interview, and sending those numbers by email is unsafe even for a real job. Safety advice is recognized when it says "not", "never", "no", or "if someone…" right before the scam words, or mentions scams twice; advice worded any other way can still be flagged.
 - **An email from a company's own address, with links only to that company, is trusted like the company's website.** That stops false alarms on real bank alerts, but a forged sender address on a real company's domain would get the same trust. Gmail usually rejects or flags those, but not always.
 - **Shortened and tracking links aren't followed.** We never open a link to see where it goes (that could warn the scammer, and the answer can change depending on who asks). A shortened link stays a weak warning sign. Only well-known pass-through services that write the destination into the link are followed.
 - **The lists of email services and ad networks (`core/domain-rules.js`) are hand-picked.** A real company's newsletter sent through a service that isn't listed may get a mild "check first" note; a scam sent through a listed service is still checked on everything else.

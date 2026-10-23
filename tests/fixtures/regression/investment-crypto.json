@@ -1,0 +1,399 @@
+{
+  "category": "investment-crypto",
+  "cases": [
+    {
+      "id": "romance-trading-platform",
+      "kind": "scam",
+      "summary": "Online \"sweetheart\" brags about 300% a month and asks for a USDT deposit (\"pig butchering\")",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Our future - Gmail",
+        "visibleText": "Sweetheart, my uncle showed me a trading platform. I made 300% this month. Open an account at trade-gold-pro.example and deposit $5,000 in USDT so we can build our future.",
+        "links": [
+          {
+            "text": "trade-gold-pro.example",
+            "url": "https://trade-gold-pro.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Mei",
+          "senderEmail": "mei.investor@gmail.com",
+          "subject": "Our future"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "INVESTMENT_PROMISE",
+            "explanation": "It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in."
+          },
+          {
+            "code": "INVESTMENT_PITCH",
+            "explanation": "It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing."
+          },
+          {
+            "code": "DEPOSIT_TO_TRADE",
+            "explanation": "It asks you to put money in, often in crypto, to start trading or investing."
+          }
+        ]
+      },
+      "why": "Impossible profits plus a crypto deposit: the end stage of a romance investment scam."
+    },
+    {
+      "id": "celebrity-btc-giveaway-ad",
+      "kind": "scam",
+      "summary": "Ad: \"Elon Musk is giving away 5,000 BTC! Send 0.1 BTC and get 0.2 BTC back\"",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Claim",
+            "url": "https://elon-crypto-giveaway.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Elon Musk is giving away 5,000 BTC! Send 0.1 BTC and get 0.2 BTC back. Guaranteed returns. Ends today.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "CRYPTO_GIVEAWAY",
+            "explanation": "It asks you to send crypto and promises to send back more. This is always a scam: nothing comes back."
+          },
+          {
+            "code": "INVESTMENT_PROMISE",
+            "explanation": "It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in."
+          },
+          {
+            "code": "CELEBRITY_ENDORSEMENT",
+            "explanation": "It uses the name Elon Musk to sell an investment or crypto offer. Scammers put famous names and faces on fake ads without permission."
+          }
+        ]
+      },
+      "why": "\"Send crypto, get double back\" has no innocent use, and the celebrity is fake."
+    },
+    {
+      "id": "ai-trading-robot-page",
+      "kind": "scam",
+      "summary": "Web page: AI trading robot with guaranteed 400% returns and a $250 deposit",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://quantum-ai-profits.example/",
+        "pageTitle": "Quantum AI Trading",
+        "visibleText": "Earn $1,000 a day with our AI trading robot. Guaranteed 400% returns, no risk. Deposit $250 to start now.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Quantum AI"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "INVESTMENT_PROMISE",
+            "explanation": "It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in."
+          },
+          {
+            "code": "INVESTMENT_PITCH",
+            "explanation": "It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing."
+          },
+          {
+            "code": "DEPOSIT_TO_TRADE",
+            "explanation": "It asks you to put money in, often in crypto, to start trading or investing."
+          }
+        ]
+      },
+      "why": "Guaranteed profits plus a deposit to start: how investment scam sites work."
+    },
+    {
+      "id": "eth-send-double-email",
+      "kind": "scam",
+      "summary": "\"Send any amount of ETH and we will send back double\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Anniversary giveaway - Gmail",
+        "visibleText": "To celebrate our anniversary, send any amount of ETH to the wallet below and we will send back double. Only for the next 30 minutes.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Ethereum Events",
+          "senderEmail": "news@eth-anniversary.example",
+          "subject": "Anniversary giveaway"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "CRYPTO_GIVEAWAY",
+            "explanation": "It asks you to send crypto and promises to send back more. This is always a scam: nothing comes back."
+          }
+        ]
+      },
+      "why": "Sending crypto to get more back is always a scam."
+    },
+    {
+      "id": "celebrity-trading-secret-ad",
+      "kind": "scam",
+      "summary": "Ad: a TV money expert \"reveals his secret\" trading platform, invest $250",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Read more",
+            "url": "https://wealth-secret-news.example/story"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Martin Lewis reveals his secret: this new trading platform made him millions. Invest $250 today.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "CELEBRITY_ENDORSEMENT",
+            "explanation": "It uses the name Martin Lewis to sell an investment or crypto offer. Scammers put famous names and faces on fake ads without permission."
+          },
+          {
+            "code": "INVESTMENT_PITCH",
+            "explanation": "It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing."
+          },
+          {
+            "code": "DEPOSIT_TO_TRADE",
+            "explanation": "It asks you to put money in, often in crypto, to start trading or investing."
+          }
+        ]
+      },
+      "why": "A fake celebrity endorsement plus a deposit to start trading."
+    },
+    {
+      "id": "vip-group-daily-returns",
+      "kind": "scam",
+      "summary": "\"VIP investment group\" promising 20% daily returns for a USDT deposit",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your invitation - Gmail",
+        "visibleText": "Join our VIP investment group. Our mentor guarantees 20% daily returns. Deposit at least $1,000 in USDT to start.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "VIP Wealth Club",
+          "senderEmail": "mentor@vip-wealth-club.example",
+          "subject": "Your invitation"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "INVESTMENT_PROMISE",
+            "explanation": "It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in."
+          },
+          {
+            "code": "INVESTMENT_PITCH",
+            "explanation": "It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing."
+          },
+          {
+            "code": "DEPOSIT_TO_TRADE",
+            "explanation": "It asks you to put money in, often in crypto, to start trading or investing."
+          }
+        ]
+      },
+      "why": "Guaranteed daily profits and a crypto deposit."
+    },
+    {
+      "id": "bank-savings-apy",
+      "kind": "legitimate",
+      "summary": "Bank email: open a savings account, earn 4.50% APY, deposit $25 to open",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Grow your savings - Gmail",
+        "visibleText": "Open a high-yield savings account and earn 4.50% APY. Deposit $25 to open your account. FDIC insured.",
+        "links": [
+          {
+            "text": "Open an account",
+            "url": "https://www.community-bank.example/savings"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Community Bank",
+          "senderEmail": "hello@community-bank.example",
+          "subject": "Grow your savings"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A normal savings offer: no guaranteed profits, nothing about trading or crypto."
+    },
+    {
+      "id": "brokerage-welcome",
+      "kind": "legitimate",
+      "summary": "Brokerage welcome email: fund your account to start trading",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Welcome to Example Brokerage - Gmail",
+        "visibleText": "Welcome! Fund your account with $100 or more to start trading. Investing involves risk, including loss of principal.",
+        "links": [
+          {
+            "text": "Log in",
+            "url": "https://www.example-brokerage.example/login"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Example Brokerage",
+          "senderEmail": "support@example-brokerage.example",
+          "subject": "Welcome to Example Brokerage"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Depositing to trade is normal at a real brokerage. Alone it is never a warning; only with a promise of profits."
+    },
+    {
+      "id": "newsletter-not-guaranteed",
+      "kind": "legitimate",
+      "summary": "Investment newsletter: \"returns are not guaranteed\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Market update - Gmail",
+        "visibleText": "Stocks rose 2% this week. Investing involves risk; returns are not guaranteed. Past performance does not guarantee future returns. Unsubscribe.",
+        "links": [
+          {
+            "text": "Read more",
+            "url": "https://www.market-weekly.example/update"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Market Weekly",
+          "senderEmail": "news@market-weekly.example",
+          "subject": "Market update"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Says profits are NOT guaranteed."
+    },
+    {
+      "id": "advisor-annual-review",
+      "kind": "legitimate",
+      "summary": "Financial advisor: \"your portfolio returned 6% this year\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your annual review - Gmail",
+        "visibleText": "Hi Margaret, I've attached your annual review. Your portfolio returned 6% this year. Let me know if you'd like to meet.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Ruth Smith",
+          "senderEmail": "ruth@smith-financial.example",
+          "subject": "Your annual review"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A normal yearly result, no promise, no request for money."
+    },
+    {
+      "id": "crypto-news-celebrity",
+      "kind": "legitimate",
+      "summary": "News story: bitcoin rose after Elon Musk comments",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://news.example/markets/bitcoin",
+        "pageTitle": "Bitcoin rises after Musk comments",
+        "visibleText": "Bitcoin rose 8% this week after Elon Musk said Tesla may accept bitcoin again. Analysts expect more ups and downs.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Bitcoin rises"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "News about a celebrity and crypto, with no offer."
+    },
+    {
+      "id": "giveaway-scam-article",
+      "kind": "legitimate",
+      "summary": "Article warning about fake celebrity crypto giveaways",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://news.example/crypto-giveaway-scams",
+        "pageTitle": "Fake crypto giveaways",
+        "visibleText": "Scammers post fake videos of Elon Musk promising to send back double any bitcoin you send. It's a scam: never send crypto to get more back.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Fake crypto giveaways"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Quotes a scam to warn readers."
+    }
+  ]
+}

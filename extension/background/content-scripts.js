@@ -22,7 +22,7 @@
 
   // The engine and the click guard. Must load in this order.
   const BASE = [
-    'data/threat-list.js', 'data/addresses.js', 'data/companies.js', 'data/services.js',
+    'data/threat-list.js', 'data/addresses.js', 'data/companies.js', 'data/services.js', 'data/people.js',
     'core/url-normalizer.js', 'core/domain-rules.js', 'core/url-rules.js', 'core/text-rules.js',
     'core/risk-policy.js', 'core/explanations.js', 'core/analyzer.js',
     'rules.js', 'threat-sync.js', 'settings-sync.js', 'speech.js', 'panel-styles.js', 'warning.js', 'guard.js',

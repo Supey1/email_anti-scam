@@ -1,0 +1,185 @@
+{
+  "category": "recovery-scams",
+  "cases": [
+    {
+      "id": "lost-funds-recovery-fee",
+      "kind": "scam",
+      "summary": "\"We can get back the $12,000 you lost\", pay a $500 recovery fee",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "We found your money - Gmail",
+        "visibleText": "Our records show you lost $12,000 to a scam. Our recovery agency can get it back for you. Pay a $500 recovery fee to release your refund.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Funds Recovery Agency",
+          "senderEmail": "claims@lost-funds-recovery.example",
+          "subject": "We found your money"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "RECOVERY_FEE",
+            "explanation": "It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don't charge to help."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          }
+        ]
+      },
+      "why": "Recovery scams target people who were already scammed. Nobody legitimate charges up front to get your money back."
+    },
+    {
+      "id": "fake-agency-recovered-gift-cards",
+      "kind": "scam",
+      "summary": "Fake agency \"recovered your stolen funds\", fee in gift cards",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your stolen funds were recovered - Gmail",
+        "visibleText": "We have recovered your stolen funds of $8,400. To receive your refund, pay a $350 processing fee with gift cards.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Consumer Refund Office",
+          "senderEmail": "refunds@consumer-refund-office.example",
+          "subject": "Your stolen funds were recovered"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "RECOVERY_FEE",
+            "explanation": "It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don't charge to help."
+          },
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          }
+        ]
+      },
+      "why": "A recovery claim, a fee, and gift cards."
+    },
+    {
+      "id": "crypto-recovery-ad",
+      "kind": "scam",
+      "summary": "Ad: \"Lost crypto? Our experts can recover your bitcoin. Pay a small upfront fee.\"",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Get help",
+            "url": "https://crypto-recovery-pros.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Lost money to crypto fraud? Our certified experts can recover your bitcoin. Pay a small upfront fee to open your case.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "RECOVERY_FEE",
+            "explanation": "It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don't charge to help."
+          }
+        ]
+      },
+      "why": "An up-front fee to recover lost money. The recovery claim and the fee are two parts of the story, so this counts on a website without anything else."
+    },
+    {
+      "id": "bank-provisional-credit",
+      "kind": "legitimate",
+      "summary": "Bank: provisional credit while we investigate your fraud claim",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Update on your claim - Gmail",
+        "visibleText": "We received your fraud claim. We have issued a provisional credit of $1,200 to your account while we investigate. You don't need to do anything.",
+        "links": [
+          {
+            "text": "View claim",
+            "url": "https://www.community-bank.example/claims"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Community Bank",
+          "senderEmail": "alerts@community-bank.example",
+          "subject": "Update on your claim"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "The bank is giving money back, not asking for any."
+    },
+    {
+      "id": "law-firm-no-upfront-fee",
+      "kind": "legitimate",
+      "summary": "Law firm page: recover investment-fraud losses, no upfront fees",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://smith-law.example/investment-fraud",
+        "pageTitle": "Investment fraud lawyers",
+        "visibleText": "Our attorneys help investors recover losses from investment fraud. Free consultation, and no upfront fees: we are paid only if we recover your money.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Investment fraud"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Says there is no up-front fee."
+    },
+    {
+      "id": "recovery-scam-article",
+      "kind": "legitimate",
+      "summary": "Article: recovery scams target people who already lost money",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://consumer-help.example/recovery-scams",
+        "pageTitle": "Recovery scams",
+        "visibleText": "Recovery scams target people who already lost money. Scammers promise to get your money back for a fee. Never pay up front to recover money.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Recovery scams"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Warns about the scam."
+    }
+  ]
+}

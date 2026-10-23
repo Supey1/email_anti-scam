@@ -215,7 +215,7 @@ Which actions go with which verdicts:
 | `ACCOUNT_PROBLEM_CLAIM` | moderate | all | Says your account, card, or computer has a serious problem. |
 | `CALL_THIS_NUMBER` | moderate | link, webpage | Tells you to call a number, or not to close the page. |
 | `TECH_SUPPORT_CLAIM` | moderate | email | Talks about viruses or "tech support". |
-| `PERSONAL_INFO_REQUEST` | moderate | email | Asks for account numbers, passwords, or similar. |
+| `PERSONAL_INFO_REQUEST` | moderate | email | Asks for account numbers, passwords, or similar. ("I have your password" is not asking for it.) |
 | `DELIVERY_PROBLEM_CLAIM` | moderate | all | Says your package couldn't be delivered, is on hold, or needs a fee. |
 | `SECRECY_REQUEST` | moderate | email | Asks you to keep a secret. |
 | `FAMILY_EMERGENCY` | moderate | email | Says a family member is in trouble and needs money fast. |
@@ -225,6 +225,17 @@ Which actions go with which verdicts:
 | `THREAT_OF_CONSEQUENCES` | moderate | all | Threatens YOU with arrest, legal action, or losing benefits. |
 | `URGENT_PAYMENT_REQUEST` | moderate | all | Asks for money AND rushes or threatens you ("urgent financial action"). |
 | `AGENCY_DOES_NOT_EMAIL` | moderate | email | Claims to be an organization that says it never emails first to ask for money or personal details (the IRS), and asks for exactly that. |
+| `CHARGE_WITH_PRESSURE` | moderate | all | A surprise charge (`UNEXPECTED_CHARGE`) AND a deadline or threat: call before you check your statement. |
+| `INVESTMENT_PROMISE` | moderate | all | Promises guaranteed, risk-free, or impossible profits ("300% this month", "20% daily returns"), in a message about investing or crypto. Not when it says profits are NOT guaranteed. |
+| `CELEBRITY_ENDORSEMENT` | moderate | all | A famous person's name (`data/people.js`) selling an investment or crypto offer ("Elon Musk is giving away bitcoin"). Just naming them, as news does, doesn't count. |
+| `DEPOSIT_TO_TRADE` | weak | all | Asks you to deposit money to start trading or investing. 0 points: a real brokerage says this too. It explains `INVESTMENT_PITCH`. |
+| `INVESTMENT_PITCH` | moderate | all | Promised profits or a famous name AND putting money in (a deposit, crypto, a fee). |
+| `CRYPTO_GIVEAWAY` | strong | all | "Send crypto and get more back." |
+| `JOB_FEE` | strong | all | A job offer that asks you to pay first: equipment, training, a fee, or buying from "our approved vendor". Not when the employer pays. |
+| `OVERPAYMENT` | strong | all | Deposit a check and send back the difference (the fake-check scam). |
+| `JOB_DETAILS_REQUEST` | moderate | all | A job offer that asks you to send your Social Security or bank account number by email or text, not on a secure form or in person. |
+| `RECOVERY_FEE` | strong | all | Offers to get back money you lost, for a fee. Not when it says there's no up-front fee. |
+| `SEXTORTION_THREAT` | strong | all | Threatens to send videos or photos to YOUR contacts, family, or friends unless you pay. |
 | `INSIDE_SCAM_EMAIL` | strong | link | The clicked link is inside an email whose result was `warn` with `GO_BACK` (`context.surroundingResult`). |
 
 "Tier" comes from `extension/core/risk-policy.js` and is not sent in the result. It decides the verdict:
@@ -236,7 +247,7 @@ Which actions go with which verdicts:
 | Anything else that counts (weak signs alone, however many) | `warn` | `VERIFY_INDEPENDENTLY` |
 | Nothing | `no_warning_signs` | `NONE` |
 
-On websites and around links, one scary phrase on its own doesn't count at all: it needs other evidence, or a second part of the scam story.
+On websites and around links, one scary phrase on its own doesn't count at all: it needs other evidence, or a second part of the scam story. A few findings are a two-part story by themselves (`CRYPTO_GIVEAWAY`, `JOB_FEE`, `OVERPAYMENT`, `JOB_DETAILS_REQUEST`, `RECOVERY_FEE`, `SEXTORTION_THREAT`: "send crypto" AND "get more back", a job AND a fee) and count on their own. A page that talks ABOUT scams still needs other evidence.
 
 ---
 

@@ -192,6 +192,158 @@ What the person reads:
 
 `grandparent/family-recipe-request`, email. **Expected:** `no_warning_signs` + `NONE`. Asks for a recipe, not money.
 
+## investment-crypto
+
+### 🛑 Scam: Online "sweetheart" brags about 300% a month and asks for a USDT deposit ("pig butchering")
+
+`investment-crypto/romance-trading-platform`, email. **Expected:** `warn` + `GO_BACK`. Impossible profits plus a crypto deposit: the end stage of a romance investment scam.
+
+What the person reads:
+
+- It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+- It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in. *(INVESTMENT_PROMISE)*
+- It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing. *(INVESTMENT_PITCH)*
+- It asks you to put money in, often in crypto, to start trading or investing. *(DEPOSIT_TO_TRADE)*
+
+### 🛑 Scam: Ad: "Elon Musk is giving away 5,000 BTC! Send 0.1 BTC and get 0.2 BTC back"
+
+`investment-crypto/celebrity-btc-giveaway-ad`, link. **Expected:** `warn` + `GO_BACK`. "Send crypto, get double back" has no innocent use, and the celebrity is fake.
+
+What the person reads:
+
+- It asks you to send crypto and promises to send back more. This is always a scam: nothing comes back. *(CRYPTO_GIVEAWAY)*
+- It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in. *(INVESTMENT_PROMISE)*
+- It uses the name Elon Musk to sell an investment or crypto offer. Scammers put famous names and faces on fake ads without permission. *(CELEBRITY_ENDORSEMENT)*
+
+### 🛑 Scam: Web page: AI trading robot with guaranteed 400% returns and a $250 deposit
+
+`investment-crypto/ai-trading-robot-page`, webpage. **Expected:** `warn` + `GO_BACK`. Guaranteed profits plus a deposit to start: how investment scam sites work.
+
+What the person reads:
+
+- It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in. *(INVESTMENT_PROMISE)*
+- It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing. *(INVESTMENT_PITCH)*
+- It asks you to put money in, often in crypto, to start trading or investing. *(DEPOSIT_TO_TRADE)*
+
+### 🛑 Scam: "Send any amount of ETH and we will send back double"
+
+`investment-crypto/eth-send-double-email`, email. **Expected:** `warn` + `GO_BACK`. Sending crypto to get more back is always a scam.
+
+What the person reads:
+
+- It asks you to send crypto and promises to send back more. This is always a scam: nothing comes back. *(CRYPTO_GIVEAWAY)*
+
+### 🛑 Scam: Ad: a TV money expert "reveals his secret" trading platform, invest $250
+
+`investment-crypto/celebrity-trading-secret-ad`, link. **Expected:** `warn` + `GO_BACK`. A fake celebrity endorsement plus a deposit to start trading.
+
+What the person reads:
+
+- It uses the name Martin Lewis to sell an investment or crypto offer. Scammers put famous names and faces on fake ads without permission. *(CELEBRITY_ENDORSEMENT)*
+- It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing. *(INVESTMENT_PITCH)*
+- It asks you to put money in, often in crypto, to start trading or investing. *(DEPOSIT_TO_TRADE)*
+
+### 🛑 Scam: "VIP investment group" promising 20% daily returns for a USDT deposit
+
+`investment-crypto/vip-group-daily-returns`, email. **Expected:** `warn` + `GO_BACK`. Guaranteed daily profits and a crypto deposit.
+
+What the person reads:
+
+- It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+- It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in. *(INVESTMENT_PROMISE)*
+- It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing. *(INVESTMENT_PITCH)*
+- It asks you to put money in, often in crypto, to start trading or investing. *(DEPOSIT_TO_TRADE)*
+
+### ✅ Legitimate: Bank email: open a savings account, earn 4.50% APY, deposit $25 to open
+
+`investment-crypto/bank-savings-apy`, email. **Expected:** `no_warning_signs` + `NONE`. A normal savings offer: no guaranteed profits, nothing about trading or crypto.
+
+### ✅ Legitimate: Brokerage welcome email: fund your account to start trading
+
+`investment-crypto/brokerage-welcome`, email. **Expected:** `no_warning_signs` + `NONE`. Depositing to trade is normal at a real brokerage. Alone it is never a warning; only with a promise of profits.
+
+### ✅ Legitimate: Investment newsletter: "returns are not guaranteed"
+
+`investment-crypto/newsletter-not-guaranteed`, email. **Expected:** `no_warning_signs` + `NONE`. Says profits are NOT guaranteed.
+
+### ✅ Legitimate: Financial advisor: "your portfolio returned 6% this year"
+
+`investment-crypto/advisor-annual-review`, email. **Expected:** `no_warning_signs` + `NONE`. A normal yearly result, no promise, no request for money.
+
+### ✅ Legitimate: News story: bitcoin rose after Elon Musk comments
+
+`investment-crypto/crypto-news-celebrity`, webpage. **Expected:** `no_warning_signs` + `NONE`. News about a celebrity and crypto, with no offer.
+
+### ✅ Legitimate: Article warning about fake celebrity crypto giveaways
+
+`investment-crypto/giveaway-scam-article`, webpage. **Expected:** `no_warning_signs` + `NONE`. Quotes a scam to warn readers.
+
+## job-scams
+
+### 🛑 Scam: "You have been selected" for a remote job, send $200 for equipment, from a free email account
+
+`job-scams/remote-job-equipment-fee`, email. **Expected:** `warn` + `GO_BACK`. Real employers never charge you to start a job.
+
+What the person reads:
+
+- It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them. *(JOB_FEE)*
+- The sender says it is a company or department, but it uses a free personal email address (hr.recruiting.team@gmail.com). *(COMPANY_ON_FREE_EMAIL)*
+- It asks you to pay or send money. *(PAYMENT_DEMAND)*
+
+### 🛑 Scam: "You are hired!" Reply with your Social Security number and bank routing number
+
+`job-scams/hired-reply-with-ssn`, email. **Expected:** `warn` + `GO_BACK`. Hired without an interview, and asked to email the details used for identity theft.
+
+What the person reads:
+
+- It offers a job and asks you to send private details, like your Social Security or bank account number, by email or text. Real employers collect these in person or on a secure form. *(JOB_DETAILS_REQUEST)*
+- It asks about private information like account numbers or passwords. Never send these by email. *(PERSONAL_INFO_REQUEST)*
+
+### 🛑 Scam: Mystery shopper: deposit our check and send back the difference
+
+`job-scams/mystery-shopper-overpaid-check`, email. **Expected:** `warn` + `GO_BACK`. The check will bounce days later; the money you sent is gone.
+
+What the person reads:
+
+- It asks you to deposit a check and send part of the money back. The check will bounce days later, and the money you sent will be gone. *(OVERPAYMENT)*
+- It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+
+### 🛑 Scam: Job offer: buy your laptop from "our approved vendor", reimbursed later
+
+`job-scams/approved-vendor-laptop`, email. **Expected:** `warn` + `GO_BACK`. The "vendor" is the scammer, and the reimbursement never comes.
+
+What the person reads:
+
+- It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them. *(JOB_FEE)*
+
+### 🛑 Scam: Ad: "You've been selected" to work from home, pay a $95 registration fee
+
+`job-scams/work-from-home-registration-ad`, link. **Expected:** `warn` + `GO_BACK`. A job you pay for is not a job.
+
+What the person reads:
+
+- It offers a job but asks you to pay first, for equipment, training, or a fee. Real employers pay you; they never ask you to pay them. *(JOB_FEE)*
+
+### ✅ Legitimate: Real job offer: bring your Social Security card on day one, we provide the laptop
+
+`job-scams/real-job-offer`, email. **Expected:** `no_warning_signs` + `NONE`. The employer pays for equipment and training, and asks for documents in person.
+
+### ✅ Legitimate: Real job offer: "we'll send you a $500 stipend to buy equipment"
+
+`job-scams/real-offer-equipment-stipend`, email. **Expected:** `no_warning_signs` + `NONE`. The employer pays you, not the other way around.
+
+### ✅ Legitimate: HR onboarding: enter your direct deposit and tax details in the portal
+
+`job-scams/onboarding-portal`, email. **Expected:** `no_warning_signs` + `NONE`. Payroll details go in the employer's portal, not in an email reply.
+
+### ✅ Legitimate: Job site alert: new data entry jobs near you
+
+`job-scams/job-board-alert`, email. **Expected:** `no_warning_signs` + `NONE`. A normal job listing, no fee and no request for details.
+
+### ✅ Legitimate: Article: how to spot job scams (quotes "send back the difference")
+
+`job-scams/job-scam-advice-page`, webpage. **Expected:** `no_warning_signs` + `NONE`. Warns about the scam.
+
 ## legit-bank-notifications
 
 ### ✅ Legitimate: Chase payment confirmation from chase.com
@@ -411,7 +563,9 @@ What the person reads:
 What the person reads:
 
 - It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+- It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in. *(INVESTMENT_PROMISE)*
 - It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have. *(URGENT_PAYMENT_REQUEST)*
+- It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing. *(INVESTMENT_PITCH)*
 - It tries to rush you. Real companies give you time to think. *(PRESSURE_TACTICS)*
 - It asks you to pay or send money. *(PAYMENT_DEMAND)*
 
@@ -434,6 +588,47 @@ What the person reads:
 ### ✅ Legitimate: News story link about someone else winning the lottery
 
 `prize-and-payment/news-lottery-winner`, link. **Expected:** `no_warning_signs` + `NONE`. Talks about a lottery but promises the reader nothing.
+
+## recovery-scams
+
+### 🛑 Scam: "We can get back the $12,000 you lost", pay a $500 recovery fee
+
+`recovery-scams/lost-funds-recovery-fee`, email. **Expected:** `warn` + `GO_BACK`. Recovery scams target people who were already scammed. Nobody legitimate charges up front to get your money back.
+
+What the person reads:
+
+- It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don't charge to help. *(RECOVERY_FEE)*
+- It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way. *(PAY_TO_CLAIM)*
+
+### 🛑 Scam: Fake agency "recovered your stolen funds", fee in gift cards
+
+`recovery-scams/fake-agency-recovered-gift-cards`, email. **Expected:** `warn` + `GO_BACK`. A recovery claim, a fee, and gift cards.
+
+What the person reads:
+
+- It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don't charge to help. *(RECOVERY_FEE)*
+- It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+- It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way. *(PAY_TO_CLAIM)*
+
+### 🛑 Scam: Ad: "Lost crypto? Our experts can recover your bitcoin. Pay a small upfront fee."
+
+`recovery-scams/crypto-recovery-ad`, link. **Expected:** `warn` + `GO_BACK`. An up-front fee to recover lost money. The recovery claim and the fee are two parts of the story, so this counts on a website without anything else.
+
+What the person reads:
+
+- It offers to get back money you lost, for a fee. This is a second scam aimed at people who were already scammed. Your bank and the police don't charge to help. *(RECOVERY_FEE)*
+
+### ✅ Legitimate: Bank: provisional credit while we investigate your fraud claim
+
+`recovery-scams/bank-provisional-credit`, email. **Expected:** `no_warning_signs` + `NONE`. The bank is giving money back, not asking for any.
+
+### ✅ Legitimate: Law firm page: recover investment-fraud losses, no upfront fees
+
+`recovery-scams/law-firm-no-upfront-fee`, webpage. **Expected:** `no_warning_signs` + `NONE`. Says there is no up-front fee.
+
+### ✅ Legitimate: Article: recovery scams target people who already lost money
+
+`recovery-scams/recovery-scam-article`, webpage. **Expected:** `no_warning_signs` + `NONE`. Warns about the scam.
 
 ## security-awareness
 
@@ -461,6 +656,37 @@ What the person reads:
 
 `security-awareness/tech-scam-news-story`, webpage. **Expected:** `no_warning_signs` + `NONE`. Quotes a scam to warn readers.
 
+## sextortion
+
+### 🛑 Scam: "I have your password": recorded on webcam, pay $1,500 in bitcoin or the video goes to your contacts
+
+`sextortion/webcam-bitcoin`, email. **Expected:** `warn` + `GO_BACK`. A blackmail threat. These emails are sent to millions; nobody recorded you.
+
+What the person reads:
+
+- It threatens to send private videos or photos to people you know unless you pay. These emails are sent to millions of people, and the "recording" almost never exists. Don't pay and don't reply. *(SEXTORTION_THREAT)*
+- It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+- It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have. *(URGENT_PAYMENT_REQUEST)*
+- It tries to rush you. Real companies give you time to think. *(PRESSURE_TACTICS)*
+
+### 🛑 Scam: Quotes an old password, threatens to share a recording with family
+
+`sextortion/old-password-recording`, email. **Expected:** `warn` + `GO_BACK`. The password came from an old data leak; the recording does not exist.
+
+What the person reads:
+
+- It threatens to send private videos or photos to people you know unless you pay. These emails are sent to millions of people, and the "recording" almost never exists. Don't pay and don't reply. *(SEXTORTION_THREAT)*
+- It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back. *(PAYMENT_METHOD_REQUEST)*
+- It asks you to pay or send money. *(PAYMENT_DEMAND)*
+
+### ✅ Legitimate: Website notice: "your password was changed"
+
+`sextortion/password-changed-notice`, email. **Expected:** `no_warning_signs` + `NONE`. Says the password changed; doesn't ask for it.
+
+### ✅ Legitimate: News: police warn about sextortion emails
+
+`sextortion/sextortion-news`, webpage. **Expected:** `no_warning_signs` + `NONE`. Warns about the scam.
+
 ## tech-support
 
 ### 🛑 Scam: Fake virus pop-up telling you to call a number and not close the page
@@ -480,6 +706,7 @@ What the person reads:
 What the person reads:
 
 - It says you were charged for something and gives a phone number to cancel or get a refund. This is how "refund" scams start. Don't call: check your bank or card statement yourself. *(UNEXPECTED_CHARGE)*
+- It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement. *(CHARGE_WITH_PRESSURE)*
 - The sender says it is a company or department, but it uses a free personal email address (billing.dept.norton@gmail.com). *(COMPANY_ON_FREE_EMAIL)*
 - It tries to rush you. Real companies give you time to think. *(PRESSURE_TACTICS)*
 
@@ -509,3 +736,31 @@ What the person reads:
 ### ✅ Legitimate: Real AppleCare receipt from apple.com
 
 `tech-support/applecare-receipt`, email. **Expected:** `no_warning_signs` + `NONE`. Sent from Apple, links only to Apple.
+
+### 🛑 Scam: "Geek Squad" renewal for $299.99 from a free account, call within 24 hours to cancel
+
+`tech-support/geek-squad-refund-free-mail`, email. **Expected:** `warn` + `GO_BACK`. A surprise charge, a number to call, and a deadline: the start of a refund scam.
+
+What the person reads:
+
+- It says you were charged for something and gives a phone number to cancel or get a refund. This is how "refund" scams start. Don't call: check your bank or card statement yourself. *(UNEXPECTED_CHARGE)*
+- It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement. *(CHARGE_WITH_PRESSURE)*
+- It tries to rush you. Real companies give you time to think. *(PRESSURE_TACTICS)*
+
+### 🛑 Scam: Renewal for $349 from a company address, call within 24 hours for a refund
+
+`tech-support/pc-plan-refund-deadline`, email. **Expected:** `warn` + `GO_BACK`. The deadline is there so you call before checking your statement.
+
+What the person reads:
+
+- It says you were charged for something and gives a phone number to cancel or get a refund. This is how "refund" scams start. Don't call: check your bank or card statement yourself. *(UNEXPECTED_CHARGE)*
+- It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement. *(CHARGE_WITH_PRESSURE)*
+- It tries to rush you. Real companies give you time to think. *(PRESSURE_TACTICS)*
+
+### ✅ Legitimate: Gym renewal receipt with a phone number to cancel, no deadline
+
+`tech-support/gym-renewal-call-to-cancel`, email. **Expected:** `warn` + `VERIFY_INDEPENDENTLY`. Real businesses do this too, so it is only noted, never stopped: check your statement yourself.
+
+What the person reads:
+
+- It says you were charged for something and gives a phone number to cancel or get a refund. This is how "refund" scams start. Don't call: check your bank or card statement yourself. *(UNEXPECTED_CHARGE)*
