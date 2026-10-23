@@ -249,5 +249,9 @@ function analyzeEmail(email) {
 
 // Lets tests/rules.test.js load this file with Node. Chrome ignores this.
 if (typeof module !== 'undefined') {
-  module.exports = { analyzeEmail, normalizeLookalikes, baseDomain };
+  module.exports = {
+    analyzeEmail, normalizeLookalikes, baseDomain,
+    // Shared with analyzer.js (the webpage checks).
+    checkLink, checkWording, brandMentionedInHost, isBrandDomain, BRANDS,
+  };
 }

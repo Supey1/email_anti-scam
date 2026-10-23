@@ -1,6 +1,6 @@
 # Email Anti-Scam
 
-A Chrome extension that helps older adults spot scam emails in Gmail. When an email is opened, a large, easy-to-read panel shows a clear verdict (🛑 scam / ⚠️ be careful / ✅ no warning signs), explains *why* in plain words, and tells the reader exactly what to do next. It can also read everything out loud.
+A Chrome extension that helps older adults spot scam emails, fake websites, and risky links. When an email is opened in Gmail, a large, easy-to-read panel shows a clear verdict (🛑 scam / ⚠️ be careful / ✅ no warning signs), explains *why* in plain words, and tells the reader exactly what to do next. It can also read everything out loud.
 
 *Built for the 2026 Congressional App Challenge.*
 
@@ -10,7 +10,17 @@ Scammers target older adults by email because many are less familiar with newer 
 
 > TODO: add one or two statistics from a trusted source (for example, the FBI's annual Elder Fraud Report from IC3) and link to it.
 
-## What it does (version 0.1)
+## What's new in version 0.2
+
+Protection now works across the web, in three levels:
+
+1. **Block** known dangerous websites before the page loads (service worker + Chrome network rules). There is no way past this screen.
+2. **Warn** before a risky link is followed: clicks on links with credible warning signs (fake company sites, hidden destinations, number addresses) are stopped, and a big warning explains why. The person can go back to safety or choose "Continue anyway".
+3. **Explain** risky pages: a warning card appears on pages with warning signs that work together, such as a password form that sends your password to a different website, or a prize claim whose button leads off-site. A scary word alone never triggers a warning, so a news article about gift card scams is left alone.
+
+Still true: it runs on your computer, and every warning comes from a readable rule.
+
+## What it does (version 0.1, still included)
 
 - Notices when you open an email in Gmail and checks it automatically
 - Shows a big-text panel with high contrast, color **and** icons, and short sentences
@@ -30,6 +40,12 @@ Scammers target older adults by email because many are less familiar with newer 
 1. Download this repo (green **Code** button, then **Download ZIP**) and unzip it.
 2. Open `tests/fake-gmail.html` in Chrome.
 3. Click the test emails at the top and watch the panel change.
+
+### Option A2: the webpage practice pages
+
+1. Load the extension (steps 1–3 of Option B below), then run `python3 -m http.server 8000` inside `tests/pages`.
+2. Open `http://localhost:8000/fake-login.html`, `prize-ad.html`, `dangerous-link.html`, and `legit-shop.html`. The first two should warn; the shop should not.
+3. On `dangerous-link.html`, click the links. `known-phish.example` is on the built-in blocklist and shows the blocked page.
 
 ### Option B: in real Gmail
 
@@ -57,11 +73,19 @@ Every warning comes from a rule a person can read and understand, so the extensi
 
 | File | What it does |
 |---|---|
-| `extension/manifest.json` | Tells Chrome what the extension is and that it runs on Gmail |
+| `extension/manifest.json` | Tells Chrome what the extension is, where it runs, and its permissions |
 | `extension/content.js` | Reads the open email in Gmail and builds the panel |
-| `extension/rules.js` | All the scam checks and the scoring |
-| `extension/panel-styles.js` | How the panel looks (big text, colors) |
-| `tests/rules.test.js` | Automatic tests for the scam checks |
+| `extension/page.js` | Reads ordinary webpages (text, links, forms) and shows a warning card |
+| `extension/guard.js` | Stops a risky link click before the browser navigates |
+| `extension/rules.js` | The email, link, and wording checks and the scoring |
+| `extension/analyzer.js` | Webpage and link checks; returns block / warn / allow with reasons |
+| `extension/threats.js` | Built-in list of known dangerous websites (demo `.example` addresses) |
+| `extension/service-worker.js` | Blocks known dangerous websites before they load |
+| `extension/blocked.html`, `blocked.js` | The screen shown for a blocked website |
+| `extension/panel.js`, `panel-styles.js` | The big-text warning card and its look, plus read-aloud |
+| `tests/rules.test.js` | Automatic tests for the email checks |
+| `tests/analyzer.test.js` | Automatic tests for webpage and link checks; prints caught-vs-false-alarm counts |
+| `tests/pages/` | Practice webpages for trying the extension |
 | `tests/fake-gmail.html` | Practice page that imitates Gmail |
 
 ## Running the tests
@@ -70,6 +94,7 @@ If you have [Node.js](https://nodejs.org) installed, run this from the project f
 
 ```
 node tests/rules.test.js
+node tests/analyzer.test.js
 ```
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
@@ -86,7 +111,11 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 
 - Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `content.js`.
 - Rules can't catch every scam, especially new tricks. The AI step below is meant to cover what rules miss.
-- Gmail in Chrome only, for now.
+- Chrome only. A Chrome extension cannot see other apps, text messages, or phone calls.
+- The link guard covers ordinary clicks and the Enter key. It does not catch a website's own script opening a page, or links opened from the right-click menu.
+- Page checks only look at the top-level page, so ads inside some third-party frames can't be inspected.
+- The built-in blocklist is a tiny demo list. A real, maintained source (Step 4) is needed before this protects anyone from real threats.
+- The tests are a small set of examples. They show the checks work as designed, not that the extension is reliable against scams in general.
 
 ## Roadmap
 
@@ -101,7 +130,7 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 
 ## Privacy
 
-Version 0.1 sends nothing anywhere: every check happens inside your own browser, and the extension asks for no special permissions. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
+Version 0.2 sends nothing anywhere: every check happens inside your own browser. To check webpages and links on any site, it asks Chrome for permission to read all websites (plus the network-rules permission used for blocking). It reads page text, links, and forms only to run its checks, and saves nothing. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
 
 ## Team
 

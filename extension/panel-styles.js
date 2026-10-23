@@ -86,3 +86,37 @@ button:hover, button:focus-visible { background: #e8eefc; outline: 3px solid #1a
 
 [hidden] { display: none !important; }
 `;
+
+// Extra styles for the warning card (shown when a link is clicked or a risky page is found).
+const WARNING_CSS = `
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.card {
+  width: 520px;
+  max-width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  background: #ffffff;
+  color: #111111;
+  border: 3px solid #222222;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 20px;
+  line-height: 1.45;
+}
+.card.corner { position: fixed; top: 72px; right: 16px; width: 400px; max-height: calc(100vh - 96px); }
+.card .verdict { margin: 14px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 18px 18px; }
+.actions .primary { background: #1a56db; color: #ffffff; border-color: #0f3a9e; font-size: 22px; }
+.actions .primary:hover, .actions .primary:focus-visible { background: #0f3a9e; }
+.dest { word-break: break-all; font-weight: bold; }
+`;
