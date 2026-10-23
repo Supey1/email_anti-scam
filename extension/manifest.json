@@ -15,7 +15,7 @@
     {
       "matches": ["http://*/*", "https://*/*"],
       "exclude_matches": ["https://mail.google.com/*"],
-      "js": ["rules.js", "threats.js", "analyzer.js", "panel-styles.js", "panel.js", "page.js", "guard.js"],
+      "js": ["rules.js", "threats.js", "analyzer.js", "panel-styles.js", "panel.js", "content/page-scanner.js", "page.js", "guard.js"],
       "run_at": "document_idle"
     }
   ],

@@ -21,9 +21,9 @@ The browser integration builds this object and passes it to the analyzer.
 ```
 (Sample data uses reserved `.example` domains.)
 
-- `forms`: `{ action: string, hasPassword: boolean, hasPayment: boolean }`. **Never include values typed into any field.** Only that a sensitive field exists.
+- `forms`: `{ action: string, hasPassword: boolean, hasPayment: boolean, method?: string, fieldCount?: number }`. **Never include values typed into any field.** Only that a sensitive field exists.
 - `context` for `source: "email"`: `{ senderName, senderEmail, subject }`. `visibleText` holds the message text.
-- `context` for `source: "webpage"`: may be empty.
+- `context` for `source: "webpage"`: the scanner sets `scan` (`"initial"` for the whole page, `"dynamic"` for newly added content only) and `truncated` (`{ text: boolean, links: boolean }`, true when a size limit cut something off). A dynamic scan's `visibleText`, `links` and `forms` hold only the new content; the browser side merges them before calling the analyzer, so the analyzer always sees the page so far.
 - Unknown extra fields are ignored by the analyzer.
 
 ## Output: result

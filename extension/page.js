@@ -1,45 +1,38 @@
 // page.js: runs on ordinary websites (not Gmail).
-// Collects evidence from the page, checks it with analyzePage(), and shows a warning
-// card if the page has credible warning signs. Watches for content added later.
+// Connects the scanner (collects evidence) to the analyzer (decides) and the panel (shows).
+// This file makes no decisions about scams itself.
 
 (() => {
   'use strict';
 
-  const MAX_TEXT = 20000;
-  const MAX_LINKS = 200;
+  let evidence = null; // everything the scanner has seen on this page, within limits
   let lastSignature = '';
-  let dismissed = new Set();
-  let pending = null;
+  const dismissed = new Set();
 
-  function collectEvidence() {
-    const forms = [...document.forms].map(f => ({
-      action: f.action || location.href,
-      hasPassword: !!f.querySelector('input[type="password"]'),
-      hasPayment: !!f.querySelector('input[autocomplete="cc-number"], input[name*="card" i][type="text"]'),
-    }));
-    // Pages built with scripts often have password boxes outside any <form>.
-    const loose = [...document.querySelectorAll('input[type="password"]')].filter(i => !i.form);
-    if (loose.length) forms.push({ action: location.href, hasPassword: true, hasPayment: false });
-
+  // TEMPORARY ADAPTER (see docs/integration-checklist.md): the analyzer still takes the old
+  // input shape. Delete this once analyzer.js accepts the evidence in docs/interfaces.md.
+  function toAnalyzerInput(e) {
     return {
-      source: 'webpage',
-      url: location.href,
-      title: document.title,
-      visibleText: (document.body ? document.body.innerText : '').slice(0, MAX_TEXT),
-      links: [...document.links].slice(0, MAX_LINKS).map(a => ({ text: a.textContent.trim().slice(0, 100), href: a.href })),
-      forms,
+      url: e.pageUrl,
+      title: e.pageTitle,
+      visibleText: e.visibleText,
+      links: e.links.map(l => ({ text: l.text, href: l.url })),
+      forms: e.forms,
     };
   }
 
-  function scan() {
-    if (document.hidden) return;
-    const result = analyzePage(collectEvidence());
+  function leave() {
+    if (history.length > 1) history.back(); else location.replace('about:blank');
+  }
+
+  function evaluate() {
+    const result = analyzePage(toAnalyzerInput(evidence));
     if (result.verdict === 'allow') return;
     const signature = result.verdict + result.reasons.join('|');
     if (signature === lastSignature || dismissed.has(signature)) return;
     lastSignature = signature;
+    dismissed.add(signature); // "Hide" keeps it hidden until something new is found
 
-    const leave = () => { if (history.length > 1) history.back(); else location.replace('about:blank'); };
     EmailAntiScamPanel.showWarning({
       verdict: result.verdict,
       reasons: result.reasons,
@@ -47,13 +40,12 @@
       modal: false,
       onBack: leave,
     });
-    dismissed.add(signature); // "Hide" keeps it hidden until something new is found
   }
 
-  const observer = new MutationObserver(() => {
-    if (pending) return;
-    pending = setTimeout(() => { pending = null; scan(); }, 1500);
+  PageScanner.start({
+    onEvidence(found) {
+      evidence = found.context.scan === 'initial' || !evidence ? found : PageScanner.merge(evidence, found);
+      evaluate();
+    },
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  scan();
 })();

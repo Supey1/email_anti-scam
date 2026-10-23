@@ -75,7 +75,8 @@ Every warning comes from a rule a person can read and understand, so the extensi
 |---|---|
 | `extension/manifest.json` | Tells Chrome what the extension is, where it runs, and its permissions |
 | `extension/content.js` | Reads the open email in Gmail and builds the panel |
-| `extension/page.js` | Reads ordinary webpages (text, links, forms) and shows a warning card |
+| `extension/content/page-scanner.js` | Collects evidence from webpages (text, links, form metadata), including content added later. Never reads typed values |
+| `extension/page.js` | Connects the scanner, the analyzer, and the warning card on ordinary webpages |
 | `extension/guard.js` | Stops a risky link click before the browser navigates |
 | `extension/rules.js` | The email, link, and wording checks and the scoring |
 | `extension/analyzer.js` | Webpage and link checks; returns block / warn / allow with reasons |
@@ -84,6 +85,7 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/blocked.html`, `blocked.js` | The screen shown for a blocked website |
 | `extension/panel.js`, `panel-styles.js` | The big-text warning card and its look, plus read-aloud |
 | `tests/rules.test.js` | Automatic tests for the email checks |
+| `tests/scanner-merge.test.js`, `tests/browser/scanner.test.js` | Tests for the webpage scanner (the browser test needs Playwright) |
 | `tests/analyzer.test.js` | Automatic tests for webpage and link checks; prints caught-vs-false-alarm counts |
 | `tests/pages/` | Practice webpages for trying the extension |
 | `tests/fake-gmail.html` | Practice page that imitates Gmail |
@@ -95,6 +97,8 @@ If you have [Node.js](https://nodejs.org) installed, run this from the project f
 ```
 node tests/rules.test.js
 node tests/analyzer.test.js
+node tests/scanner-merge.test.js
+node tests/browser/scanner.test.js   # needs Playwright: npm i playwright
 ```
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
