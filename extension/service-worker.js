@@ -52,7 +52,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id || !message) return;
 
   if (message.type === 'SHOW_WARNING' && sender.tab && isWebAddress(message.url)) {
-    const url = `${WARNING_PAGE}?kind=click&text=${encodeURIComponent(String(message.text || '').slice(0, 200))}&url=${encodeURIComponent(message.url)}`;
+    const url = `${WARNING_PAGE}?kind=click&text=${encodeURIComponent(String(message.text || '').slice(0, 200))}&adtext=${encodeURIComponent(String(message.adText || '').slice(0, 400))}&url=${encodeURIComponent(message.url)}`;
     // A click that would have opened a new tab gets the warning in a new tab; otherwise it replaces the page.
     const done = () => sendResponse({ ok: true });
     const fail = () => sendResponse({ ok: false });

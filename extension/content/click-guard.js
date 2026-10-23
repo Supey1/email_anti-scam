@@ -1,5 +1,7 @@
 // click-guard.js: stops a risky link from being followed, BEFORE the browser navigates.
 //
+// Links inside advertisements get the same checks, plus the ad's own text (AdSignals).
+//
 // Workflow: listen for link clicks -> find the link and where it really goes -> run the local
 // checks (analyzeLink) -> if the verdict is warn or block, cancel the click and ask the service
 // worker to show the extension-owned warning page. Safe links are left completely alone.
@@ -50,7 +52,7 @@
 
   // Asks the service worker for the extension's warning page. If that isn't possible
   // (for example the extension was just updated), shows the in-page card so the click still ends safely.
-  function showWarning(result, url, text, newTab) {
+  function showWarning(result, url, text, newTab, adText) {
     const fallback = () => EmailAntiScamPanel.showWarning({
       result,
       modal: true,
@@ -59,7 +61,7 @@
       onReport: () => reportFalseAlarm(result, url),
     });
     try {
-      chrome.runtime.sendMessage({ type: 'SHOW_WARNING', url: url.href, text, newTab }).then(reply => { if (!reply || !reply.ok) fallback(); }, fallback);
+      chrome.runtime.sendMessage({ type: 'SHOW_WARNING', url: url.href, text, newTab, adText }).then(reply => { if (!reply || !reply.ok) fallback(); }, fallback);
     } catch (e) {
       fallback();
     }
@@ -79,12 +81,14 @@
     if (!onGmail && RULES.baseDomain(url.hostname) === RULES.baseDomain(location.hostname)) return; // same website
 
     const text = (anchor.textContent || '').trim();
-    const result = analyzeLink({ text, href: url.href });
+    // If the link is inside an advertisement, tell the analyzer: it still uses the same checks.
+    const ad = typeof AdSignals !== 'undefined' ? AdSignals.contextFor(anchor) : null;
+    const result = analyzeLink({ text, href: url.href }, ad ? { ad } : undefined);
     if (result.verdict === 'allow') return; // normal behavior: do nothing at all
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    showWarning(result, url, text, opensNewTab(event, anchor));
+    showWarning(result, url, text, opensNewTab(event, anchor), ad ? ad.text : '');
   }
 
   document.addEventListener('click', handle, true);

@@ -16,6 +16,7 @@
     Practice page that copies the parts of Gmail our extension reads
     (h2.hP = subject, span.gD = sender, div.a3s = message text).
     Open this file in Chrome to try the panel without touching real email.
+    Extraction lives in extension/content/gmail-adapter.js (the selectors) and tests/browser/gmail-adapter.test.js checks it.
     The links are fake and use made-up addresses. Don't change them to real scam links.
   -->
   <div class="bar">
@@ -47,6 +48,13 @@
         subject: 'Package on hold',
         body: 'Your package could not be delivered. Click below to reschedule.',
         links: [['Reschedule delivery', 'https://bit.ly/fake-test-link']],
+      },
+      {
+        label: 'Fake bank (hidden link)',
+        name: 'Chase Alerts', email: 'alerts@chase-verify.example',
+        subject: 'Action needed on your account',
+        body: 'Please sign in to review a recent charge.',
+        links: [['www.chase.com/review', 'https://secure-review.example/login']],
       },
       {
         label: 'Normal email',
@@ -96,9 +104,19 @@
     document.getElementById('close').onclick = () => document.getElementById('mail').replaceChildren();
   </script>
 
-  <!-- The same three files the extension loads into Gmail -->
+  <!-- The same files the extension loads into Gmail. The browser tests strip this block
+       (between the "standalone" markers) because the real extension injects them itself. -->
+  <!-- standalone:start -->
   <script src="../extension/rules.js"></script>
+  <script src="../extension/threats.js"></script>
+  <script src="../extension/analyzer.js"></script>
   <script src="../extension/panel-styles.js"></script>
-  <script src="../extension/content.js"></script>
+  <script src="../extension/ui/explain.js"></script>
+  <script src="../extension/ui/warning-view.js"></script>
+  <script src="../extension/panel.js"></script>
+  <script src="../extension/content/ad-signals.js"></script>
+  <script src="../extension/content/gmail-adapter.js"></script>
+  <script src="../extension/content/gmail.js"></script>
+  <!-- standalone:end -->
 </body>
 </html>

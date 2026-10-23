@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Email Anti-Scam",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Protects older adults from scam emails, fake websites, and risky links with a big, plain-language warning.",
   "permissions": [
     "declarativeNetRequest",
@@ -26,7 +26,9 @@
         "ui/explain.js",
         "ui/warning-view.js",
         "panel.js",
-        "content.js",
+        "content/ad-signals.js",
+        "content/gmail-adapter.js",
+        "content/gmail.js",
         "content/click-guard.js"
       ],
       "run_at": "document_idle"
@@ -47,6 +49,7 @@
         "ui/explain.js",
         "ui/warning-view.js",
         "panel.js",
+        "content/ad-signals.js",
         "content/page-scanner.js",
         "page.js",
         "content/click-guard.js"

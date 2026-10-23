@@ -27,6 +27,7 @@ const PageScanner = (() => {
     maxLinksExamined: 1000,    // links looked at per scan, before choosing which to report
     maxLinkTextChars: 100,
     maxForms: 20,
+    maxAds: 20,                // advertisements reported per scan
     maxTitleChars: 300,
     maxAddedNodesPerScan: 200, // new elements examined per dynamic scan
     maxDynamicScans: 100,      // after this many, stop watching the page
@@ -34,6 +35,7 @@ const PageScanner = (() => {
     debounceMs: 1500,
     maxMergedText: 40000,      // limits for merge()
     maxMergedLinks: 300,
+    maxMergedAds: 50,
   };
 
   const OWN_HOST_ID = 'email-anti-scam-warning'; // our own warning card: never scan it
@@ -75,7 +77,8 @@ const PageScanner = (() => {
   // ---------- text ----------
 
   // Visible text under `root`, shortest-first-come, within the limits.
-  function collectText(root, limits) {
+  // `skip` is a Set of elements (advertisements) whose text is reported separately, not as page text.
+  function collectText(root, limits, skip = new Set()) {
     const parts = [];
     let length = 0;
     let visited = 0;
@@ -89,13 +92,13 @@ const PageScanner = (() => {
       }
       return { text: '', truncated: false };
     }
-    if (insideSkipped(root) || !isVisible(root)) return { text: '', truncated: false };
+    if (insideSkipped(root) || !isVisible(root) || skip.has(root)) return { text: '', truncated: false };
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           // REJECT skips the element and everything inside it.
-          return isSkippedElement(node) || !isVisible(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+          return isSkippedElement(node) || skip.has(node) || !isVisible(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
         }
         return node.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
       },
@@ -186,9 +189,45 @@ const PageScanner = (() => {
     return forms;
   }
 
+  // ---------- advertisements ----------
+  // Evidence only: what the ad says, where it leads, and why we think it is an ad.
+  // Same-origin ad frames are read; cross-origin ad frames can't be, so they are only counted.
+
+  function collectAds(roots, limits, seen) {
+    if (typeof AdSignals === 'undefined') return { ads: [], frames: { readable: 0, unreadable: 0 }, containers: new Set() };
+    const ads = [];
+    const frames = { readable: 0, unreadable: 0 };
+    const add = (container, inFrame) => {
+      if (ads.length >= limits.maxAds) return;
+      const ad = AdSignals.describe(container);
+      if (!ad.link && !ad.text) return;
+      const key = `${ad.link ? ad.link.url : ''}\u0000${ad.text.slice(0, 80)}`;
+      if (remember(seen, key, limits.maxSeen)) ads.push({ ...ad, signals: inFrame ? ['frame:ad-frame', ...ad.signals].slice(0, 6) : ad.signals, frame: inFrame });
+    };
+    const containers = new Set(AdSignals.find(roots));
+    for (const container of containers) add(container, false);
+
+    for (const root of roots) {
+      if (root.nodeType !== Node.ELEMENT_NODE) continue;
+      const list = root.localName === 'iframe' ? [root] : [];
+      list.push(...root.querySelectorAll('iframe'));
+      for (const frame of list) {
+        if (!AdSignals.isAdFrame(frame)) continue;
+        let doc = null;
+        try { doc = frame.contentDocument; } catch (e) { doc = null; }
+        if (!doc || !doc.body) { frames.unreadable++; continue; }
+        frames.readable++;
+        const inside = AdSignals.find([doc.body]);
+        // A whole ad frame is one ad even if nothing inside carries a marker.
+        for (const container of inside.length ? inside : [doc.body]) add(container, true);
+      }
+    }
+    return { ads, frames, containers };
+  }
+
   // ---------- evidence ----------
 
-  function makeEvidence(scan, text, links, forms, truncated) {
+  function makeEvidence(scan, text, links, forms, truncated, adInfo) {
     return {
       source: 'webpage',
       pageUrl: location.href,
@@ -196,7 +235,7 @@ const PageScanner = (() => {
       visibleText: text,
       links,
       forms,
-      context: { scan, truncated },
+      context: { scan, truncated, ads: adInfo.ads, adFrames: adInfo.frames },
     };
   }
 
@@ -212,7 +251,16 @@ const PageScanner = (() => {
       visibleText: text.slice(0, limits.maxMergedText),
       links,
       forms: base.forms.concat(delta.forms).slice(0, limits.maxForms * 2),
-      context: { ...base.context, scan: delta.context.scan, truncated: { text: base.context.truncated.text || delta.context.truncated.text, links: base.context.truncated.links || delta.context.truncated.links } },
+      context: {
+        ...base.context,
+        ads: (base.context.ads || []).concat(delta.context.ads || []).slice(0, limits.maxMergedAds),
+        adFrames: {
+          readable: ((base.context.adFrames || {}).readable || 0) + ((delta.context.adFrames || {}).readable || 0),
+          unreadable: ((base.context.adFrames || {}).unreadable || 0) + ((delta.context.adFrames || {}).unreadable || 0),
+        },
+        scan: delta.context.scan,
+        truncated: { text: base.context.truncated.text || delta.context.truncated.text, links: base.context.truncated.links || delta.context.truncated.links },
+      },
     };
   }
 
@@ -224,6 +272,7 @@ const PageScanner = (() => {
     const limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
     const seenLinks = new Set();
     const seenForms = new Set();
+    const seenAds = new Set();
     let knownText = '';
     const queue = new Set();
     let timer = null;
@@ -237,11 +286,13 @@ const PageScanner = (() => {
 
     function initialScan() {
       const root = document.body || document.documentElement;
-      const { text, truncated: textTruncated } = collectText(root, limits);
+      // Ads are judged on their own (with the "this is an ad" context), so their text is kept out of the page text.
+      const adInfo = collectAds([document.documentElement], limits, seenAds);
+      const { text, truncated: textTruncated } = collectText(root, limits, adInfo.containers);
       const { links, truncated: linksTruncated } = collectLinks([document.documentElement], limits, seenLinks);
       const forms = collectForms([document.documentElement], limits, seenForms);
       knownText = text;
-      emit(makeEvidence('initial', text, links, forms, { text: textTruncated, links: linksTruncated }));
+      emit(makeEvidence('initial', text, links, forms, { text: textTruncated, links: linksTruncated }, adInfo));
     }
 
     function dynamicScan() {
@@ -255,10 +306,12 @@ const PageScanner = (() => {
       // A new element that is inside another new element is covered by its parent.
       const roots = added.filter(n => !added.some(other => other !== n && other.nodeType === Node.ELEMENT_NODE && other.contains(n)));
 
+      const adInfo = collectAds(roots, limits, seenAds);
       let text = '';
       let textTruncated = false;
       for (const root of roots) {
-        const piece = collectText(root, limits);
+        if (typeof AdSignals !== 'undefined' && AdSignals.containerFor(root)) continue; // new content inside an ad: reported as an ad
+        const piece = collectText(root, limits, adInfo.containers);
         textTruncated = textTruncated || piece.truncated;
         if (piece.text && !knownText.includes(piece.text) && text.length < limits.maxTextChars) text += (text ? ' ' : '') + piece.text;
       }
@@ -267,8 +320,8 @@ const PageScanner = (() => {
 
       const { links, truncated: linksTruncated } = collectLinks(roots, limits, seenLinks);
       const forms = collectForms(roots, limits, seenForms);
-      if (!text && !links.length && !forms.length) return; // nothing new
-      emit(makeEvidence('dynamic', text, links, forms, { text: textTruncated, links: linksTruncated }));
+      if (!text && !links.length && !forms.length && !adInfo.ads.length && !adInfo.frames.unreadable) return; // nothing new
+      emit(makeEvidence('dynamic', text, links, forms, { text: textTruncated, links: linksTruncated }, adInfo));
     }
 
     function schedule() {
@@ -299,6 +352,7 @@ const PageScanner = (() => {
       if (observer) observer.disconnect();
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      document.removeEventListener('load', onFrameLoad, true);
       queue.clear();
       timer = null;
     }
@@ -307,6 +361,14 @@ const PageScanner = (() => {
     observer = new MutationObserver(onMutations);
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
     document.addEventListener('visibilitychange', onVisible);
+    // An ad frame's content arrives after the frame is inserted: look again when it finishes loading.
+    const onFrameLoad = event => {
+      if (event.target && event.target.localName === 'iframe' && !stopped && queue.size < limits.maxAddedNodesPerScan) {
+        queue.add(event.target);
+        schedule();
+      }
+    };
+    document.addEventListener('load', onFrameLoad, true);
 
     return {
       scanNow: () => { queue.clear(); initialScan(); },

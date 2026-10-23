@@ -24,7 +24,8 @@
     .page-footer { text-align: center; color: #444; font: 16px Arial, sans-serif; margin: 12px; }`;
   document.head.append(style);
 
-  const result = analyzeLink({ text, href: target });
+  const adText = params.get('adtext') || '';
+  const result = analyzeLink({ text, href: target }, adText ? { ad: { text: adText, signals: [] } } : undefined);
   const model = Explain.describe(result);
   let host = result.host || '';
   try { host = new URL(target).hostname; } catch (e) { /* keep what the analyzer gave */ }

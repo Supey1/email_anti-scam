@@ -43,6 +43,8 @@ const WarningView = (() => {
 
   // model = Explain.describe(result)
   // options = {
+  //   primaryLabel: text of the main button (default "Go back to safety"),
+  //   extras: [{ heading, lines: [{ text, muted?, flag? }] }] shown after the advice,
   //   destination: 'text shown above the reasons' (optional),
   //   corner: true for a small card in the corner instead of a centered one,
   //   onBack, onContinue (only used when model.canContinue), onReport (optional), onHide (optional)
@@ -61,7 +63,7 @@ const WarningView = (() => {
         ])
       : null;
 
-    const primary = el('button', { class: 'primary', text: 'Go back to safety', onclick: () => options.onBack && options.onBack() });
+    const primary = el('button', { class: 'primary', text: options.primaryLabel || 'Go back to safety', onclick: () => options.onBack && options.onBack() });
     const read = el('button', { text: '🔊 Read to me', 'aria-pressed': 'false' });
     let reading = false;
     read.addEventListener('click', () => {
@@ -110,6 +112,10 @@ const WarningView = (() => {
         moreReasons,
         model.advice ? el('h2', { text: 'What you should do' }) : null,
         model.advice ? el('p', { text: model.advice }) : null,
+        ...(options.extras || []).map(extra => el('div', { class: 'extra' }, [
+          el('h2', { text: extra.heading }),
+          ...extra.lines.filter(Boolean).map(line => el('p', { class: line.flag ? 'flag' : line.muted ? 'muted' : '', text: line.text })),
+        ])),
       ]),
       el('div', { class: 'actions' }, [primary, read, ...secondary, report]),
       announce,

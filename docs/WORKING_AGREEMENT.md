@@ -5,7 +5,7 @@ How the two of us build this together without stepping on each other.
 | | Workstream | Owns |
 |---|---|---|
 | **Person A** | Detection engine | `rules.js`, `analyzer.js`, `threats.js`, rule tests, threat intelligence |
-| **Person B** | Browser protection | `page.js`, `content.js` (Gmail extraction), `guard.js`, `panel.js`, `panel-styles.js`, `service-worker.js`, `blocked.*`, `manifest.json`, settings, accessibility, read-aloud |
+| **Person B** | Browser protection | `page.js`, `content/` (scanner, ad-signals, click-guard, Gmail adapter), `guard.js`, `panel.js`, `panel-styles.js`, `service-worker.js`, `blocked.*`, `manifest.json`, settings, accessibility, read-aloud |
 
 ## Rules
 
@@ -20,8 +20,11 @@ How the two of us build this together without stepping on each other.
    node tests/analyzer.test.js
    node tests/scanner-merge.test.js
    node tests/explain.test.js
+   node tests/ads-analyzer.test.js
    node tests/browser/scanner.test.js       # browser tests need Playwright: npm i playwright
    node tests/browser/click-guard.test.js
+   node tests/browser/ads.test.js
+   node tests/browser/gmail-adapter.test.js
    ```
    Add browser-level checks for anything that changes click interception or the warning interface.
 7. **Keep a short shared checklist** of integration problems in `docs/integration-checklist.md` instead of making overlapping edits on the main branch.

@@ -9,24 +9,12 @@
   let lastSignature = '';
   const dismissed = new Set();
 
-  // TEMPORARY ADAPTER (see docs/integration-checklist.md): the analyzer still takes the old
-  // input shape. Delete this once analyzer.js accepts the evidence in docs/interfaces.md.
-  function toAnalyzerInput(e) {
-    return {
-      url: e.pageUrl,
-      title: e.pageTitle,
-      visibleText: e.visibleText,
-      links: e.links.map(l => ({ text: l.text, href: l.url })),
-      forms: e.forms,
-    };
-  }
-
   function leave() {
     if (history.length > 1) history.back(); else location.replace('about:blank');
   }
 
   function evaluate() {
-    const result = analyzePage(toAnalyzerInput(evidence));
+    const result = analyze(evidence);
     if (result.verdict === 'allow') return;
     const signature = result.verdict + result.reasons.join('|');
     if (signature === lastSignature || dismissed.has(signature)) return;

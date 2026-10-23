@@ -133,6 +133,9 @@ const WARNING_CSS = `
 .actions .primary:hover { background: #062a66; }
 .actions .quiet { font-size: 17px; font-weight: normal; background: #f4f4f4; }
 .dest { word-break: break-all; font-weight: bold; }
+.card .extra p { margin: 3px 0; }
+.card .extra .muted { font-size: 18px; }
+.card .extra .flag { color: #b00020; font-weight: bold; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 button:focus-visible, summary:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
 @media (prefers-contrast: more) {

@@ -24,6 +24,8 @@ The browser integration builds this object and passes it to the analyzer.
 - `forms`: `{ action: string, hasPassword: boolean, hasPayment: boolean, method?: string, fieldCount?: number }`. **Never include values typed into any field.** Only that a sensitive field exists.
 - `context` for `source: "email"`: `{ senderName, senderEmail, subject }`. `visibleText` holds the message text.
 - `context` for `source: "webpage"`: the scanner sets `scan` (`"initial"` for the whole page, `"dynamic"` for newly added content only) and `truncated` (`{ text: boolean, links: boolean }`, true when a size limit cut something off). A dynamic scan's `visibleText`, `links` and `forms` hold only the new content; the browser side merges them before calling the analyzer, so the analyzer always sees the page so far.
+- `context.ads` for `source: "webpage"`: advertisements the scanner recognized, as `{ signals: string[], text: string, link: { text, url } | null, frame: boolean }`. The scanner keeps an ad's text out of `visibleText`, so an ad is judged as an ad and does not make the whole page look suspicious. `context.adFrames` is `{ readable, unreadable }`: ad frames that were and were not readable (cross-origin frames can't be).
+- For a single link click inside an ad, the guard passes the analyzer `{ ad: { text, signals } }` as context.
 - Unknown extra fields are ignored by the analyzer.
 
 ## Output: result
@@ -52,6 +54,12 @@ The browser integration builds this object and passes it to the analyzer.
 | `warn` | Meaningful warning signs that call for caution. |
 | `no_warning_signs` | The checks found no known warning signs. This is **never** presented as proof that a page is safe. |
 | `unknown` | The analysis failed, the page is unsupported, or the checks were incomplete. |
+
+### Entry point
+
+`analyze(evidence)` in `extension/analyzer.js` is the one call for every adapter. `source: "webpage"` and `source: "email"` use it the same way. It never throws: a failure returns `verdict: "unknown"`.
+
+For `source: "email"` the analyzer maps the email's rule score to a verdict: a high score (several strong signs together) is `block`, a medium score is `warn`, none is `allow` / `no_warning_signs`. An email can't be blocked, so for email `block` means "high-confidence combined evidence that this is a scam", and the interface shows the same DANGER wording with no continue option.
 
 ### Fields
 

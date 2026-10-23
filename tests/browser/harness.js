@@ -46,6 +46,7 @@ async function launch() {
 async function run(tests, env) {
   let failed = 0;
   for (const t of tests) {
+    env.requests.length = 0; // each test starts with a clean record of what the browser asked for
     try { await t.fn(env); console.log(`PASS  ${t.name}`); }
     catch (err) { failed++; console.log(`FAIL  ${t.name}: ${err.message.split('\n')[0]}`); }
   }

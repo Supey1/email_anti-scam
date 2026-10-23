@@ -6,14 +6,39 @@
 
 const EmailAntiScamPanel = (() => {
   let host = null;
+  let chip = null;
   let previousFocus = null;
+  let lastOptions = null;
 
-  function close() {
+  function removeChip() {
+    if (chip) chip.remove();
+    chip = null;
+  }
+
+  function close(settings = {}) {
     window.speechSynthesis.cancel();
     if (host) host.remove();
     host = null;
     if (previousFocus && previousFocus.isConnected) previousFocus.focus();
     previousFocus = null;
+    if (settings.removeChip) { removeChip(); lastOptions = null; }
+  }
+
+  // A small button that brings a hidden card back (used by the Gmail panel).
+  function showChip(model) {
+    removeChip();
+    chip = document.createElement('div');
+    chip.id = 'email-anti-scam-chip';
+    const shadow = chip.attachShadow({ mode: 'open' });
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(PANEL_CSS);
+    shadow.adoptedStyleSheets = [sheet];
+    const button = document.createElement('button');
+    button.className = `reopen ${model.severity === 'unknown' ? 'low' : model.severity}`;
+    button.textContent = `${model.icon} Safety check`;
+    button.addEventListener('click', () => { removeChip(); showWarning(lastOptions); });
+    shadow.append(button);
+    document.documentElement.append(chip);
   }
 
   // options = {
@@ -24,12 +49,16 @@ const EmailAntiScamPanel = (() => {
   // }
   function showWarning(options) {
     close();
+    removeChip();
+    lastOptions = options;
     previousFocus = document.activeElement;
     const model = Explain.describe(options.result);
-    const done = fn => () => { close(); if (fn) fn(); };
+    const done = fn => () => { close(); if (options.leaveChip) showChip(model); if (fn) fn(); };
 
     const { card, primary } = WarningView.render(model, {
       destination: options.destination,
+      extras: options.extras,
+      primaryLabel: options.primaryLabel,
       corner: !options.modal,
       onBack: done(options.onBack),
       onContinue: options.onContinue ? done(options.onContinue) : null,

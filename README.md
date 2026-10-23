@@ -38,10 +38,12 @@ Still true: it runs on your computer, and every warning comes from a readable ru
 ### Option A: the practice page (no Gmail needed)
 
 1. Download this repo (green **Code** button, then **Download ZIP**) and unzip it.
-2. Open `tests/fake-gmail.html` in Chrome.
+2. Open `tests/fake-gmail.html` in Chrome. (Scripts load straight from the repo, so no extension install is needed.)
 3. Click the test emails at the top and watch the panel change.
 
 ### Option A2: the webpage practice pages
+
+(Also `ads.html`: the advertisement matrix. The first group of ads should warn when clicked, the ordinary ones should not, and nothing is hidden.)
 
 1. Load the extension (steps 1–3 of Option B below), then run `python3 -m http.server 8000` inside `tests/pages`.
 2. Open `http://localhost:8000/fake-login.html`, `prize-ad.html`, `dangerous-link.html`, and `legit-shop.html`. The first two should warn; the shop should not.
@@ -75,19 +77,22 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | File | What it does |
 |---|---|
 | `extension/manifest.json` | Tells Chrome what the extension is, where it runs, and its permissions |
-| `extension/content.js` | Reads the open email in Gmail and builds the panel |
+| `extension/content/gmail-adapter.js` | Reads the open Gmail email (sender, subject, text, links). All Gmail-specific selectors live here |
+| `extension/content/gmail.js` | Connects the Gmail adapter to the analyzer and the warning panel |
+| `extension/content/ad-signals.js` | Recognizes advertisements on a page and describes them as evidence (never hides or blocks them). See `docs/ad-support-matrix.md` |
 | `extension/content/page-scanner.js` | Collects evidence from webpages (text, links, form metadata), including content added later. Never reads typed values |
 | `extension/page.js` | Connects the scanner, the analyzer, and the warning card on ordinary webpages |
 | `extension/content/click-guard.js` | Stops a risky link click before the browser navigates (limits: `docs/click-guard-limits.md`) |
 | `extension/ui/warning.html`, `warning.js` | The extension-owned warning page (can't be removed by a website) |
 | `extension/ui/explain.js`, `warning-view.js` | One place for the warning's words and layout: headline, top reasons, safe action, read aloud, false-alarm report |
 | `extension/rules.js` | The email, link, and wording checks and the scoring |
-| `extension/analyzer.js` | Webpage and link checks; returns block / warn / allow with reasons |
+| `extension/analyzer.js` | The common `analyze(evidence)` entry point for webpages, ads, links, and emails; returns block / warn / allow with reasons |
 | `extension/threats.js` | Built-in list of known dangerous websites (demo `.example` addresses) |
 | `extension/service-worker.js` | Blocks known dangerous websites before they load |
 | `extension/panel.js`, `panel-styles.js` | The in-page warning card and its look |
 | `tests/rules.test.js` | Automatic tests for the email checks |
 | `tests/scanner-merge.test.js`, `tests/browser/scanner.test.js` | Tests for the webpage scanner (the browser test needs Playwright) |
+| `tests/ads-analyzer.test.js`, `tests/browser/ads.test.js`, `tests/browser/gmail-adapter.test.js` | Tests for advertisements and for the Gmail adapter (including the fake Gmail page) |
 | `tests/explain.test.js`, `tests/browser/click-guard.test.js` | Tests for the warning wording and for stopping clicks in a real browser |
 | `tests/analyzer.test.js` | Automatic tests for webpage and link checks; prints caught-vs-false-alarm counts |
 | `tests/pages/` | Practice webpages for trying the extension |
@@ -102,8 +107,11 @@ node tests/rules.test.js
 node tests/analyzer.test.js
 node tests/scanner-merge.test.js
 node tests/explain.test.js
+node tests/ads-analyzer.test.js
 node tests/browser/scanner.test.js       # browser tests need Playwright: npm i playwright
 node tests/browser/click-guard.test.js
+node tests/browser/ads.test.js
+node tests/browser/gmail-adapter.test.js
 ```
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
@@ -118,11 +126,11 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 
 ## Known limits
 
-- Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `content.js`.
+- Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `extension/content/gmail-adapter.js` (`GmailAdapter.diagnose()` shows which ones still match). The adapter is tested against a Gmail-shaped practice page, not live Gmail.
 - Rules can't catch every scam, especially new tricks. The AI step below is meant to cover what rules miss.
 - Chrome only. A Chrome extension cannot see other apps, text messages, or phone calls.
 - The link guard covers ordinary clicks and the Enter key. It does not catch a website's own script opening a page, or links opened from the right-click menu.
-- Page checks only look at the top-level page, so ads inside some third-party frames can't be inspected.
+- Advertisements: only ads that carry a recognizable marker are examined, and ads in other websites' frames (the usual ad-network case) can't be inspected. The extension flags suspicious ads and never hides or blocks ads. The exact list is in `docs/ad-support-matrix.md`.
 - The built-in blocklist is a tiny demo list. A real, maintained source (Step 4) is needed before this protects anyone from real threats.
 - The tests are a small set of examples. They show the checks work as designed, not that the extension is reliable against scams in general.
 

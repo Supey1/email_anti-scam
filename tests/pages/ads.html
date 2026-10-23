@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Ad support matrix</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <h1>Advertisement support matrix (practice page)</h1>
+  <!-- Every address is a made-up ".example" name. Each block is one pattern from docs/ad-support-matrix.md. -->
+
+  <h2>Supported, suspicious (should warn)</h2>
+  <div id="A1" class="ad-slot"><b>Congratulations! You have won a $2,000 gift card.</b> Claim your reward before midnight. <a id="A1-link" href="https://claim-gift.example/a1">Claim reward</a></div>
+  <div id="A2" data-ad-slot="123"><p>You've won! Claim your prize now.</p><a id="A2-link" href="https://claim-gift.example/a2">Claim your prize</a></div>
+  <p><a id="A3" rel="sponsored noopener" href="https://claim-gift.example/a3">Congratulations winner: claim your reward</a></p>
+  <div id="A4" aria-label="Advertisement"><p>Free $500 gift card. Claim your reward. Act now!</p><a id="A4-link" href="https://claim-gift.example/a4">Claim reward</a></div>
+  <div id="A5"><small>Sponsored</small><p>You have won a gift card! Claim your prize before it expires today.</p><a id="A5-link" href="https://claim-gift.example/a5">Claim prize</a></div>
+  <div id="A6" class="advert"><p>Your bank</p><a id="A6-link" href="https://other-site.example/a6">www.mybank.example/offer</a></div>
+  <iframe id="A7" class="ad-frame" srcdoc='<p>You have won a gift card! Claim your reward now.</p><a href="https://claim-gift.example/a7">Claim reward</a>' width="400" height="90"></iframe>
+  <div id="slot-dynamic"></div>
+
+  <h2>Supported, ordinary (should NOT warn and must stay in place)</h2>
+  <div id="B1" class="ad-slot"><p>Summer sale: 50% off garden furniture.</p><a id="B1-link" href="https://garden-store.example/sale">Shop the sale</a></div>
+  <div id="B2" data-ad-slot="9"><p>New cookbook out now</p><a id="B2-link" href="https://books.example/cookbook">Learn more</a></div>
+  <div id="B3"><span>Advertisement</span><a id="B3-link" href="https://shoes.example/new"><img alt="Walking shoes" width="80" height="40"></a></div>
+  <div id="B4" class="ad-slot"><p>Congratulations to our customer of the year!</p><a id="B4-link" href="https://garden-store.example/award">Read more</a></div>
+
+  <h2>Not supported (documented limits)</h2>
+  <iframe id="C1" class="ad-frame" src="http://adframe.example/ad" width="400" height="90"></iframe>
+  <div id="C2"><p>You have won a gift card! Claim your reward now.</p><a id="C2-link" href="https://claim-gift.example/c2">Claim reward</a></div>
+  <div id="C3-host"></div>
+  <div id="C4" class="ad-slot" style="width:300px;height:60px;background:#ccc"><a id="C4-link" href="https://claim-gift.example/c4" style="display:block;width:100%;height:100%"></a></div>
+
+  <script>
+    const root = document.getElementById('C3-host').attachShadow({ mode: 'open' });
+    root.innerHTML = '<div class="ad-slot"><p>You have won a gift card! Claim your reward now.</p><a id="C3-link" href="https://claim-gift.example/c3">Claim reward</a></div>';
+    window.addEventListener('load', () => setTimeout(() => {
+      document.getElementById('slot-dynamic').innerHTML =
+        '<div id="A8" class="ad-slot"><p>Congratulations! You have won a gift card. Claim your reward. Act now!</p><a id="A8-link" href="https://claim-gift.example/a8">Claim reward</a></div>';
+    }, 1500));
+  </script>
+</body></html>
