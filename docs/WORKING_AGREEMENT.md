@@ -11,7 +11,7 @@ How the two of us build this together without stepping on each other.
 
 1. **One feature branch per workstream**, for example `feature/detection-engine` and `feature/browser-protection`. Nobody commits directly to the main branch.
 2. **Stay in your lane.** Person A never edits Person B's warning-panel code to add a rule. Person A returns a new structured reason through the analyzer interface, and Person B decides how that reason looks.
-3. **No second scoring engine.** Person B never writes scam-scoring logic in `content.js` (or `page.js`, `guard.js`, or the panel). Collect evidence, pass it to the shared analyzer, and display what comes back.
+3. **No second scoring engine.** Person B never writes scam-scoring logic in any content script (`page-scanner.js`, `gmail-adapter.js`, `click-guard.js`, `page.js`) or the panel. Collect evidence, pass it to the shared analyzer, and display what comes back.
 4. **Never wait for each other.** Until the analyzer is ready, Person B develops against fixed mock results. Until the webpage scanner is ready, Person A develops against static JSON fixtures (`tests/fixtures/`).
 5. **The contract is in `docs/interfaces.md`.** Changing it needs a pull request that both of us review. Bump `schemaVersion` for breaking changes.
 6. **Tests before merge.** Every completed feature includes its tests and is merged only when they pass:

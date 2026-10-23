@@ -61,13 +61,11 @@ Still true: it runs on your computer, and every warning comes from a readable ru
 ## How it works
 
 ```
-Gmail page
-  └─ content.js    finds the open email and reads sender, subject, text, and links
-       └─ rules.js analyzeEmail() adds up "risk points" for each warning sign
-            0 points   → ✅ No warning signs found
-            1–4 points → ⚠️ Be careful
-            5+ points  → 🛑 Looks like a scam
-       └─ panel shows the verdict, reasons, links, and what to do
+Gmail page, or any webpage
+  └─ gmail-adapter.js / page-scanner.js   collect evidence (sender, subject, text, links, forms, ads)
+       └─ analyzer.js analyze()           applies the readable rules (rules.js) and returns a verdict with reasons
+            block / warn / no warning signs
+       └─ warning panel, or click-guard.js stops a risky click and opens the warning page
 ```
 
 Every warning comes from a rule a person can read and understand, so the extension can always explain *why* it is warning you.

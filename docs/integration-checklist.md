@@ -12,7 +12,6 @@ Short and shared. Add an item instead of editing the other person's code. Tick i
 - [x] `analyze(evidence)` is now the single entry point and accepts the contract's input shape for webpages and emails; `page.js` no longer has an adapter. (Added by B as a stopgap in `analyzer.js`; **A** owns it from here: please review, and move the result to the structured output.)
 - [ ] **B:** `click-guard.js` and `page.js` still branch on the old verdict `allow`. `ui/explain.js` already accepts both shapes; remove its "TEMPORARY" normalization once the analyzer returns the contract.
 - [ ] **B:** Map reason `code`s to any custom wording or icons (everything falls back to `title` / `explanation` today).
-- [ ] **B:** `content.js` (Gmail) still calls `analyzeEmail()` directly and does its own level mapping; route it through the shared analyzer as an email adapter.
 
 ## Done (Phases 4 and 5, Person B)
 
