@@ -52,18 +52,23 @@ const GUARD_CONTEXT_PROVIDERS = [];
     return (anchor.textContent || '').replace(/\s+/g, ' ').trim() || anchor.getAttribute('aria-label') || anchor.getAttribute('title') || (img ? img.alt : '');
   }
 
-  // The words around a link: the largest surrounding box that still holds only a few sentences. For an ad, that is
-  // usually the whole ad. A marked advertisement (content/ad-signals.js) gives another view of the same thing; the
-  // longer of the two wins, because a link that is itself marked (an ad-network link, say) says almost nothing alone.
+  // The words around a link. If the link sits inside a marked advertisement (content/ad-signals.js), that ad and only
+  // that ad: a neighbouring ad's words must never be mixed in. Otherwise the largest surrounding box that still holds
+  // only a few sentences. A link that is itself the marked thing (an ad-network link, say) says almost nothing alone,
+  // so it falls back to the surrounding box.
   function nearbyText(anchor) {
+    const container = typeof AdSignals !== 'undefined' ? AdSignals.containerFor(anchor) : null;
+    if (container && container !== anchor) {
+      const ad = AdSignals.describe(container);
+      if (ad.text) return ad.text.slice(0, MAX_NEARBY);
+    }
     let text = '';
     for (let node = anchor; node && node !== document.documentElement; node = node.parentElement) {
       const t = (node.innerText || '').replace(/\s+/g, ' ').trim();
       if (t.length > MAX_NEARBY) break;
       text = t;
     }
-    const ad = typeof AdSignals !== 'undefined' ? AdSignals.contextFor(anchor) : null;
-    return (ad && ad.text && ad.text.length > text.length ? ad.text : text).slice(0, MAX_NEARBY);
+    return text.slice(0, MAX_NEARBY);
   }
 
   // Would the browser have opened this click in a new tab or window? (In Gmail the warning always opens in a new tab,
