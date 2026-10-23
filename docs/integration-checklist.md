@@ -74,6 +74,12 @@ For B:
 - [x] **B (verified in the browser):** a hostile email's sender name, subject, and link text show as plain text in the panel and the warning (no HTML runs).
 - [ ] **B:** `page.js` still cuts page text at 5,000 characters (the KNOWN ISSUE in the browser test).
 
+## Section 8: dividing the work
+
+- [x] **A:** the data the engine uses moved out of the rule code into `extension/data/` (`companies.js`, `services.js`, `addresses.js`, `threat-list.js`), with no change in behavior (every test passes unchanged). `background/content-scripts.js` and the practice pages load them before `core/`.
+- [ ] **B (hand-over):** Person A built these during Phases 5 and 6 because those phases asked Person A to; under the division they're yours now: `settings.html`, `settings.js`, `speech.js`, `settings-sync.js`, `tests/speech.test.js`, and the reading-aloud and text-size parts of `warning.js`, `gmail.js`, and `blocked.*`. Review them as if they were a pull request to you.
+- [ ] **B:** `guard.js` collects the "words around a link" by climbing parent elements while the text is under 400 characters, and can pick up unrelated text. Repro: on `tests/fake-gmail.html`, open "Shipping (be careful)" and click its link. The words collected include the test buttons ("Fake PayPal..."), so the engine reads it as an offer naming PayPal that goes elsewhere, and stops the click. Without that unrelated text the engine says "check first" (`warn` + `VERIFY_INDEPENDENTLY`), which the email panel also shows. Suggestion: stop climbing at an element that contains other links or buttons, or at the nearest block the link belongs to.
+
 ## Tests
 
 - [x] **Both:** Browser test proving a risky click is stopped before the browser asks for the address, including a click inside an ad frame and a typed known-dangerous address: `tests/browser/acceptance.test.js` (Phase 3 acceptance).

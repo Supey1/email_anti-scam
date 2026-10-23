@@ -21,21 +21,15 @@
   const { parseUrl, isSameOrSubdomain, sameSite, findDomainInText, embeddedUrls, isFreeHosting } = core.urlNormalizer;
   const { BRANDS } = core.domainRules;
 
-  // Link shorteners hide where a link really goes.
-  const SHORTENERS = new Set([
-    'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'rebrand.ly',
-    'cutt.ly', 'shorturl.at', 'rb.gy', 't.ly', 'tiny.cc',
-  ]);
-
-  // Website endings that are cheap and often used by scam sites.
-  const RISKY_ENDINGS = new Set(['xyz', 'top', 'click', 'zip', 'mov', 'icu', 'buzz', 'cfd', 'sbs', 'rest', 'lol']);
+  if (typeof require !== 'undefined' && !(globalThis.GranblockData && globalThis.GranblockData.addresses)) require('../data/addresses.js');
+  const { SHORTENERS, RISKY_ENDINGS } = globalThis.GranblockData.addresses; // DATA: extension/data/addresses.js
 
   // Words that mean "sign in" or "pay", in a link's text or address.
   const SIGN_IN_TEXT = /\b(sign ?in|log ?in|log ?on|verify|confirm|unlock|update (your )?(account|payment|billing|card|details))\b/i;
   const SIGN_IN_PATH = /\/(login|log-in|signin|sign-in|logon|auth|verify|verification|account|billing|payment|checkout|wp-login\.php)(\/|\.|$)/i;
 
   // The known-dangerous list, as entries: { type: 'domain' | 'url', value, source, trusted }.
-  // Normally the bundled threat-list.js. The service worker builds the ACTIVE
+  // Normally the bundled data/threat-list.js. The service worker builds the ACTIVE
   // list (bundled + updates, minus expired entries and removed false positives),
   // and threat-sync.js hands it to useThreatEntries(), so the click guard and
   // Chrome's own blocking always agree.
@@ -50,7 +44,7 @@
         KNOWN_THREAT_SOURCE: typeof KNOWN_THREAT_SOURCE !== 'undefined' ? KNOWN_THREAT_SOURCE : { name: 'unknown', trusted: false },
       };
     } else if (typeof require !== 'undefined') {
-      list = require('../threat-list.js');
+      list = require('../data/threat-list.js');
     }
     if (!list) return [];
     const { name, trusted } = list.KNOWN_THREAT_SOURCE;

@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { createBackground, DEFAULT_SETTINGS } = require(path.join(__dirname, '..', 'extension', 'background', 'messages.js'));
 const threatRules = require(path.join(__dirname, '..', 'extension', 'background', 'threat-rules.js'));
-const threatList = require(path.join(__dirname, '..', 'extension', 'threat-list.js'));
+const threatList = require(path.join(__dirname, '..', 'extension', 'data', 'threat-list.js'));
 const { analyze } = require(path.join(__dirname, '..', 'extension', 'rules.js'));
 
 // ---------- a pretend Chrome ----------

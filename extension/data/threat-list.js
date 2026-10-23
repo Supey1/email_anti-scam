@@ -1,4 +1,4 @@
-// threat-list.js: websites we KNOW are dangerous ("threat intelligence").
+// data/threat-list.js: DATA. Websites we KNOW are dangerous ("threat intelligence").
 //
 // Anything on this list is blocked twice:
 //   1. service-worker.js tells Chrome to stop the page from ever loading

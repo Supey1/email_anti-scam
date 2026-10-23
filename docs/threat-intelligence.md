@@ -19,7 +19,7 @@ they can't read what an ad says. That's still the analyzer's job.
 
 ## Today: local only
 
-- The **active list** is the bundled `threat-list.js` (made-up `.example`
+- The **active list** is the bundled `data/threat-list.js` (made-up `.example`
   addresses) plus updates sent with `UPDATE_THREAT_RULES`, minus expired
   entries and false positives someone removed.
 - The service worker builds it, installs it as Chrome rules, and saves it for

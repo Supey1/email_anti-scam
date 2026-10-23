@@ -88,7 +88,7 @@
   //   tabs           { update(tabId, { url }), sendMessage(tabId, message, { frameId }) }
   //   permissions    { contains({ origins }) }  (chrome.permissions). Left out in tests: full access.
   //   scripting      { getRegisteredContentScripts, registerContentScripts, unregisterContentScripts }. Optional.
-  //   bundled()      the bundled list (threat-list.js) as raw entries
+  //   bundled()      the bundled list (data/threat-list.js) as raw entries
   //   blockPage      address of blocked.html
   //   extensionOrigin  "chrome-extension://<id>/"
   //   now()          current time (ms)

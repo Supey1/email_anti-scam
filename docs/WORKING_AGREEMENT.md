@@ -4,12 +4,42 @@ How the two of us build this together without stepping on each other.
 
 ## Who owns what
 
-| | Workstream | Branch | Owns |
-|---|---|---|---|
-| **Person A** | Detection engine | `feature/detection-engine` | `extension/rules.js`, `extension/core/*.js`, `extension/threat-list.js`, `extension/threat-sync.js`, `tests/rules.test.js`, test fixtures, threat intelligence: `extension/service-worker.js`, `extension/background/*.js`, `tests/service-worker.test.js` (from Phase 5); permissions, storage, settings, and reading aloud: `extension/settings.*`, `extension/speech.js`, `extension/settings-sync.js`, `tests/speech.test.js` (from Phase 6) |
-| **Person B** | Browser protection | `feature/browser-protection` | `extension/gmail.js`, `extension/page.js`, `extension/guard.js`, `extension/warning.js`, `extension/panel-styles.js`, `extension/blocked.html`, `extension/blocked.js`, `extension/manifest.json`, `tests/fake-gmail.html`, `tests/practice-*.html` |
+Neither person blocks the other because both build against the Phase 0 contract ([`interfaces.md`](interfaces.md)) and its fixtures, not against each other's code.
 
-The analyzer interface (below) belongs to both of us. Neither person changes it alone.
+### Person A: detection and security (`feature/detection-engine`)
+
+Owns URL analysis, domain rules, the risk policy, explanations, the automated detection tests, and threat intelligence and network blocking.
+
+| Files | What |
+|---|---|
+| `extension/core/` | The engine: addresses, domain rules, wording rules, risk policy, explanations, analyzer |
+| `extension/rules.js` | The engine's front door (`analyze()`) |
+| `extension/data/` | Facts the engine uses, kept apart from the rules: companies and their official websites, email services and ad networks, web-address lists, the known-threat list |
+| `extension/service-worker.js`, `extension/background/` | Threat lookups, Chrome's blocking rules, settings storage, and registering page scripts |
+| `extension/threat-sync.js` | Hands the service worker's threat list to the engine in each page |
+| `tests/rules.test.js`, `tests/regression.test.js` + `tests/fixtures/regression/`, `tests/robustness.test.js`, `tests/service-worker.test.js`, `docs/regression-cases.md`, `docs/threat-intelligence.md` | Detection and security tests, and their documents |
+
+### Person B: browser protection and the interface (`feature/browser-protection`)
+
+Proposed from the earlier split; confirm it when you write Person B's part of the division.
+
+| Files | What |
+|---|---|
+| `extension/guard.js`, `extension/page.js`, `extension/gmail.js` | Collect evidence (clicks, pages, Gmail) and call `analyze()` |
+| `extension/warning.js`, `extension/panel-styles.js`, `extension/blocked.html`, `extension/blocked.js` | How warnings look and behave |
+| `extension/settings.html`, `extension/settings.js`, `extension/speech.js`, `extension/settings-sync.js` | Settings and welcome page, reading aloud, text size |
+| `extension/manifest.json` | Permissions and the extension's description |
+| `tests/speech.test.js`, `tests/fake-gmail.html`, `tests/practice-*.html` | Interface tests and practice pages |
+
+### Shared (changed only by a pull request both review)
+
+`docs/interfaces.md`, `tests/contract.js`, `tests/fixtures/inputs/` and `results/`, `tests/browser/acceptance.test.js` (it tests both halves together), this file, and `docs/integration-checklist.md`.
+
+### Where the two meet
+
+- **Which page scripts run where:** the service worker registers them (`background/content-scripts.js`, Person A), but which scripts and in what order is Person B's call. Person B asks on the checklist; Person A changes `BASE` there.
+- **New reasons:** Person A adds the code to `interfaces.md` and returns it; Person B decides how it looks (rule 2).
+- **New evidence:** Person B adds a field to the input contract by pull request; Person A starts using it.
 
 ## The rules
 

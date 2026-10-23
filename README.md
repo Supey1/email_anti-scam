@@ -73,7 +73,7 @@ The practice pages load the extension's files themselves, so open them as files,
 4. The welcome page opens. Choose **Check all websites and Gmail**; Chrome then asks you to allow it to "read and change all your data on all websites." That's needed to check links and pages (see [Privacy](#privacy)). Until you allow it, the extension can only block known dangerous websites.
 5. Open Gmail and open any email: the panel appears on the right. Browse normally: warnings only appear when something looks wrong.
 6. Settings (protection on/off, which websites, text size, reading aloud) are on the extension's **Options** page, or right-click its icon → Options.
-7. To see blocking, type `known-phish.example` into the address bar. (It's on the practice list in `extension/threat-list.js`.)
+7. To see blocking, type `known-phish.example` into the address bar. (It's on the practice list in `extension/data/threat-list.js`.)
 8. After changing any code, click the ↻ reload button on the extension's card, then refresh the page.
 
 ## How it works
@@ -84,7 +84,7 @@ gmail.js  the open email     ──►    analyzeEmail()   ──►  panel (+ t
 guard.js  a link being clicked ──►  analyzeLink()    ──►  "Stop and check" warning
 page.js   the page you're on   ──►  analyzePage()    ──►  "Be careful" warning
 
-service-worker.js + threat-list.js  ──►  Chrome blocks known dangerous websites before they load
+service-worker.js + data/threat-list.js ►  Chrome blocks known dangerous websites before they load
 ```
 
 Each check adds "risk points" for a warning sign (`core/risk-policy.js` says how many), and the answer comes with the list of signs that caused it:
@@ -107,7 +107,7 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/manifest.json` | Tells Chrome what the extension is, which files run where, and what it's allowed to do |
 | `extension/rules.js` | The front door to the scam checks: `analyze()` (see `docs/interfaces.md`) |
 | `extension/core/` | The scam checks, in groups: reading addresses, address rules, company-name rules, wording rules, the risk policy, and the plain-language explanations |
-| `extension/threat-list.js` | The list of known dangerous websites (practice addresses for now) |
+| `extension/data/` | Facts the checks use, kept apart from the rules: companies and their official websites (`companies.js`), email services and ad networks (`services.js`), web-address lists (`addresses.js`), and the known-dangerous list (`threat-list.js`, practice addresses for now) |
 | `extension/gmail.js` | Reads the open email in Gmail and builds the panel |
 | `extension/guard.js` | Stops risky link clicks before the browser leaves the page |
 | `extension/page.js` | Checks the website you're on, including pop-ups that appear later |

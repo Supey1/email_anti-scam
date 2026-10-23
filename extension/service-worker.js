@@ -17,7 +17,10 @@
 // browser closes). Anything in memory is rebuilt on first use after a restart.
 
 importScripts(
-  'threat-list.js',
+  'data/threat-list.js',
+  'data/addresses.js',
+  'data/companies.js',
+  'data/services.js',
   'core/url-normalizer.js',
   'core/domain-rules.js',
   'core/url-rules.js',
