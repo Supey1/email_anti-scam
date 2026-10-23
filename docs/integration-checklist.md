@@ -37,9 +37,20 @@ The code was written before the contract. Today `rules.js` takes three different
 - [ ] **B:** `threat-list.js` now has `KNOWN_THREAT_SOURCE.trusted`. The engine only says `block` for a trusted source (otherwise a strong warning the person can go past). `service-worker.js` should only install hard-block rules when the source is trusted.
 - [ ] **B:** `page.js` should send `hasPaymentField` for card-number boxes, so payment pages get the same checks as sign-in pages (free hosting, sent elsewhere, sent without encryption).
 
+## Phase 3: connecting the branches
+
+- [ ] **Both:** The two `docs/interfaces.md` files disagree. Running the other branch's real `page-scanner.js` output through this branch's contract checker gives 7 problems on a sign-in page:
+  - `forms[].hasPayment` there, `hasPaymentField` here (the engine accepts both for now). Suggestion: keep `hasPayment`, because the scanner and its tests already use it, and only the doc, `tests/contract.js`, and fixtures change here.
+  - `forms[].method` and `forms[].fieldCount`: add them to the contract as optional.
+  - `context.scan` and `context.truncated` (webpage): add them as optional.
+  - `context.mainHeadings`: the scanner doesn't send it. The engine copes (title only), but headings make fake sign-in pages easier to spot.
+  - `visibleText` length: the scanner sends up to 40,000 characters. The contract now allows 50,000.
+- [ ] **B (this branch):** `page.js` reads only the first 5,000 characters of a page, so a scam pop-up added to the end of a LONG page is missed. The engine reads up to 50,000. Shown as a KNOWN ISSUE by `tests/browser/acceptance.test.js`; turn it into a normal test once fixed. (The other branch's scanner doesn't have this problem.)
+- [ ] **B:** When a remote lookup is added, follow "Remote lookups" in `docs/interfaces.md`: hold the click when `whenToLookUp()` says `before_opening`, show "Checking this link…", and never let a slow or failed lookup open the link by itself.
+
 ## Tests
 
-- [ ] **B:** Commit a browser test proving a risky click is stopped before navigation, including a click inside an ad frame and a typed known-dangerous address. (This was checked by hand in Chromium, but the test isn't in the repo yet.)
+- [x] **Both:** Browser test proving a risky click is stopped before the browser asks for the address, including a click inside an ad frame and a typed known-dangerous address: `tests/browser/acceptance.test.js` (Phase 3 acceptance).
 - [ ] **B:** Test the less common ways of opening a link: right-click "Open in new tab", keyboard, pages that navigate with their own code.
 - [ ] **Both:** Measure scams caught and false alarms on a set of examples nobody tuned the rules on.
 

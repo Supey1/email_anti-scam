@@ -122,7 +122,10 @@ If you have [Node.js](https://nodejs.org) installed, run this from the project f
 ```
 node tests/contract.test.js
 node tests/rules.test.js
+node tests/browser/acceptance.test.js
 ```
+
+The last one loads the real extension into Chromium, opens local fake pages, and checks that suspicious clicks are stopped before the browser even asks for the address. It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
 
 `contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md). `rules.test.js` checks the scam rules.
 
@@ -131,7 +134,7 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 The tests end with two numbers:
 
 ```
-225/225 tests passed
+253/253 tests passed
 Scams caught:          18/18
 False alarms (normal): 0/15
 ```

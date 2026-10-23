@@ -171,7 +171,9 @@
           add('CREDENTIALS_SENT_ELSEWHERE', { elsewhere: action.host }, action.href);
         }
       }
-      if (action.protocol === 'http:' && !seen.has('INSECURE_FORM')) {
+      // Your own computer (localhost) counts as secure, as it does in Chrome.
+      const ownComputer = /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(action.hostname);
+      if (action.protocol === 'http:' && !ownComputer && !seen.has('INSECURE_FORM')) {
         seen.add('INSECURE_FORM');
         add('INSECURE_FORM', {}, action.href);
       }

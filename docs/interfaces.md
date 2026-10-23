@@ -27,7 +27,7 @@ Built by the browser integration (Person B) and passed to the detection engine (
   source: "webpage",                        // "webpage" | "email" | "link"
   pageUrl: "https://example.example/offer", // the address of the page the person is on
   pageTitle: "Claim Your Prize",
-  visibleText: "Claim your reward now...",   // what the person can see, first 5,000 characters
+  visibleText: "Claim your reward now...",   // what the person can see, up to 50,000 characters
   links: [
     { text: "Claim reward", url: "https://example.example/claim" }
   ],
@@ -43,7 +43,7 @@ Built by the browser integration (Person B) and passed to the detection engine (
 | `source` | `"webpage"` \| `"email"` \| `"link"` | yes | What is being checked (see below). |
 | `pageUrl` | string | yes | Full address of the page the person is on. `""` if there isn't one (for example, a practice page opened as a file). |
 | `pageTitle` | string | yes | The page's title. `""` if none. |
-| `visibleText` | string | yes | Visible words only (no hidden text, no code), cut to the first 5,000 characters. For email: the message text. |
+| `visibleText` | string | yes | Visible words only (no hidden text, no code), up to 50,000 characters. Text that appears later (pop-ups) goes at the END, so never cut it off to make room: on a long page that is exactly where the scam is. For email: the message text. |
 | `links` | array of `{ text, url }` | yes | Links on the page or in the email. `text` is the link's words (or a picture's description); `url` is the link's address exactly as the page has it. May be `[]`. |
 | `forms` | array of form objects | yes | Forms that ask for something sensitive. May be `[]`. |
 | `context` | object | yes | Extras for one `source`. May be `{}`. |
@@ -251,7 +251,29 @@ It must return synchronously. A click has to be held or let through in the same 
 { schemaVersion: 1, verdict: "unknown", reasons: [], recommendedAction: "NONE", evidence: [] }
 ```
 
-### 3b. Between parts of the extension: `chrome.runtime` messages
+### 3b. Remote lookups (asking a threat service about an address)
+
+Not built yet. When one is added, these rules apply:
+
+1. `analyze()` always runs first, here, instantly. A lookup is a separate, slower step that runs elsewhere (the service worker), never inside `analyze()`.
+2. `whenToLookUp(result)` (in `rules.js`) says whether a click must wait:
+
+   | Answer | When | The browser side must |
+   |---|---|---|
+   | `not_needed` | `block`, or `warn` with `GO_BACK` / `DO_NOT_ENTER_INFO` | act on the result now; a lookup can't make it safer |
+   | `before_opening` | `warn` with `VERIFY_INDEPENDENTLY` | **cancel the click first**, show a clear "Checking this link…" state with a "Go back to safety" button, then decide on the lookup's answer |
+   | `optional` | `no_warning_signs` | open normally; a lookup may run alongside |
+
+3. The answer goes back through the engine, never straight to the screen:
+   ```js
+   analyze(input, { lookup: { status: "match" | "no_match" | "failed", url, source: { name, trusted } } })
+   ```
+   - `match` adds `KNOWN_THREAT`: `block` from a trusted source, a strong `warn` from an untrusted one.
+   - `no_match` changes nothing. "Not on the list" never removes a warning sign found here.
+   - `failed` (an error, or no answer in time) changes nothing.
+4. **A slow or failed lookup never lets a held link open by itself.** If the answer doesn't come, show the local result's warning and let the person choose, exactly as if there were no lookup.
+
+### 3c. Between parts of the extension: `chrome.runtime` messages
 
 Every message has a `type` and a `schemaVersion`.
 
@@ -304,3 +326,4 @@ The original Phase 0 proposal left these open. This file fills them in; both peo
 3. **`analyze()` is a synchronous function call in the page, not a message.** Clicks can't wait for a reply.
 4. **Evidence shape** `{ kind, value, reasonCode }`.
 5. **`hasPaymentField`** in forms, so card-number pages can be checked the same way as password pages.
+6. **The other branch's scanner uses different names** (see the integration checklist). The engine accepts `hasPayment` as well as `hasPaymentField` until the two of you pick one.

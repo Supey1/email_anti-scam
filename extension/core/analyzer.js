@@ -4,6 +4,13 @@
 // (an email, a webpage, or a clicked link) and returns the result described
 // there: a verdict, specific reasons, and what the person should do.
 // It never throws: if anything goes wrong, the verdict is "unknown".
+// It runs on this computer, instantly, so a click can be held or let through
+// in the same moment it happens.
+//
+// Remote lookups (asking a threat service about an address) are slow and
+// happen elsewhere. Their answer comes back in through analyze(input, { lookup }),
+// and whenToLookUp(result) says whether a click must wait for one.
+// See "Remote lookups" in docs/interfaces.md.
 //
 //   url-normalizer.js  reads addresses safely
 //   url-rules.js       where a link really goes
@@ -29,8 +36,10 @@
   const { explain } = core.explanations;
 
   const SCHEMA_VERSION = 1;
+  // How much page text is read. Scanners add text that appears later (pop-ups)
+  // to the END, so this must be big enough to reach it on long pages.
+  const MAX_TEXT = 50000;
   const UNKNOWN = Object.freeze({ schemaVersion: SCHEMA_VERSION, verdict: 'unknown', reasons: [], recommendedAction: 'NONE', evidence: [] });
-  const NOTHING_FOUND = decide([], 'webpage');
 
   // All the address checks for one link.
   function checkLinkAddress(text, parsed) {
@@ -57,8 +66,8 @@
       return { text: link.text || '', href: link.url, host: parsed.ok && parsed.isWeb ? parsed.host : '', findings: linkFindings };
     });
     findings.push(...domainRules.checkSender(ctx.senderName, ctx.senderEmail));
-    findings.push(...textRules.checkEmailText(`${ctx.subject || ''}\n${input.visibleText || ''}`));
-    return { decision: decide(findings, 'email'), links };
+    findings.push(...textRules.checkEmailText(`${ctx.subject || ''}\n${(input.visibleText || '').slice(0, MAX_TEXT)}`));
+    return { findings, links };
   }
 
   function evaluateLink(input) {
@@ -66,12 +75,12 @@
     const link = (input.links || [])[0] || { text: '', url: '' };
     const page = parseUrl(input.pageUrl || '');
     const parsed = normalizeUrl(link.url, page.ok && page.isWeb ? page.href : undefined);
-    if (!parsed.ok || !parsed.isWeb) return { decision: NOTHING_FOUND, host: '' };
+    if (!parsed.ok || !parsed.isWeb) return { findings: [], host: '' };
     const { hostname, host } = parsed;
 
     // Moving around inside the same website is the page check's job, not ours.
     if (page.ok && page.isWeb && sameSite(page.hostname, hostname) && !urlRules.knownThreat(parsed)) {
-      return { decision: NOTHING_FOUND, host, sameSite: true };
+      return { findings: [], host, sameSite: true };
     }
 
     const other = checkLinkAddress(link.text || '', parsed);
@@ -95,16 +104,16 @@
         }
       }
     }
-    return { decision: decide([...other, ...text, ...derived], 'link'), host, flags: other };
+    return { findings: [...other, ...text, ...derived], host, flags: other };
   }
 
   function evaluatePage(input) {
     const ctx = input.context || {};
     const page = parseUrl(input.pageUrl || '');
-    if (!page.ok || !page.isWeb) return { decision: NOTHING_FOUND, host: '' };
+    if (!page.ok || !page.isWeb) return { findings: [], host: '' };
     const { hostname, host } = page;
     // The company's real website.
-    if (domainRules.officialBrandFor(hostname) && !urlRules.knownThreat(page)) return { decision: NOTHING_FOUND, host };
+    if (domainRules.officialBrandFor(hostname) && !urlRules.knownThreat(page)) return { findings: [], host };
 
     const other = [
       ...urlRules.checkAddress(page, 'page'),
@@ -112,22 +121,54 @@
     ];
 
     const claim = `${input.pageTitle || ''}\n${(ctx.mainHeadings || []).join('\n')}`;
-    const secretForms = (input.forms || []).filter(f => f.hasPassword || f.hasPaymentField);
+    // "hasPayment" is the name the page scanner on the other branch uses (integration checklist).
+    const secretForms = (input.forms || []).filter(f => f.hasPassword || f.hasPaymentField || f.hasPayment);
     other.push(...domainRules.checkSignInPage(claim, hostname, secretForms.length > 0));
     // Where the password or card number would be sent.
     other.push(...urlRules.checkSecretForms(page, secretForms));
 
-    const pageText = `${claim}\n${(input.visibleText || '').slice(0, 5000)}`;
+    const pageText = `${claim}\n${(input.visibleText || '').slice(0, MAX_TEXT)}`;
     const text = keepText(textRules.checkWebText(pageText), other, 'webpage', textRules.looksLikeScamAdvice(pageText));
-    return { decision: decide([...other, ...text], 'webpage', { asksForSecrets: secretForms.length > 0 }), host };
+    return { findings: [...other, ...text], host, asksForSecrets: secretForms.length > 0 };
+  }
+
+  // A remote lookup's answer, as a finding. Only a match adds anything:
+  // "not on the list" never removes what we found here.
+  //   lookup = { status: 'match' | 'no_match' | 'failed', url, source: { name, trusted } }
+  function lookupFindings(input, lookup) {
+    if (!lookup || lookup.status !== 'match') return [];
+    const parsed = parseUrl(lookup.url || '');
+    const source = lookup.source || { name: 'unknown', trusted: false };
+    return [{
+      code: 'KNOWN_THREAT',
+      subject: input.source === 'webpage' ? 'page' : 'link',
+      data: { host: parsed.ok ? parsed.host : lookup.url, trusted: !!source.trusted, source: source.name, remote: true },
+      evidence: { kind: 'url', value: parsed.ok ? parsed.href : String(lookup.url) },
+    }];
   }
 
   // The full decision, with the details tests and older callers need.
-  function evaluate(input) {
-    if (input.source === 'email') return evaluateEmail(input);
-    if (input.source === 'link') return evaluateLink(input);
-    if (input.source === 'webpage') return evaluatePage(input);
-    throw new Error(`unknown source: ${input.source}`);
+  function evaluate(input, options = {}) {
+    let evaluation;
+    if (input.source === 'email') evaluation = evaluateEmail(input);
+    else if (input.source === 'link') evaluation = evaluateLink(input);
+    else if (input.source === 'webpage') evaluation = evaluatePage(input);
+    else throw new Error(`unknown source: ${input.source}`);
+    const findings = [...evaluation.findings, ...lookupFindings(input, options.lookup)];
+    return { ...evaluation, decision: decide(findings, input.source, { asksForSecrets: !!evaluation.asksForSecrets }) };
+  }
+
+  // Should the browser ask a remote threat service before opening this?
+  //   'not_needed'      the answer is already clear (blocked, or the person is being stopped)
+  //   'before_opening'  there are warning signs: hold the click and show "checking"
+  //                     until the answer comes back. Never let it open just because
+  //                     the check is slow.
+  //   'optional'        no warning signs: open now; a check may run alongside
+  function whenToLookUp(result) {
+    if (!result || result.verdict === 'block') return 'not_needed';
+    if (result.recommendedAction === 'GO_BACK' || result.recommendedAction === 'DO_NOT_ENTER_INFO') return 'not_needed';
+    if (result.verdict === 'warn') return 'before_opening';
+    return 'optional';
   }
 
   // A decision -> the result in docs/interfaces.md.
@@ -153,15 +194,16 @@
   }
 
   // THE entry point. See docs/interfaces.md.
-  function analyze(input) {
+  //   options.lookup  a remote lookup's answer (see lookupFindings), if there is one
+  function analyze(input, options = {}) {
     try {
       if (!input || typeof input !== 'object') return { ...UNKNOWN };
-      return toResult(evaluate(input).decision);
+      return toResult(evaluate(input, options || {}).decision);
     } catch (e) {
       return { ...UNKNOWN };
     }
   }
 
-  core.analyzer = { SCHEMA_VERSION, analyze, evaluate, toResult };
+  core.analyzer = { SCHEMA_VERSION, MAX_TEXT, analyze, evaluate, toResult, whenToLookUp };
   if (typeof module !== 'undefined') module.exports = core.analyzer;
 })();

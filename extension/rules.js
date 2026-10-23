@@ -29,8 +29,14 @@
 if (typeof require !== 'undefined' && typeof module !== 'undefined') require('./core/analyzer.js');
 
 // See docs/interfaces.md.
-function analyze(input) {
-  return GranblockCore.analyzer.analyze(input);
+//   options.lookup  a remote threat lookup's answer, if there is one
+function analyze(input, options) {
+  return GranblockCore.analyzer.analyze(input, options);
+}
+
+// Should a click wait for a remote threat lookup? See docs/interfaces.md.
+function whenToLookUp(result) {
+  return GranblockCore.analyzer.whenToLookUp(result);
 }
 
 // A new-style decision -> the old result shape.
@@ -118,5 +124,5 @@ function analyzePage(page) {
 
 // Lets tests/rules.test.js load this file with Node. Chrome ignores this.
 if (typeof module !== 'undefined') {
-  module.exports = { analyze, analyzeEmail, analyzeLink, analyzePage };
+  module.exports = { analyze, whenToLookUp, analyzeEmail, analyzeLink, analyzePage };
 }

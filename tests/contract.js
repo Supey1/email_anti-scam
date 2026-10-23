@@ -46,7 +46,7 @@ function validateInput(input) {
   for (const key of ['pageUrl', 'pageTitle', 'visibleText']) {
     if (typeof input[key] !== 'string') problems.push(`${key} must be a string`);
   }
-  if (typeof input.visibleText === 'string' && input.visibleText.length > 5000) problems.push('visibleText must be at most 5,000 characters');
+  if (typeof input.visibleText === 'string' && input.visibleText.length > 50000) problems.push('visibleText must be at most 50,000 characters');
 
   if (!Array.isArray(input.links)) problems.push('links must be an array');
   else input.links.forEach((link, i) => {

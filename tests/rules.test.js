@@ -15,7 +15,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { analyze, analyzeEmail, analyzeLink, analyzePage } = require(path.join(__dirname, '..', 'extension', 'rules.js'));
+const { analyze, whenToLookUp, analyzeEmail, analyzeLink, analyzePage } = require(path.join(__dirname, '..', 'extension', 'rules.js'));
 const norm = require(path.join(__dirname, '..', 'extension', 'core', 'url-normalizer.js'));
 const { EXPLANATIONS } = require(path.join(__dirname, '..', 'extension', 'core', 'explanations.js'));
 const { RULES, decide } = require(path.join(__dirname, '..', 'extension', 'core', 'risk-policy.js'));
@@ -425,7 +425,8 @@ const RULE_TESTS = [
   { code: 'INSECURE_FORM',
     triggers: [page({ url: 'http://library.example/login', title: 'Sign in', forms: [passwordForm('http://library.example/session')] })],
     doesNot: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('/session')] }),
-      page({ url: 'http://library.example/', title: 'Opening hours' })] },
+      page({ url: 'http://library.example/', title: 'Opening hours' }),
+      page({ url: 'http://localhost:8080/login', title: 'Sign in', forms: [passwordForm('/session')] })] },
   { code: 'CREDENTIALS_SENT_ELSEWHERE',
     triggers: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('https://collect.example/p.php')] })],
     doesNot: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('https://library.example/session')] }),
@@ -493,6 +494,164 @@ const POLICY_TESTS = [
   ['nothing', [], 'link', ['no_warning_signs', 'NONE']],
 ];
 
+// ---------- several rules at once: the verdict follows the TYPE of evidence, not the count ----------
+// Real inputs, not made-up findings: these run every rule together.
+const codes = r => r.reasons.map(x => x.code);
+const COMBINED_TESTS = [
+  {
+    name: 'prize offer on an unfamiliar website with several weak signs: warning, never "confirmed"',
+    input: page({ url: 'https://prize-center.xyz/', title: 'Congratulations!', text: 'You have been selected! Claim your reward. Offer expires today.' }),
+    expect: r => {
+      assert.strictEqual(r.verdict, 'warn');
+      assert.ok(!codes(r).includes('KNOWN_THREAT'));
+    },
+  },
+  {
+    name: '...the same page on a verified malicious website is blocked',
+    input: page({ url: 'https://fake-bank-login.example/', title: 'Congratulations!', text: 'You have been selected! Claim your reward. Offer expires today.' }),
+    expect: r => assert.deepStrictEqual([r.verdict, r.reasons[0].code], ['block', 'KNOWN_THREAT']),
+  },
+  {
+    name: 'a verified malicious website with NO other warning signs is still blocked',
+    input: link('https://known-phish.example/recipes', "Grandma's soup recipe", 'A lovely soup for cold days.'),
+    expect: r => assert.deepStrictEqual([r.verdict, codes(r)], ['block', ['KNOWN_THREAT']]),
+  },
+  {
+    name: 'many weak signs (shortened, .xyz, rushing, company name) trigger more rules than one strong sign, but only get "check first"',
+    input: email({ name: 'Billing Team', address: 'billing.team@gmail.com', text: 'Act now.', links: [{ text: 'Amazon order', url: 'https://bit.ly/x' }, { text: 'Details', url: 'https://deals.xyz/' }] }),
+    expect: r => {
+      assert.deepStrictEqual([r.verdict, r.recommendedAction], ['warn', 'VERIFY_INDEPENDENTLY']);
+      assert.ok(r.reasons.length >= 4, `only ${r.reasons.length} reasons`);
+    },
+  },
+  {
+    name: '...while ONE strong sign (company website written in front) stops the click',
+    input: link('https://paypal.com.secure-login.example/', 'Open'),
+    expect: r => {
+      assert.deepStrictEqual([r.verdict, r.recommendedAction], ['warn', 'GO_BACK']);
+      assert.strictEqual(r.reasons.length, 1);
+    },
+  },
+  {
+    name: 'a look-alike address alone: check first; with a hidden destination too: stop',
+    input: link('https://paypa1-secure.example/', 'Open'),
+    expect: r => {
+      assert.strictEqual(r.recommendedAction, 'VERIFY_INDEPENDENTLY');
+      const both = analyze(link('https://paypa1-secure.example/', 'www.paypal.com'));
+      assert.strictEqual(both.recommendedAction, 'GO_BACK');
+    },
+  },
+  {
+    name: 'scary words on the company\'s real website: no warning signs',
+    input: page({ url: 'https://www.chase.com/alerts', title: 'Chase alerts', text: 'Your card is blocked. Call 1-800-555-0100 now. Act fast.' }),
+    expect: r => assert.strictEqual(r.verdict, 'no_warning_signs'),
+  },
+  {
+    name: 'fake sign-in page + sends password elsewhere + look-alike address: do not enter info',
+    input: page({ url: 'https://paypal-verify.example/', title: 'PayPal: Log in', forms: [passwordForm('https://collect.example/p')] }),
+    expect: r => {
+      assert.deepStrictEqual([r.verdict, r.recommendedAction], ['warn', 'DO_NOT_ENTER_INFO']);
+      for (const c of ['FAKE_SIGN_IN_PAGE', 'CREDENTIALS_SENT_ELSEWHERE', 'LOOKALIKE_DOMAIN']) assert.ok(codes(r).includes(c), `missing ${c}`);
+    },
+  },
+  {
+    name: 'a page that warns ABOUT prize scams, on an unfamiliar website: no warning signs',
+    input: page({ url: 'https://seniors-news.example/', title: 'Prize scams', text: 'Scammers say "you have won, pay a fee to claim your prize." Report scams to the police.' }),
+    expect: r => assert.strictEqual(r.verdict, 'no_warning_signs'),
+  },
+  {
+    name: '...but the same words on a website pretending to be Amazon still get a warning',
+    input: page({ url: 'https://amazon-rewards.example/', title: 'Prize scams', text: 'Scammers say "you have won, pay a fee to claim your prize." Report scams to the police.' }),
+    expect: r => assert.strictEqual(r.verdict, 'warn'),
+  },
+  {
+    name: 'sender pretends to be PayPal (moderate) alone: check first; plus "urgent": stop',
+    input: email({ name: 'PayPal', address: 'alerts@mail.example', text: 'Hello.' }),
+    expect: r => {
+      assert.strictEqual(r.recommendedAction, 'VERIFY_INDEPENDENTLY');
+      assert.strictEqual(analyze(email({ name: 'PayPal', address: 'alerts@mail.example', text: 'Urgent: reply today.' })).recommendedAction, 'GO_BACK');
+    },
+  },
+  {
+    name: 'a scam pop-up added at the END of a long page is still read',
+    input: page({ url: 'https://recipes.example/soup', title: 'Soup', text: 'Simmer the soup. '.repeat(1000) + 'Virus detected! Your computer is infected. Call (800) 555-0142. Do not close this page.' }),
+    expect: r => assert.deepStrictEqual([r.verdict, r.recommendedAction], ['warn', 'GO_BACK']),
+  },
+  {
+    name: 'a card-number form named "hasPayment" (the other branch\'s scanner) counts like "hasPaymentField"',
+    input: page({ url: 'https://shop.netlify.app/pay', title: 'Checkout', forms: [{ action: 'https://shop.netlify.app/pay', hasPassword: false, hasPayment: true }] }),
+    expect: r => assert.ok(codes(r).includes('SIGN_IN_ON_FREE_HOSTING')),
+  },
+];
+
+// ---------- the same evidence through every adapter gives the same words ----------
+// An adapter is anything that collects evidence: page.js, the other branch's
+// page scanner, the click guard, the Gmail reader.
+const ADAPTER_PAGE = { url: 'https://paypal-verify.example/', title: 'PayPal: Log in', headings: 'PayPal', text: 'Enter your password. You have won! Act now.', hasPassword: true, formActions: ['https://collect.example/p'] };
+const viaContract = analyze(page({ url: ADAPTER_PAGE.url, title: ADAPTER_PAGE.title, headings: [ADAPTER_PAGE.headings], text: ADAPTER_PAGE.text, forms: [passwordForm('https://collect.example/p')] }));
+// The other branch's scanner: hasPayment, method, fieldCount, scan/truncated, no mainHeadings.
+const viaOtherScanner = analyze({
+  source: 'webpage', pageUrl: ADAPTER_PAGE.url, pageTitle: ADAPTER_PAGE.title, visibleText: `${ADAPTER_PAGE.headings} ${ADAPTER_PAGE.text}`, links: [],
+  forms: [{ action: 'https://collect.example/p', method: 'post', fieldCount: 2, hasPassword: true, hasPayment: false }],
+  context: { scan: 'initial', truncated: { text: false, links: false } },
+});
+const viaLegacyPage = analyzePage(ADAPTER_PAGE);
+const SHARED_LINK = { text: 'www.chase.com', url: 'https://chase-secure.example/verify' };
+const linkViaClick = analyze(link(SHARED_LINK.url, SHARED_LINK.text));
+const linkViaEmail = analyze(email({ links: [SHARED_LINK] }));
+const linkViaLegacyGuard = analyzeLink({ text: SHARED_LINK.text, href: SHARED_LINK.url }, { pageUrl: PAGE_URL });
+const explanationOf = (r, code) => (r.reasons.find(x => x.code === code) || {}).explanation;
+const ADAPTER_TESTS = [
+  ['page: contract input, the other branch\'s scanner, and old page.js give the same verdict', () => {
+    assert.deepStrictEqual([viaOtherScanner.verdict, viaOtherScanner.recommendedAction], [viaContract.verdict, viaContract.recommendedAction]);
+    assert.strictEqual(viaLegacyPage.action, 'warn');
+  }],
+  ['page: same reasons, same words, same order', () => {
+    assert.deepStrictEqual(viaOtherScanner.reasons, viaContract.reasons);
+    assert.deepStrictEqual(viaLegacyPage.reasons, viaContract.reasons.map(r => r.explanation));
+  }],
+  ['link: clicked, inside an email, and old guard.js explain each shared sign the same way', () => {
+    for (const code of ['HIDDEN_DESTINATION', 'LOOKALIKE_DOMAIN']) {
+      assert.ok(explanationOf(linkViaClick, code), `click missing ${code}`);
+      assert.strictEqual(explanationOf(linkViaEmail, code), explanationOf(linkViaClick, code));
+      assert.ok(linkViaLegacyGuard.reasons.includes(explanationOf(linkViaClick, code)));
+    }
+  }],
+  ['every reason code has ONE title, whatever found it', () => {
+    const titles = {};
+    const all = [viaContract, viaOtherScanner, linkViaClick, linkViaEmail, ...COMBINED_TESTS.map(t => analyze(t.input))];
+    for (const r of all) for (const x of r.reasons) {
+      titles[x.code] = titles[x.code] || x.title;
+      assert.strictEqual(x.title, titles[x.code], `${x.code} has two titles`);
+    }
+  }],
+  ['the same input always gives the same result', () => {
+    for (const t of COMBINED_TESTS) assert.deepStrictEqual(analyze(t.input), analyze(t.input));
+  }],
+];
+
+// ---------- remote lookups ----------
+const TRUSTED = { name: 'test service', trusted: true };
+const UNTRUSTED = { name: 'unchecked feed', trusted: false };
+const plainLink = link('https://garden-store.example/sale', 'Shop the sale');
+const suspiciousLink = link('https://bit.ly/abc', 'Open');
+const LOOKUP_TESTS = [
+  ['a clean link: open now, a lookup may run alongside', () => assert.strictEqual(whenToLookUp(analyze(plainLink)), 'optional')],
+  ['a link with warning signs: hold the click until the lookup answers', () => assert.strictEqual(whenToLookUp(analyze(suspiciousLink)), 'before_opening')],
+  ['a link we already stop: no need to wait for a lookup', () => assert.strictEqual(whenToLookUp(analyze(link('https://paypal.com.x.example/'))), 'not_needed')],
+  ['a blocked link: no need to wait', () => assert.strictEqual(whenToLookUp(analyze(link('https://known-phish.example/'))), 'not_needed')],
+  ['lookup match from a trusted service: block', () =>
+    assert.strictEqual(analyze(plainLink, { lookup: { status: 'match', url: 'https://garden-store.example/sale', source: TRUSTED } }).verdict, 'block')],
+  ['lookup match from an untrusted feed: stop, but no block', () =>
+    assert.deepStrictEqual(Object.values((({ verdict, recommendedAction }) => ({ verdict, recommendedAction }))(analyze(plainLink, { lookup: { status: 'match', url: 'https://garden-store.example/sale', source: UNTRUSTED } }))), ['warn', 'GO_BACK'])],
+  ['"not on the list" never removes warning signs found here', () =>
+    assert.deepStrictEqual(analyze(suspiciousLink, { lookup: { status: 'no_match', url: 'https://bit.ly/abc', source: TRUSTED } }), analyze(suspiciousLink))],
+  ['a failed lookup changes nothing (the click stays held by the browser side)', () =>
+    assert.deepStrictEqual(analyze(suspiciousLink, { lookup: { status: 'failed' } }), analyze(suspiciousLink))],
+  ['lookup results follow the contract', () =>
+    assert.deepStrictEqual(validateResult(analyze(plainLink, { lookup: { status: 'match', url: 'https://garden-store.example/sale', source: TRUSTED } })), [])],
+];
+
 // ---------- the shared fixtures (tests/fixtures/inputs) ----------
 const FIXTURE_EXPECTED = {
   'email-fake-paypal.json': ['warn', 'GO_BACK'],
@@ -549,6 +708,21 @@ for (const [name, findings, source, expected, opts] of POLICY_TESTS) {
     assert.deepStrictEqual([d.verdict, d.recommendedAction], expected);
   });
 }
+
+console.log('\n--- several rules at once ---');
+for (const t of COMBINED_TESTS) {
+  check(`[combined] ${t.name}`, () => {
+    const r = analyze(t.input);
+    assert.deepStrictEqual(validateResult(r), [], 'result breaks the contract');
+    t.expect(r);
+  });
+}
+
+console.log('\n--- same evidence, every adapter ---');
+for (const [name, fn] of ADAPTER_TESTS) check(`[adapter] ${name}`, fn);
+
+console.log('\n--- remote lookups ---');
+for (const [name, fn] of LOOKUP_TESTS) check(`[lookup] ${name}`, fn);
 
 console.log('\n--- every rule has tests, words, points, and a place in the contract ---');
 const contractTiers = Object.fromEntries([...fs.readFileSync(path.join(__dirname, '..', 'docs', 'interfaces.md'), 'utf8')
