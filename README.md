@@ -45,7 +45,8 @@ Still true: it runs on your computer, and every warning comes from a readable ru
 
 1. Load the extension (steps 1–3 of Option B below), then run `python3 -m http.server 8000` inside `tests/pages`.
 2. Open `http://localhost:8000/fake-login.html`, `prize-ad.html`, `dangerous-link.html`, and `legit-shop.html`. The first two should warn; the shop should not.
-3. On `dangerous-link.html`, click the links. `known-phish.example` is on the built-in blocklist and shows the blocked page.
+3. On `dangerous-link.html` and `click-guard.html`, click the links. The suspicious ones do not open and show a warning; `known-phish.example` is on the built-in blocklist and has no continue button; the ordinary ones open normally.
+4. To see saved false-alarm reports: `chrome://extensions` > Email Anti-Scam > service worker > Console, then `chrome.storage.local.get('falseAlarms')`.
 
 ### Option B: in real Gmail
 
@@ -77,15 +78,17 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `extension/content.js` | Reads the open email in Gmail and builds the panel |
 | `extension/content/page-scanner.js` | Collects evidence from webpages (text, links, form metadata), including content added later. Never reads typed values |
 | `extension/page.js` | Connects the scanner, the analyzer, and the warning card on ordinary webpages |
-| `extension/guard.js` | Stops a risky link click before the browser navigates |
+| `extension/content/click-guard.js` | Stops a risky link click before the browser navigates (limits: `docs/click-guard-limits.md`) |
+| `extension/ui/warning.html`, `warning.js` | The extension-owned warning page (can't be removed by a website) |
+| `extension/ui/explain.js`, `warning-view.js` | One place for the warning's words and layout: headline, top reasons, safe action, read aloud, false-alarm report |
 | `extension/rules.js` | The email, link, and wording checks and the scoring |
 | `extension/analyzer.js` | Webpage and link checks; returns block / warn / allow with reasons |
 | `extension/threats.js` | Built-in list of known dangerous websites (demo `.example` addresses) |
 | `extension/service-worker.js` | Blocks known dangerous websites before they load |
-| `extension/blocked.html`, `blocked.js` | The screen shown for a blocked website |
-| `extension/panel.js`, `panel-styles.js` | The big-text warning card and its look, plus read-aloud |
+| `extension/panel.js`, `panel-styles.js` | The in-page warning card and its look |
 | `tests/rules.test.js` | Automatic tests for the email checks |
 | `tests/scanner-merge.test.js`, `tests/browser/scanner.test.js` | Tests for the webpage scanner (the browser test needs Playwright) |
+| `tests/explain.test.js`, `tests/browser/click-guard.test.js` | Tests for the warning wording and for stopping clicks in a real browser |
 | `tests/analyzer.test.js` | Automatic tests for webpage and link checks; prints caught-vs-false-alarm counts |
 | `tests/pages/` | Practice webpages for trying the extension |
 | `tests/fake-gmail.html` | Practice page that imitates Gmail |
@@ -98,7 +101,9 @@ If you have [Node.js](https://nodejs.org) installed, run this from the project f
 node tests/rules.test.js
 node tests/analyzer.test.js
 node tests/scanner-merge.test.js
-node tests/browser/scanner.test.js   # needs Playwright: npm i playwright
+node tests/explain.test.js
+node tests/browser/scanner.test.js       # browser tests need Playwright: npm i playwright
+node tests/browser/click-guard.test.js
 ```
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
@@ -134,7 +139,7 @@ Node is only needed for running tests. The extension itself is plain JavaScript 
 
 ## Privacy
 
-Version 0.2 sends nothing anywhere: every check happens inside your own browser. To check webpages and links on any site, it asks Chrome for permission to read all websites (plus the network-rules permission used for blocking). It reads page text, links, and forms only to run its checks, and saves nothing. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
+Version 0.2 sends nothing anywhere: every check happens inside your own browser. To check webpages and links on any site, it asks Chrome for permission to read all websites, a network-rules permission used for blocking, and local storage. Storage holds only false-alarm reports you choose to send during testing (the website's name, the verdict, the reasons shown, and the time; the last 100), and they never leave your browser. It reads page text, links, and forms only to run its checks, and saves nothing. When AI and Safe Browsing are added, only the email's text and links will be sent, only for the email you have open, and nothing will be saved.
 
 ## Working together
 

@@ -10,9 +10,19 @@ Short and shared. Add an item instead of editing the other person's code. Tick i
 - [ ] **A:** `analyzer.js` input uses `url` / `title` / `links[].href`; contract uses `pageUrl` / `pageTitle` / `links[].url`, plus `source` and `context`. (The scanner already emits the contract shape.)
 - [ ] **A:** Add `tests/fixtures/inputs/` and `tests/fixtures/results/` per the interfaces doc.
 - [ ] **A:** Accept the scanner's evidence directly, then **B** deletes `toAnalyzerInput()` in `page.js` (temporary adapter).
-- [ ] **B:** `panel.js` and `guard.js` read the old result shape; switch to the contract and render by `code`, falling back to `title` / `explanation`.
-- [ ] **B:** `guard.js` currently branches on `result.verdict === 'allow'`.
+- [ ] **B:** `click-guard.js` and `page.js` still branch on the old verdict `allow`. `ui/explain.js` already accepts both shapes; remove its "TEMPORARY" normalization once the analyzer returns the contract.
+- [ ] **B:** Map reason `code`s to any custom wording or icons (everything falls back to `title` / `explanation` today).
 - [ ] **B:** `content.js` (Gmail) still calls `analyzeEmail()` directly and does its own level mapping; route it through the shared analyzer as an email adapter.
+
+## Done (Phases 2 and 3, Person B)
+
+- [x] `extension/content/click-guard.js` and the extension-owned `extension/ui/warning.html`; limits in `docs/click-guard-limits.md`.
+- [x] Shared interface (`ui/explain.js`, `ui/warning-view.js`): large headline with icon and word, top 3 reasons plus "show more", Go back to safety, read aloud, false-alarm report (`chrome.storage.local`), Continue only for `warn`, keyboard focus, labels, high contrast.
+- [x] Tests: `tests/explain.test.js`, `tests/browser/click-guard.test.js`.
+- [ ] **B:** Gmail's panel (`content.js`) does not use the shared interface yet (Phase 5 email adapter).
+- [ ] **B:** Screen-reader behavior is checked through ARIA attributes only; try a real screen reader.
+- [ ] **B:** Read-aloud can't be verified in headless tests; check it by hand.
+- [ ] **B:** Add a way to view and export saved false-alarm reports (settings page, Phase 7).
 
 ## Done (Phase 1, Person B)
 
@@ -23,10 +33,11 @@ Short and shared. Add an item instead of editing the other person's code. Tick i
 ## Permissions and privacy
 
 - [ ] **B:** `<all_urls>` host access: confirm each use is needed and write the justification for the Web Store listing.
+- [ ] **B:** New `storage` permission is used only for false-alarm reports (host, verdict, up to 5 reason sentences, source, time; last 100 kept; never leaves the browser). Disclose in the listing.
 - [ ] **Both:** README Privacy section matches what is actually sent anywhere (nothing, until a threat provider is added).
 
 ## Testing
 
-- [ ] **B:** Browser test that a suspicious click is stopped before navigation (the smoke test used in development is not yet committed).
-- [ ] **B:** Check unusual click paths: new tab, keyboard, scripted navigation.
+- [x] **B:** Browser test that a suspicious click is stopped before navigation.
+- [x] **B:** Unusual click paths: new tab, keyboard, modified clicks, SVG, shadow DOM. Scripted navigation is a documented limit.
 - [ ] **Both:** Measure scams caught and safe pages wrongly flagged on a larger example set.

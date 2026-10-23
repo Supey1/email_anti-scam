@@ -1,25 +1,67 @@
 {
   "manifest_version": 3,
   "name": "Email Anti-Scam",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Protects older adults from scam emails, fake websites, and risky links with a big, plain-language warning.",
-  "permissions": ["declarativeNetRequest"],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "service-worker.js" },
+  "permissions": [
+    "declarativeNetRequest",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://mail.google.com/*"],
-      "js": ["rules.js", "threats.js", "analyzer.js", "panel-styles.js", "panel.js", "content.js", "guard.js"],
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "rules.js",
+        "threats.js",
+        "analyzer.js",
+        "panel-styles.js",
+        "ui/explain.js",
+        "ui/warning-view.js",
+        "panel.js",
+        "content.js",
+        "content/click-guard.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "exclude_matches": ["https://mail.google.com/*"],
-      "js": ["rules.js", "threats.js", "analyzer.js", "panel-styles.js", "panel.js", "content/page-scanner.js", "page.js", "guard.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "exclude_matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "rules.js",
+        "threats.js",
+        "analyzer.js",
+        "panel-styles.js",
+        "ui/explain.js",
+        "ui/warning-view.js",
+        "panel.js",
+        "content/page-scanner.js",
+        "page.js",
+        "content/click-guard.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
-    { "resources": ["blocked.html", "blocked.js", "panel-styles.js"], "matches": ["<all_urls>"] }
+    {
+      "resources": [
+        "ui/warning.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
   ]
 }

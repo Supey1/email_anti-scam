@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Click guard practice</title></head>
+<body style="font-family:Arial;max-width:640px;margin:30px auto">
+  <h1>Click guard practice page</h1>
+  <!-- All addresses are made-up ".example" names that can never be real websites. -->
+  <h2>Should be stopped</h2>
+  <p><a id="bad" href="https://other-site.example/x">www.mybank.example/statement</a> words say one site, goes to another</p>
+  <p><a id="bad-blank" target="_blank" href="https://other-site.example/blank">www.mybank.example/blank</a></p>
+  <p><a id="known" href="https://known-phish.example/login">Open your statement</a> known dangerous site</p>
+  <p><a id="nested" href="https://other-site.example/nested"><span><b id="nested-inner">www.mybank.example/nested</b></span></a></p>
+  <p><a id="unusual" href="https://other-site.example/u" rel="noopener noreferrer" referrerpolicy="no-referrer" ping="https://ping.example/p">www.mybank.example/unusual</a></p>
+  <p><svg width="260" height="24"><a id="svg" href="https://other-site.example/svg"><text x="0" y="18">www.mybank.example/svg</text></a></svg></p>
+  <p><span id="shadow-host"></span></p>
+  <p><a id="onclick-pass" href="https://other-site.example/onclick" onclick="window.__sawClick = true">www.mybank.example/onclick</a> the page's own click handler also runs only if the link is allowed</p>
+
+  <h2>Should work normally</h2>
+  <p><a id="fine" href="https://recipes.example/soup">Read a soup recipe</a></p>
+  <p><a id="fine-blank" target="_blank" href="https://recipes.example/blank">Soup in a new tab</a></p>
+  <p><a id="fine-js" href="#" onclick="location.href='https://recipes.example/js'; return false">Soup via the page's own script</a></p>
+  <p><a id="same" href="/legit-shop.html">A page on this same site</a></p>
+  <p><a id="hash" href="#fine">Jump down the page</a></p>
+  <p><a id="mail" href="mailto:friend@mail.example">Email a friend</a></p>
+
+  <h2>Known limit (not caught)</h2>
+  <p><a id="bad-js" href="#" onclick="location.href='https://other-site.example/js'; return false">Open (the page's own script navigates)</a></p>
+
+  <script>
+    const root = document.getElementById('shadow-host').attachShadow({ mode: 'open' });
+    root.innerHTML = '<a id="shadow-link" href="https://other-site.example/shadow">www.mybank.example/shadow</a>';
+  </script>
+</body></html>

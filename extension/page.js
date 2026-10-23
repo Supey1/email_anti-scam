@@ -34,11 +34,13 @@
     dismissed.add(signature); // "Hide" keeps it hidden until something new is found
 
     EmailAntiScamPanel.showWarning({
-      verdict: result.verdict,
-      reasons: result.reasons,
-      advice: result.recommendedAction,
+      result,
       modal: false,
       onBack: leave,
+      onReport: () => chrome.runtime.sendMessage({
+        type: 'REPORT_FALSE_ALARM',
+        report: { host: location.hostname, verdict: result.verdict, reasons: result.reasons.slice(0, 5), source: 'page-scan' },
+      }).catch(() => {}),
     });
   }
 

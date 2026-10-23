@@ -87,12 +87,13 @@ button:hover, button:focus-visible { background: #e8eefc; outline: 3px solid #1a
 [hidden] { display: none !important; }
 `;
 
-// Extra styles for the warning card (shown when a link is clicked or a risky page is found).
+// Styles for the warning card (ui/warning-view.js): the extension's warning page and the in-page panel.
+// Severity is shown by an icon, a word, AND a colour, never by colour alone.
 const WARNING_CSS = `
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -100,23 +101,47 @@ const WARNING_CSS = `
   box-sizing: border-box;
 }
 .card {
-  width: 520px;
+  width: 560px;
   max-width: 100%;
   max-height: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
   background: #ffffff;
   color: #111111;
-  border: 3px solid #222222;
+  border: 4px solid #222222;
   border-radius: 14px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 20px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
-.card.corner { position: fixed; top: 72px; right: 16px; width: 400px; max-height: calc(100vh - 96px); }
-.card .verdict { margin: 14px; }
+.card.high { border-color: #b00020; border-style: solid; }
+.card.medium { border-color: #8a6d00; border-style: dashed; }
+.card.low { border-color: #1b7f3b; }
+.card.corner { position: fixed; top: 72px; right: 16px; width: 420px; max-height: calc(100vh - 96px); }
+.card .verdict { margin: 14px; align-items: center; }
+.card .verdict .label { font-size: 16px; letter-spacing: 0.08em; }
+.card .verdict h1 { margin: 0; font-size: 28px; line-height: 1.2; }
+.card h2 { font-size: 21px; margin: 12px 0 6px; }
+.card .section { padding: 4px 18px 8px; }
+.card ul { margin: 4px 0; padding-left: 26px; }
+.card li { margin: 8px 0; }
+.card details.more { margin: 8px 0; }
+.card summary { cursor: pointer; font-weight: bold; padding: 6px 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 18px 18px; }
-.actions .primary { background: #1a56db; color: #ffffff; border-color: #0f3a9e; font-size: 22px; }
-.actions .primary:hover, .actions .primary:focus-visible { background: #0f3a9e; }
+.actions .primary { background: #0b3d91; color: #ffffff; border-color: #062a66; font-size: 24px; padding: 12px 18px; }
+.actions .primary:hover { background: #062a66; }
+.actions .quiet { font-size: 17px; font-weight: normal; background: #f4f4f4; }
 .dest { word-break: break-all; font-weight: bold; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+button:focus-visible, summary:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
+@media (prefers-contrast: more) {
+  .card { border-width: 6px; }
+  .quiet { background: #ffffff; border-width: 3px; }
+}
+@media (forced-colors: active) {
+  .card, button { border: 3px solid CanvasText; }
+  button:focus-visible, summary:focus-visible { outline: 4px solid Highlight; }
+}
+@media (max-width: 480px) { .card.corner { left: 8px; right: 8px; width: auto; } }
 `;

@@ -19,7 +19,9 @@ How the two of us build this together without stepping on each other.
    node tests/rules.test.js
    node tests/analyzer.test.js
    node tests/scanner-merge.test.js
-   node tests/browser/scanner.test.js   # needs Playwright: npm i playwright
+   node tests/explain.test.js
+   node tests/browser/scanner.test.js       # browser tests need Playwright: npm i playwright
+   node tests/browser/click-guard.test.js
    ```
    Add browser-level checks for anything that changes click interception or the warning interface.
 7. **Keep a short shared checklist** of integration problems in `docs/integration-checklist.md` instead of making overlapping edits on the main branch.
