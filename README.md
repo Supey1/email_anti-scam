@@ -174,6 +174,10 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 
 If a threat-lookup service or AI is added later, this section must say exactly what is sent, to whom, and when, *before* that version ships. Don't promise that nothing leaves the browser once anything does. The Chrome Web Store also requires this disclosure, even for data that never leaves your computer.
 
+## Working together
+
+Two workstreams (detection engine and browser protection) share one analyzer interface. Read [`docs/WORKING_AGREEMENT.md`](docs/WORKING_AGREEMENT.md) for the rules and who owns which files, and [`docs/integration-checklist.md`](docs/integration-checklist.md) for open integration issues.
+
 ## Team
 
 | Name | Role |
