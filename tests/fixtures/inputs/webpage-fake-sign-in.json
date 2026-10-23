@@ -1,0 +1,11 @@
+{
+  "source": "webpage",
+  "pageUrl": "https://paypa1-login.example/signin",
+  "pageTitle": "Log in to your PayPal account",
+  "visibleText": "PayPal. We noticed unusual activity. Please confirm your identity. Email. Password. Log In.",
+  "links": [],
+  "forms": [
+    { "action": "https://collect.example/p.php", "hasPassword": true, "hasPaymentField": false }
+  ],
+  "context": { "mainHeadings": ["PayPal"] }
+}

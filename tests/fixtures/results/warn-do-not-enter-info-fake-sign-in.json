@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "verdict": "warn",
+  "reasons": [
+    {
+      "code": "FAKE_SIGN_IN_PAGE",
+      "title": "Fake sign-in page",
+      "explanation": "This page looks like a PayPal sign-in page, but it is on paypa1-login.example, not PayPal's real website."
+    },
+    {
+      "code": "LOOKALIKE_DOMAIN",
+      "title": "Fake company address",
+      "explanation": "This website's name pretends to be PayPal, but paypa1-login.example is not PayPal's real website."
+    },
+    {
+      "code": "CREDENTIALS_SENT_ELSEWHERE",
+      "title": "Password sent elsewhere",
+      "explanation": "What you type on this page would be sent to a different website (collect.example)."
+    }
+  ],
+  "recommendedAction": "DO_NOT_ENTER_INFO",
+  "evidence": [
+    { "kind": "domain", "value": "paypa1-login.example", "reasonCode": "LOOKALIKE_DOMAIN" },
+    { "kind": "form", "value": "https://collect.example/p.php", "reasonCode": "CREDENTIALS_SENT_ELSEWHERE" }
+  ]
+}

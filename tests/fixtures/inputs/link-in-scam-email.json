@@ -1,0 +1,15 @@
+{
+  "source": "link",
+  "pageUrl": "https://mail.google.com/mail/u/0/#inbox/FMfcgzExample",
+  "pageTitle": "Your account has been suspended - Gmail",
+  "visibleText": "",
+  "links": [
+    { "text": "Click here", "url": "https://plain-site.example/" }
+  ],
+  "forms": [],
+  "context": {
+    "nearbyText": "Click here",
+    "insideFrame": false,
+    "surroundingResult": { "verdict": "warn", "recommendedAction": "GO_BACK" }
+  }
+}

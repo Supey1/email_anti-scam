@@ -108,14 +108,21 @@ Every warning comes from a rule a person can read and understand, so the extensi
 | `tests/rules.test.js` | Automatic tests for the scam checks, with a caught / false-alarm count |
 | `tests/fake-gmail.html` | Practice page that imitates Gmail |
 | `tests/practice-*.html` | Practice pages for ads, a fake sign-in page, and a fake virus pop-up |
+| `tests/contract.js`, `contract.test.js` | Checks inputs and results against the interface contract |
+| `tests/fixtures/` | Fixed inputs and results, so each workstream can build without waiting for the other |
+| `docs/interfaces.md` | The contract between the scanner, the engine, and the warning interface |
+| `docs/WORKING_AGREEMENT.md`, `integration-checklist.md` | How the two workstreams work together, and open integration issues |
 
 ## Running the tests
 
 If you have [Node.js](https://nodejs.org) installed, run this from the project folder:
 
 ```
+node tests/contract.test.js
 node tests/rules.test.js
 ```
+
+`contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md). `rules.test.js` checks the scam rules.
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
 
@@ -176,7 +183,7 @@ If a threat-lookup service or AI is added later, this section must say exactly w
 
 ## Working together
 
-Two workstreams (detection engine and browser protection) share one analyzer interface. Read [`docs/WORKING_AGREEMENT.md`](docs/WORKING_AGREEMENT.md) for the rules and who owns which files, and [`docs/integration-checklist.md`](docs/integration-checklist.md) for open integration issues.
+Two workstreams (detection engine and browser protection) share one analyzer interface. Read [`docs/WORKING_AGREEMENT.md`](docs/WORKING_AGREEMENT.md) for the rules and who owns which files, [`docs/interfaces.md`](docs/interfaces.md) for the contract between them, and [`docs/integration-checklist.md`](docs/integration-checklist.md) for open integration issues.
 
 ## Team
 

@@ -1,0 +1,13 @@
+{
+  "source": "webpage",
+  "pageUrl": "https://library.example/login",
+  "pageTitle": "Library account sign in",
+  "visibleText": "Sign in to your library account. Card number. PIN. Hours: 9 to 5.",
+  "links": [
+    { "text": "Opening hours", "url": "https://library.example/hours" }
+  ],
+  "forms": [
+    { "action": "https://library.example/session", "hasPassword": true, "hasPaymentField": false }
+  ],
+  "context": { "mainHeadings": ["Sign in to your library account"] }
+}

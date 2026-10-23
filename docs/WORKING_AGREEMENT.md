@@ -25,6 +25,7 @@ The analyzer interface (below) belongs to both of us. Neither person changes it 
 
 5. **Every completed feature includes its relevant tests, and is merged only when those tests pass.** Today that means:
    ```
+   node tests/contract.test.js
    node tests/rules.test.js
    ```
    A feature that changes how clicks are stopped or how warnings appear also needs a browser test for that behavior.
@@ -36,34 +37,13 @@ The analyzer interface (below) belongs to both of us. Neither person changes it 
    - Any pull request that sends new data out of the browser (a threat lookup, AI) updates the README's Privacy section in the same pull request.
    - The scanner may record that a password or card field exists. It never reads what someone typed into it.
 
-## The analyzer interface (current)
+## The analyzer interface
 
-Everything lives in `extension/rules.js`. The full comments are at the top of that file and above each function.
+The contract is [`interfaces.md`](interfaces.md): the input (evidence), the output (result), what each verdict means, the reason codes, and the exact message formats. Phase 0 is agreeing on it, together, before either of us builds on a feature branch. Confirm the "Decisions to confirm" list at the bottom of that file first.
 
-**In: evidence (collected by Person B)**
+After that:
+- Person A builds and tests the engine against the fixed inputs in `tests/fixtures/inputs/`.
+- Person B builds the interface and the browser behavior against the fixed results in `tests/fixtures/results/`.
+- Any change to the contract is a pull request that both of us review, with `interfaces.md`, the fixtures, and `tests/contract.js` updated together.
 
-| Function | Evidence |
-|---|---|
-| `analyzeEmail(email)` | `{ senderName, senderEmail, subject, bodyText, links: [{ text, href }] }` |
-| `analyzeLink(link, context)` | `link = { text, href }`, `context = { pageUrl, nearbyText, surroundingLevel }` |
-| `analyzePage(page)` | `{ url, title, headings, text, hasPassword, formActions }` |
-
-**Out: result (returned by Person A)**
-
-```js
-{
-  level: 'high' | 'medium' | 'low',
-  action: 'block' | 'warn' | 'allow',
-  confirmed: true | false,        // true only for a known dangerous website
-  score: 7,                       // internal; don't show it to users
-  reasons: ['plain sentence', ...],
-  evidence: [{ points, text, kind }],  // kind: 'known_threat' | 'destination' | 'sender' | 'wording' | 'page' | 'context'
-  // plus host / links / flags depending on the function
-}
-```
-
-Person B decides what to do from `action` and displays `reasons`. Person B never adds up points or matches scam words itself.
-
-**Not yet good enough for rule 2.** Reasons don't have a stable code yet, so Person B can't choose how a specific reason appears without matching on its sentence. Adding one is the first item in the integration checklist.
-
-**Changing the interface** takes a pull request that both of us review. Update this section in the same pull request.
+**The current code doesn't follow the contract yet.** It was written before Phase 0. Moving it over is listed in [`integration-checklist.md`](integration-checklist.md), split between A and B.
