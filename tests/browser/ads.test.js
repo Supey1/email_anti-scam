@@ -138,4 +138,28 @@ test('C4: an image-only ad has no text to judge; nothing is flagged and the link
   await page.close();
 });
 
+// An ad whose link goes through an ad network: the link itself is the only thing marked as an ad, so its words are
+// the box around it. Before the fix only "Reschedule now" reached the engine and the scam was not stopped.
+test('ad-network link: a scam ad is stopped by the words around the link, and the ad network is never requested', async env => {
+  const page = await env.context.newPage();
+  await page.goto(env.secure + 'ad-network-link.html');
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => document.getElementById('email-anti-scam-warning')?.remove());
+  await page.click('#scam-link');
+  await page.waitForURL(WARNING);
+  assert.ok(!env.reached('www.googleadservices.com'), 'the browser asked for the ad network');
+  await page.close();
+});
+
+test('ad-network link: an ordinary ad through the same kind of link opens normally', async env => {
+  const page = await env.context.newPage();
+  await page.goto(env.secure + 'ad-network-link.html');
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => document.getElementById('email-anti-scam-warning')?.remove());
+  await page.click('#fine-link');
+  await page.waitForURL(/doubleclick\.net\/click/, { timeout: 8000 });
+  assert.ok(!WARNING.test(page.url()));
+  await page.close();
+});
+
 (async () => { await run(tests, await launch()); })();
