@@ -1,48 +1,52 @@
-// service-worker.js: the extension's background helper. It has two jobs.
+// service-worker.js: the extension's background helper.
 //
-// 1. Block known dangerous websites (threat-list.js) at the browser level.
-//    Chrome checks these rules before a page loads, so they also catch typed
-//    addresses, redirects, and pop-ups that guard.js never sees. Instead of
-//    the dangerous page, the person sees blocked.html.
-// 2. Pass warnings from ads and other frames up to the main page, so the
-//    warning covers the whole screen (see guard.js).
+// It connects Chrome to background/messages.js, which does the actual work:
+//   - keeps Chrome's network-blocking rules in step with the known-threat list,
+//     so known dangerous websites are blocked before they load, however you get there
+//   - answers "is this address known to be dangerous?" (LOOKUP_URL)
+//   - opens the extension's own warning page
+//   - reads and changes the protection settings
+//   - passes warnings from ads and other frames up to the main page
+// Message formats: docs/interfaces.md ("Service worker messages").
+//
+// Chrome can stop this script whenever it's idle, so nothing important lives
+// only in memory: settings, threat updates, and warnings are in chrome.storage.
 
-importScripts('threat-list.js');
+importScripts(
+  'threat-list.js',
+  'core/url-normalizer.js',
+  'core/domain-rules.js',
+  'core/url-rules.js',
+  'background/threat-rules.js',
+  'background/threat-lookup.js',
+  'background/messages.js',
+);
 
-const BLOCK_PAGE = chrome.runtime.getURL('blocked.html');
+const storageArea = area => ({
+  get: key => area.get(key).then(items => items[key]),
+  set: items => area.set(items),
+});
 
-// Replaces our blocking rules with the current list.
-async function installBlockRules() {
-  const oldRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const rules = KNOWN_THREAT_DOMAINS.map((domain, i) => ({
-    id: i + 1,
-    priority: 1,
-    // The page you were trying to open -> our "this is dangerous" page.
-    action: { type: 'redirect', redirect: { url: `${BLOCK_PAGE}#${encodeURIComponent(domain)}` } },
-    condition: { requestDomains: [domain], resourceTypes: ['main_frame'] },
-  }));
-  if (KNOWN_THREAT_DOMAINS.length) {
-    // Inside a frame on another page (like an ad), just don't load it.
-    rules.push({
-      id: rules.length + 1,
-      priority: 1,
-      action: { type: 'block' },
-      condition: { requestDomains: KNOWN_THREAT_DOMAINS, resourceTypes: ['sub_frame'] },
-    });
-  }
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: oldRules.map(rule => rule.id),
-    addRules: rules,
-  });
-}
+const background = GranblockBackground.createBackground({
+  storage: storageArea(chrome.storage.local),
+  session: storageArea(chrome.storage.session),
+  dnr: chrome.declarativeNetRequest,
+  tabs: chrome.tabs,
+  bundled: () => [
+    ...KNOWN_THREAT_DOMAINS.map(value => ({ type: 'domain', value, source: KNOWN_THREAT_SOURCE.name, trusted: KNOWN_THREAT_SOURCE.trusted })),
+    ...KNOWN_THREAT_URLS.map(value => ({ type: 'url', value, source: KNOWN_THREAT_SOURCE.name, trusted: KNOWN_THREAT_SOURCE.trusted })),
+  ],
+  blockPage: chrome.runtime.getURL('blocked.html'),
+  extensionOrigin: chrome.runtime.getURL(''),
+  newToken: () => crypto.randomUUID(),
+});
+// For the browser tests (tests/browser/acceptance.test.js).
+GranblockBackground.instance = background;
 
-chrome.runtime.onInstalled.addListener(installBlockRules);
-chrome.runtime.onStartup.addListener(installBlockRules);
+chrome.runtime.onInstalled.addListener(() => background.refreshRules());
+chrome.runtime.onStartup.addListener(() => background.refreshRules());
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.type !== 'granblock-warning' || !sender.tab || sender.frameId === 0) return;
-  chrome.tabs.sendMessage(sender.tab.id, message, { frameId: 0 })
-    .then(reply => sendResponse(reply))
-    .catch(() => sendResponse({ shown: false })); // e.g. the main page is one we can't run on
+  background.handleMessage(message, sender).then(sendResponse);
   return true; // we'll answer later
 });

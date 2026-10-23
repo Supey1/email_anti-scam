@@ -153,6 +153,13 @@
     return labels[labels.length - 1];
   }
 
+  // Is this a website ENDING shared by many owners ("com", "co.uk", "github.io"),
+  // rather than one owner's website?
+  function isPublicSuffix(hostname) {
+    const host = (hostname || '').toLowerCase().replace(/\.+$/, '');
+    return !host.includes('.') || MULTI_PART_ENDINGS.has(host);
+  }
+
   // The part of an address one owner controls:
   //   "login.secure.paypal.com"         -> "paypal.com"
   //   "news.bbc.co.uk"                  -> "bbc.co.uk"
@@ -261,7 +268,7 @@
   }
 
   core.urlNormalizer = {
-    parseUrl, normalizeUrl, unwrapRedirect, embeddedUrls, isFreeHosting, publicSuffix, registrableDomain, isSameOrSubdomain, sameSite,
+    parseUrl, normalizeUrl, unwrapRedirect, embeddedUrls, isFreeHosting, publicSuffix, isPublicSuffix, registrableDomain, isSameOrSubdomain, sameSite,
     findDomainInText, punycodeDecode, toUnicodeHost, toLookalikeAscii,
   };
   if (typeof module !== 'undefined') module.exports = core.urlNormalizer;

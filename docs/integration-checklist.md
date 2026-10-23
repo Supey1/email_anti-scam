@@ -33,8 +33,8 @@ The code was written before the contract. Today `rules.js` takes three different
 
 ## Phase 2: known threats (A changed `threat-list.js`; B's blocking needs to follow)
 
-- [ ] **B:** `threat-list.js` now has `KNOWN_THREAT_URLS` (single dangerous addresses on otherwise-normal websites). The engine already stops clicks on them, but `service-worker.js` only blocks `KNOWN_THREAT_DOMAINS` in Chrome, so a typed or redirected visit to a listed address isn't blocked yet. Add browser rules for these too, matching the address and everything below it, nothing else on the website.
-- [ ] **B:** `threat-list.js` now has `KNOWN_THREAT_SOURCE.trusted`. The engine only says `block` for a trusted source (otherwise a strong warning the person can go past). `service-worker.js` should only install hard-block rules when the source is trusted.
+- [x] **A (Phase 5):** Chrome rules for `KNOWN_THREAT_URLS`: that address and everything below it, nothing else on the website.
+- [x] **A (Phase 5):** only trusted entries become Chrome hard blocks.
 - [ ] **B:** `page.js` should send `hasPaymentField` for card-number boxes, so payment pages get the same checks as sign-in pages (free hosting, sent elsewhere, sent without encryption).
 
 ## Phase 3: connecting the branches
@@ -47,6 +47,14 @@ The code was written before the contract. Today `rules.js` takes three different
   - `visibleText` length: the scanner sends up to 40,000 characters. The contract now allows 50,000.
 - [ ] **B (this branch):** `page.js` reads only the first 5,000 characters of a page, so a scam pop-up added to the end of a LONG page is missed. The engine reads up to 50,000. Shown as a KNOWN ISSUE by `tests/browser/acceptance.test.js`; turn it into a normal test once fixed. (The other branch's scanner doesn't have this problem.)
 - [ ] **B:** When a remote lookup is added, follow "Remote lookups" in `docs/interfaces.md`: hold the click when `whenToLookUp()` says `before_opening`, show "Checking this link…", and never let a slow or failed lookup open the link by itself.
+
+## Phase 5: service worker and threat lookups (A built the service worker)
+
+- [ ] **B (please review):** to support the service worker, A touched B's files: `manifest.json` (added the `storage` permission and `threat-sync.js`), and `blocked.html` / `blocked.js` (they can now show any analyzer result from `OPEN_WARNING_PAGE`: title, reasons, and "Open it anyway" for a warning only). Restyle or replace with your warning page as you see fit; keep the `?t=` token flow.
+- [ ] **B:** `guard.js`: when `whenToLookUp(result)` says `before_opening` and remote lookups are on, hold the click, show "Checking this link…", send `LOOKUP_URL`, and pass the answer to `analyze(input, { lookup })`. On `error`, show the local warning and let the person choose: never open the link by itself, and never say it was "checked" or "safe".
+- [ ] **B:** consider `OPEN_WARNING_PAGE` for `block` results: a website can hide or fake an in-page warning, but not the extension's own page.
+- [ ] **B:** a settings page for `protectionEnabled`, the false-positive list, and (later) remote lookups, explaining in plain words what turning lookups on sends away. Only extension pages can send `SET_SETTINGS` and `UPDATE_THREAT_RULES`.
+- [ ] **Both:** choose the threat-intelligence provider and privacy model (`docs/threat-intelligence.md`) before adding one.
 
 ## Tests
 

@@ -34,37 +34,61 @@
   const SIGN_IN_TEXT = /\b(sign ?in|log ?in|log ?on|verify|confirm|unlock|update (your )?(account|payment|billing|card|details))\b/i;
   const SIGN_IN_PATH = /\/(login|log-in|signin|sign-in|logon|auth|verify|verification|account|billing|payment|checkout|wp-login\.php)(\/|\.|$)/i;
 
-  // The lists in threat-list.js. In Chrome they're already loaded; in tests we load them here.
-  function threatList() {
+  // The known-dangerous list, as entries: { type: 'domain' | 'url', value, source, trusted }.
+  // Normally the bundled threat-list.js. The service worker builds the ACTIVE
+  // list (bundled + updates, minus expired entries and removed false positives),
+  // and threat-sync.js hands it to useThreatEntries(), so the click guard and
+  // Chrome's own blocking always agree.
+  let activeEntries = null;
+
+  function bundledEntries() {
+    let list = null;
     if (typeof KNOWN_THREAT_DOMAINS !== 'undefined') {
-      return {
-        domains: KNOWN_THREAT_DOMAINS,
-        urls: typeof KNOWN_THREAT_URLS !== 'undefined' ? KNOWN_THREAT_URLS : [],
-        source: typeof KNOWN_THREAT_SOURCE !== 'undefined' ? KNOWN_THREAT_SOURCE : { name: 'unknown', trusted: false },
+      list = {
+        KNOWN_THREAT_DOMAINS,
+        KNOWN_THREAT_URLS: typeof KNOWN_THREAT_URLS !== 'undefined' ? KNOWN_THREAT_URLS : [],
+        KNOWN_THREAT_SOURCE: typeof KNOWN_THREAT_SOURCE !== 'undefined' ? KNOWN_THREAT_SOURCE : { name: 'unknown', trusted: false },
       };
+    } else if (typeof require !== 'undefined') {
+      list = require('../threat-list.js');
     }
-    if (typeof require !== 'undefined') {
-      const list = require('../threat-list.js');
-      return { domains: list.KNOWN_THREAT_DOMAINS, urls: list.KNOWN_THREAT_URLS || [], source: list.KNOWN_THREAT_SOURCE };
-    }
-    return { domains: [], urls: [], source: { name: 'none', trusted: false } };
+    if (!list) return [];
+    const { name, trusted } = list.KNOWN_THREAT_SOURCE;
+    return [
+      ...list.KNOWN_THREAT_DOMAINS.map(value => ({ type: 'domain', value, source: name, trusted })),
+      ...(list.KNOWN_THREAT_URLS || []).map(value => ({ type: 'url', value, source: name, trusted })),
+    ];
   }
 
-  // Is this address on the known-dangerous list? Returns null or { source, match }.
-  // Whole websites match exactly or below; single addresses match that address
-  // and below it (at a "/" boundary), compared after reading both the same way.
+  function threatEntries() {
+    return activeEntries || bundledEntries();
+  }
+
+  // Replaces the list (null goes back to the bundled one).
+  function useThreatEntries(entries) {
+    activeEntries = Array.isArray(entries) ? entries : null;
+  }
+
+  // Does this address match one entry? Whole websites match exactly or below;
+  // single addresses match that address and below it (at a "/" boundary),
+  // compared after reading both the same way.
+  function entryMatches(entry, parsed) {
+    if (entry.type === 'domain') return isSameOrSubdomain(parsed.hostname, entry.value);
+    const listed = parseUrl(entry.value);
+    if (!listed.ok || listed.hostname !== parsed.hostname) return false;
+    const base = listed.pathname.endsWith('/') ? listed.pathname : listed.pathname + '/';
+    return parsed.pathname === listed.pathname || parsed.pathname.startsWith(base);
+  }
+
+  // Is this address on the known-dangerous list? Returns null or
+  // { source: { name, trusted }, match }. A trusted entry wins over an untrusted one.
   function knownThreat(parsed) {
     if (!parsed.ok || !parsed.isWeb) return null;
-    const list = threatList();
-    const domain = list.domains.find(d => isSameOrSubdomain(parsed.hostname, d));
-    if (domain) return { source: list.source, match: domain };
-    for (const entry of list.urls) {
-      const listed = parseUrl(entry);
-      if (!listed.ok || listed.hostname !== parsed.hostname) continue;
-      const base = listed.pathname.endsWith('/') ? listed.pathname : listed.pathname + '/';
-      if (parsed.pathname === listed.pathname || parsed.pathname.startsWith(base)) return { source: list.source, match: entry };
-    }
-    return null;
+    const now = Date.now();
+    const matches = threatEntries().filter(e => !(e.expiresAt && e.expiresAt <= now) && entryMatches(e, parsed));
+    if (!matches.length) return null;
+    const best = matches.find(e => e.trusted) || matches[0];
+    return { source: { name: best.source, trusted: !!best.trusted }, match: best.value };
   }
 
   function isKnownThreat(hostname) {
@@ -182,6 +206,6 @@
     return findings;
   }
 
-  core.urlRules = { SHORTENERS, RISKY_ENDINGS, knownThreat, isKnownThreat, checkAddress, checkSignInLink, checkShownDestination, checkSecretForms };
+  core.urlRules = { SHORTENERS, RISKY_ENDINGS, bundledEntries, useThreatEntries, entryMatches, knownThreat, isKnownThreat, checkAddress, checkSignInLink, checkShownDestination, checkSecretForms };
   if (typeof module !== 'undefined') module.exports = core.urlRules;
 })();

@@ -2,7 +2,7 @@
 // Run with:  node tests/browser/acceptance.test.js
 // Needs Playwright (npm i playwright) and its Chromium (npx playwright install chromium).
 //
-// Phase 3 and 4 acceptance. Checks, end to end, that:
+// Phase 3, 4, and 5 acceptance. Checks, end to end, that:
 //   1. a local fake webpage is analyzed automatically, and opening it shows the expected state
 //   2. clicking a suspicious link gets the right intervention, and the browser NEVER asks
 //      for the suspicious address (not just "a warning appeared")
@@ -11,6 +11,12 @@
 //   4. the same engine handles a generic webpage, an ad (including one through an ad
 //      network), and a Gmail message. Gmail: this test answers mail.google.com with a local
 //      pretend inbox, so the extension's real Gmail code runs without touching real email.
+//   5. Chrome's own network rules block known dangerous test addresses, and DON'T block
+//      normal addresses that look like them; updates, false positives, and lookup errors
+//      behave as described in docs/threat-intelligence.md.
+//
+// Every test address is answered by this test, so an address that "loads" is one Chrome
+// let through; Chrome's blocking acts before that, so a blocked one never reaches it.
 //
 // Pages are in tests/browser/acceptance-pages/. Every ".example" address is answered by
 // this test with a tiny page, so nothing touches the internet.
@@ -62,17 +68,18 @@ async function launch() {
   });
   // Real company websites the tests click through to: answered here, never fetched.
   await context.route(/^https:\/\/((www\.)?googleadservices\.com|([^/]+\.)?usps\.com)\//, route => route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' }));
-  await context.route(/^https?:\/\/[^/]+\.example\//, route => {
-    // Known dangerous addresses are left to the extension's own blocking.
-    if (/known-phish|fake-bank-login/.test(route.request().url())) return route.fallback();
-    return route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' });
-  });
+  await context.route(/^https?:\/\/[^/]+\.example\//, route =>
+    route.fulfill({ contentType: 'text/html', body: '<title>Destination</title><h1>Destination reached</h1>' }));
   // Wait for the extension's background script, so its blocking rules are in place.
-  if (!context.serviceWorkers().length) await context.waitForEvent('serviceworker');
+  const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
   await new Promise(r => setTimeout(r, 500));
   const reached = host => requests.some(u => { try { return new URL(u).hostname === host; } catch (e) { return false; } });
   const close = async () => { await context.close(); server.close(); fs.rmSync(profile, { recursive: true, force: true }); };
-  return { context, base, reached, close };
+  // Sends a message straight to the service worker, as the extension's own settings page would.
+  const extensionOrigin = worker.url().replace(/service-worker\.js$/, '');
+  const toWorker = (message, sender = { url: `${extensionOrigin}settings.html` }) =>
+    worker.evaluate(([m, s]) => GranblockBackground.instance.handleMessage(m, s), [{ schemaVersion: 1, ...message }, sender]);
+  return { context, base, reached, close, worker, toWorker };
 }
 
 // What the extension's warning shows, or null if there's no warning.
@@ -274,6 +281,105 @@ test('scam ad whose link goes through an ad network: stopped by its wording, ad 
   assert.ok(warning, 'no warning on the main page');
   assert.ok(warning.reasons.some(r => /redelivery|package/i.test(r)), warning.reasons.join(' | '));
   assert.ok(!reached('www.googleadservices.com'));
+  await page.close();
+});
+
+// ---------- Phase 5: browser-level blocking and threat lookups ----------
+
+const BLOCKED = /^chrome-extension:\/\/[^/]+\/blocked\.html/;
+// Types an address and reports where the tab ended up: 'blocked' or 'loaded'.
+async function typeAddress(context, url) {
+  const page = await context.newPage();
+  await page.goto(url).catch(() => {});
+  await page.waitForTimeout(200);
+  const where = BLOCKED.test(page.url()) ? 'blocked' : page.url() === url ? 'loaded' : `other: ${page.url()}`;
+  await page.close();
+  return where;
+}
+
+test('Chrome blocks the synthetic known-dangerous addresses: whole websites and a single address', async ({ context }) => {
+  for (const url of ['https://known-phish.example/', 'https://login.known-phish.example/x', 'http://fake-bank-login.example/a',
+    'https://hacked-blog.example/wp-content/uploads/secure/login.html']) {
+    assert.strictEqual(await typeAddress(context, url), 'blocked', url);
+  }
+});
+
+test('Chrome does NOT block normal addresses that look like listed ones', async ({ context }) => {
+  for (const url of ['https://known-phish-news.example/', 'https://known-phish.example.other.example/', 'https://notknown-phish.example/',
+    'https://hacked-blog.example/2024/recipes', 'https://hacked-blog.example/wp-content/uploads/secure-ish/page', 'https://other-news.example/lottery']) {
+    assert.strictEqual(await typeAddress(context, url), 'loaded', url);
+  }
+});
+
+test('an entry added later is blocked by Chrome AND by the click guard; marking it a false positive undoes both', async ({ context, base, toWorker }) => {
+  const added = await toWorker({ type: 'UPDATE_THREAT_RULES', add: [{ type: 'domain', value: 'added-later.example', source: 'test', trusted: true }] });
+  assert.strictEqual(added.type, 'THREAT_RULES_UPDATED');
+  assert.strictEqual(await typeAddress(context, 'https://added-later.example/'), 'blocked');
+
+  const clickIt = async () => {
+    const page = await context.newPage();
+    await page.goto(base + 'normal.html');
+    await settle(page);
+    await page.evaluate(() => {
+      const a = Object.assign(document.createElement('a'), { id: 'late', href: 'https://added-later.example/', textContent: 'Open' });
+      document.body.append(a);
+    });
+    await page.click('#late');
+    await settle(page, 300);
+    const warning = await readWarning(page).catch(() => null);
+    await page.close();
+    return warning;
+  };
+  const before = await clickIt();
+  assert.ok(before && /known to be dangerous/.test(before.title), 'the click guard does not know the new entry');
+
+  await toWorker({ type: 'UPDATE_THREAT_RULES', falsePositives: ['added-later.example'] });
+  assert.strictEqual(await typeAddress(context, 'https://added-later.example/'), 'loaded');
+  assert.strictEqual(await clickIt(), null, 'the click guard still blocks a removed false positive');
+  assert.strictEqual(await typeAddress(context, 'https://known-phish.example/'), 'blocked', 'other entries must stay');
+});
+
+test('an entry from an untrusted source is never hard-blocked by Chrome', async ({ context, toWorker }) => {
+  await toWorker({ type: 'UPDATE_THREAT_RULES', add: [{ type: 'domain', value: 'maybe-bad.example', source: 'unchecked feed', trusted: false }] });
+  assert.strictEqual(await typeAddress(context, 'https://maybe-bad.example/'), 'loaded');
+  const lookup = await toWorker({ type: 'LOOKUP_URL', url: 'https://maybe-bad.example/' }, {});
+  assert.deepStrictEqual([lookup.status, lookup.source.trusted], ['match', false]);
+});
+
+test('lookup answers: match, no_match (never "safe"), and error when the service fails or is too slow', async ({ toWorker }) => {
+  const page = { url: 'https://news.example/' }; // a content script, not the extension
+  assert.strictEqual((await toWorker({ type: 'LOOKUP_URL', url: 'https://known-phish.example/' }, page)).status, 'match');
+  const none = await toWorker({ type: 'LOOKUP_URL', url: 'https://other-news.example/' }, page);
+  assert.strictEqual(none.status, 'no_match');
+  assert.ok(!/safe/i.test(JSON.stringify(none)));
+  await toWorker({ type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'mock', providerOptions: { fail: true } } });
+  const failed = await toWorker({ type: 'LOOKUP_URL', url: 'https://other-news.example/x' }, page);
+  assert.deepStrictEqual([failed.status, /could not be reached/.test(failed.reason)], ['error', true]);
+  await toWorker({ type: 'SET_SETTINGS', settings: { providerOptions: { delayMs: 800 }, lookupTimeoutMs: 150 } });
+  const slow = await toWorker({ type: 'LOOKUP_URL', url: 'https://other-news.example/y' }, page);
+  assert.deepStrictEqual([slow.status, /no answer within 150 ms/.test(slow.reason)], ['error', true]);
+  const refused = await toWorker({ type: 'SET_SETTINGS', settings: { protectionEnabled: false } }, page);
+  assert.strictEqual(refused.type, 'ERROR', 'a website changed the settings');
+  await toWorker({ type: 'SET_SETTINGS', settings: { remoteLookups: false, provider: 'none', providerOptions: {}, lookupTimeoutMs: 1500 } });
+});
+
+test('the extension\'s own warning page shows an analyzer result, with "open anyway" only for a warning', async ({ context, base, toWorker }) => {
+  const page = await context.newPage();
+  await page.goto(base + 'normal.html');
+  const tab = await context.serviceWorkers()[0].evaluate(async url => (await chrome.tabs.query({})).find(t => t.url === url).id, base + 'normal.html');
+  const result = analyze({ source: 'link', pageUrl: base, pageTitle: '', visibleText: '', links: [{ text: 'www.chase.com', url: 'https://chase-secure.example/verify' }], forms: [], context: {} });
+  const opened = await toWorker({ type: 'OPEN_WARNING_PAGE', result, url: 'https://chase-secure.example/verify' }, { url: base + 'normal.html', tab: { id: tab } });
+  assert.strictEqual(opened.type, 'WARNING_PAGE_OPENED');
+  await page.waitForURL(BLOCKED);
+  await page.waitForFunction(() => document.getElementById('reasons').children.length > 0);
+  const shown = await page.evaluate(() => ({
+    title: document.getElementById('title').textContent,
+    reasons: [...document.querySelectorAll('#reasons li')].map(li => li.textContent),
+    canContinue: !document.getElementById('continue').hidden,
+  }));
+  assert.match(shown.title, /Stop and check this link/);
+  assert.deepStrictEqual(shown.reasons, result.reasons.map(r => r.explanation).slice(0, 4));
+  assert.ok(shown.canContinue);
   await page.close();
 });
 

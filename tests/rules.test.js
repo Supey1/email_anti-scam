@@ -761,8 +761,10 @@ const LOOKUP_TESTS = [
     assert.deepStrictEqual(Object.values((({ verdict, recommendedAction }) => ({ verdict, recommendedAction }))(analyze(plainLink, { lookup: { status: 'match', url: 'https://garden-store.example/sale', source: UNTRUSTED } }))), ['warn', 'GO_BACK'])],
   ['"not on the list" never removes warning signs found here', () =>
     assert.deepStrictEqual(analyze(suspiciousLink, { lookup: { status: 'no_match', url: 'https://bit.ly/abc', source: TRUSTED } }), analyze(suspiciousLink))],
-  ['a failed lookup changes nothing (the click stays held by the browser side)', () =>
-    assert.deepStrictEqual(analyze(suspiciousLink, { lookup: { status: 'failed' } }), analyze(suspiciousLink))],
+  ['a lookup error changes nothing (the click stays held by the browser side)', () =>
+    assert.deepStrictEqual(analyze(suspiciousLink, { lookup: { status: 'error' } }), analyze(suspiciousLink))],
+  ['a lookup error never turns a clean link into "verified": still no_warning_signs, never more', () =>
+    assert.deepStrictEqual(analyze(plainLink, { lookup: { status: 'error' } }), analyze(plainLink))],
   ['lookup results follow the contract', () =>
     assert.deepStrictEqual(validateResult(analyze(plainLink, { lookup: { status: 'match', url: 'https://garden-store.example/sale', source: TRUSTED } })), [])],
 ];

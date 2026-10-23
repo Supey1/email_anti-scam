@@ -257,7 +257,7 @@ It must return synchronously. A click has to be held or let through in the same 
 
 ### 3b. Remote lookups (asking a threat service about an address)
 
-Not built yet. When one is added, these rules apply:
+The service worker side is built (`LOOKUP_URL`, below); only a development mock provider exists, and remote lookups are off by default. See `docs/threat-intelligence.md`. These rules apply:
 
 1. `analyze()` always runs first, here, instantly. A lookup is a separate, slower step that runs elsewhere (the service worker), never inside `analyze()`.
 2. `whenToLookUp(result)` (in `rules.js`) says whether a click must wait:
@@ -270,14 +270,14 @@ Not built yet. When one is added, these rules apply:
 
 3. The answer goes back through the engine, never straight to the screen:
    ```js
-   analyze(input, { lookup: { status: "match" | "no_match" | "failed", url, source: { name, trusted } } })
+   analyze(input, { lookup: <the LOOKUP_RESULT from 3d> })
    ```
    - `match` adds `KNOWN_THREAT`: `block` from a trusted source, a strong `warn` from an untrusted one.
    - `no_match` changes nothing. "Not on the list" never removes a warning sign found here.
-   - `failed` (an error, or no answer in time) changes nothing.
+   - `error` (an error, or no answer in time) changes nothing. (`failed` is accepted as an older name.)
 4. **A slow or failed lookup never lets a held link open by itself.** If the answer doesn't come, show the local result's warning and let the person choose, exactly as if there were no lookup.
 
-### 3c. Between parts of the extension: `chrome.runtime` messages
+### 3c. Frames: `chrome.runtime` messages
 
 Every message has a `type` and a `schemaVersion`.
 
@@ -309,6 +309,51 @@ If `shown` is `false`, or there's no reply, the frame shows the warning itself.
 ```
 
 ---
+
+### 3d. Service worker messages
+
+Content scripts and extension pages talk to the service worker with `chrome.runtime.sendMessage`. Every message and answer has `type` and `schemaVersion: 1`. Any failure is answered with `{ type: "ERROR", schemaVersion: 1, error }`, never by throwing.
+
+| Message | Who may send it | Answer |
+|---|---|---|
+| `LOOKUP_URL` | anyone | `LOOKUP_RESULT` |
+| `OPEN_WARNING_PAGE` | a content script (needs a tab) | `WARNING_PAGE_OPENED` |
+| `GET_SETTINGS` | anyone | `SETTINGS` |
+| `UPDATE_THREAT_RULES` | **only the extension's own pages** | `THREAT_RULES_UPDATED` |
+| `SET_SETTINGS` | **only the extension's own pages** | `SETTINGS` |
+| `SHOW_WARNING` | a content script in a frame | `SHOW_WARNING_RESULT` |
+
+```js
+// Is this address known to be dangerous?
+{ type: "LOOKUP_URL", schemaVersion: 1, url: "https://example.example/claim" }
+{ type: "LOOKUP_RESULT", schemaVersion: 1,
+  status: "match" | "no_match" | "error",   // no_match is NOT "safe"; error is NOT no_match
+  url: "https://example.example/claim",
+  source: { name: "Practice list", trusted: true } | null,   // set for a match
+  checked: ["local list"],                  // what was asked
+  reason: "no answer within 1500 ms",       // for an error (and allowlisted no_match)
+  fromCache: false }
+
+// Change the known-threat list (entries: docs/threat-intelligence.md)
+{ type: "UPDATE_THREAT_RULES", schemaVersion: 1,
+  add: [{ type: "domain" | "url", value, source, trusted, expiresAt? }],
+  remove: ["value", ...],           // entries added earlier with "add"
+  falsePositives: ["value", ...],   // never block these, even from the bundled list
+  replaceAll: false }
+{ type: "THREAT_RULES_UPDATED", schemaVersion: 1, installedRules: 9, activeEntries: 4,
+  rejected: [{ value: "co.uk", reason: "too broad: ..." }] }
+
+// Show the extension's own warning page in this tab
+{ type: "OPEN_WARNING_PAGE", schemaVersion: 1, result: <section 2 result>, url: "https://..." }
+{ type: "WARNING_PAGE_OPENED", schemaVersion: 1, token: "..." }
+
+// Settings
+{ type: "GET_SETTINGS", schemaVersion: 1 }
+{ type: "SET_SETTINGS", schemaVersion: 1, settings: { protectionEnabled: false } }
+{ type: "SETTINGS", schemaVersion: 1, settings: {
+    protectionEnabled: true, remoteLookups: false, provider: "none",
+    providerOptions: {}, lookupTimeoutMs: 1500, allowlist: [] } }
+```
 
 ## 4. Fixtures: building without waiting for each other
 

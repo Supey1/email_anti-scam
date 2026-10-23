@@ -157,7 +157,8 @@
 
   // A remote lookup's answer, as a finding. Only a match adds anything:
   // "not on the list" never removes what we found here.
-  //   lookup = { status: 'match' | 'no_match' | 'failed', url, source: { name, trusted } }
+  //   lookup = { status: 'match' | 'no_match' | 'error', url, source: { name, trusted } }
+  //   ('failed' is accepted as an older name for 'error'.)
   function lookupFindings(input, lookup) {
     if (!lookup || lookup.status !== 'match') return [];
     const parsed = parseUrl(lookup.url || '');
