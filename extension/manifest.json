@@ -1,17 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Email Anti-Scam",
-  "version": "0.3.0",
-  "description": "Helps older adults avoid scams: checks emails, websites, and links, and stops risky clicks with a big, plain-language warning.",
+  "version": "0.6.0",
+  "description": "Protects older adults from scam emails, fake websites, and risky links with a big, plain-language warning.",
   "permissions": ["declarativeNetRequest", "storage", "scripting"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "service-worker.js"
   },
-  "options_page": "settings.html",
+  "action": {
+    "default_title": "Email Anti-Scam",
+    "default_popup": "ui/popup.html"
+  },
+  "options_ui": {
+    "page": "ui/options.html",
+    "open_in_tab": true
+  },
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
+      "resources": ["ui/warning.html"],
       "matches": ["<all_urls>"]
     }
   ]

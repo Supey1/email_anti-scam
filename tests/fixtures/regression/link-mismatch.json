@@ -1,0 +1,263 @@
+{
+  "category": "link-mismatch",
+  "cases": [
+    {
+      "id": "text-chase-goes-elsewhere",
+      "kind": "scam",
+      "summary": "Link text says www.chase.com, goes to chase-alerts.example",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "www.chase.com",
+            "url": "https://chase-alerts.example/verify"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "HIDDEN_DESTINATION",
+            "explanation": "A link says it goes to chase.com, Chase's real website, but it really goes to chase-alerts.example."
+          },
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be Chase, but it goes to chase-alerts.example, not Chase's real website."
+          }
+        ]
+      },
+      "why": "Shows Chase's website, goes to an imitation."
+    },
+    {
+      "id": "text-irs-goes-elsewhere",
+      "kind": "scam",
+      "summary": "Link text shows an irs.gov address, goes to tax-refund-portal.example",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "https://www.irs.gov/refunds",
+            "url": "https://tax-refund-portal.example/claim"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "HIDDEN_DESTINATION",
+            "explanation": "A link says it goes to irs.gov, the IRS's real website, but it really goes to tax-refund-portal.example."
+          }
+        ]
+      },
+      "why": "Shows an official IRS address but goes somewhere else."
+    },
+    {
+      "id": "paypal-before-at",
+      "kind": "scam",
+      "summary": "Email link written as www.paypal.com@pp-login.example",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Confirm your details - Gmail",
+        "visibleText": "Please confirm your details.",
+        "links": [
+          {
+            "text": "paypal.com",
+            "url": "https://www.paypal.com@pp-login.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Customer Service",
+          "senderEmail": "service@pp-help.example",
+          "subject": "Confirm your details"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "MISLEADING_URL",
+            "explanation": "A link is written to look like it goes to www.paypal.com, but it really goes to pp-login.example."
+          },
+          {
+            "code": "HIDDEN_DESTINATION",
+            "explanation": "A link says it goes to paypal.com, PayPal's real website, but it really goes to pp-login.example."
+          }
+        ]
+      },
+      "why": "Everything before \"@\" is decoration; the link really goes to pp-login.example."
+    },
+    {
+      "id": "google-redirect-to-fake",
+      "kind": "scam",
+      "summary": "Google pass-through link that ends at a fake bank page",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Sign in to Bank of America",
+            "url": "https://www.google.com/url?q=https://bankofamerica-alerts.example/signin"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be Bank of America, but it goes to bankofamerica-alerts.example, not Bank of America's real website."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "A link mentions Bank of America, but it goes to bankofamerica-alerts.example."
+          }
+        ]
+      },
+      "why": "The pass-through is followed to where it really ends up: a look-alike bank address."
+    },
+    {
+      "id": "text-matches-destination",
+      "kind": "legitimate",
+      "summary": "Link text shows the same website it goes to",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "www.garden-store.example",
+            "url": "https://www.garden-store.example/sale"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Shows and goes to the same website."
+    },
+    {
+      "id": "google-redirect-to-same",
+      "kind": "legitimate",
+      "summary": "Google pass-through link to the website its text shows",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "www.paypal.com",
+            "url": "https://www.google.com/url?q=https://www.paypal.com/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "The pass-through ends where the text says."
+    },
+    {
+      "id": "newsletter-tracked-link",
+      "kind": "legitimate",
+      "summary": "Store newsletter link through an email-tracking service",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Spring sale - Gmail",
+        "visibleText": "Our spring sale is here: 20% off garden tools. Unsubscribe.",
+        "links": [
+          {
+            "text": "www.garden-store.example",
+            "url": "https://u123.ct.sendgrid.net/ls/click?upn=abc"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Garden Store",
+          "senderEmail": "news@garden-store.example",
+          "subject": "Spring sale"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Normal newsletters link through click-counting services."
+    },
+    {
+      "id": "track-order-amazon",
+      "kind": "legitimate",
+      "summary": "Link text with no website name, going to amazon.com",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Track your order",
+            "url": "https://www.amazon.com/orders"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Nothing to compare: the words don't name a website or company."
+    }
+  ]
+}

@@ -382,9 +382,10 @@ const RULE_TESTS = [
       link('https://hacked-blog.example/2024/recipes'), link('https://hacked-blog.example/wp-content/uploads/secure-ish/')] },
   { code: 'LOOKALIKE_DOMAIN',
     triggers: [link('https://paypa1-secure.example/login'), link('https://paypal.com.fake-domain.example/'), link('https://xn--pypal-4ve.example/'), link('https://amazom.example/'), link('https://applesupport.example/')],
-    doesNot: [link('https://www.paypal.com/signin'), link('https://www.paypal.co.uk/'), link('https://applebees.example/'), link('https://bucket.s3.amazonaws.com/file'), link('https://purchase-confirm.example/')] },
+    doesNot: [link('https://www.paypal.com/signin'), link('https://www.paypal.co.uk/'), link('https://applebees.example/'), link('https://bucket.s3.amazonaws.com/file'), link('https://purchase-confirm.example/'),
+      link('https://cloud-storage.example/'), link('https://amazing-deals.example/')] },
   { code: 'HIDDEN_DESTINATION',
-    triggers: [link('https://u123.ct.sendgrid.net/ls/click?upn=abc', 'www.garden-store.example'), link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
+    triggers: [email({ name: 'PayPal', address: 'alerts@mail.example', links: [{ text: 'www.paypal.com', url: 'https://u1.ct.sendgrid.net/ls/click?upn=x' }] }), link('https://evil.example/', 'www.chase.com'), link('https://google.evil.example/url?q=https://www.paypal.com/', 'www.paypal.com')],
     doesNot: [link('https://secure.chase.com/x', 'www.chase.com'), link('https://news.bbc.co.uk/x', 'bbc.co.uk'),
       link('https://www.google.com/url?q=https://www.paypal.com/', 'www.paypal.com')] },
   { code: 'MISLEADING_URL',
@@ -407,8 +408,13 @@ const RULE_TESTS = [
     triggers: [link('https://deals.xyz/')],
     doesNot: [link('https://xyz.example/')] },
   { code: 'UNVERIFIED_PRIZE_CLAIM',
-    triggers: [link('https://claim.example/', 'Claim', 'You have won a prize! Act now.')],
-    doesNot: [link('https://claim.example/', 'Read more', 'Local woman wins lottery jackpot.')] },
+    triggers: [link('https://claim.example/', 'Claim', 'You have won a prize! Act now.'),
+      // Inside a recognized ad (content/ad-signals.js), the prize alone is enough: the claim button is the second part.
+      link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.", { inAd: true })],
+    doesNot: [link('https://claim.example/', 'Read more', 'Local woman wins lottery jackpot.'),
+      link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now."), // not an ad: one phrase on a website
+      link('https://www.amazon.com/prize', 'Claim your prize', "You've won! Claim your prize now.", { inAd: true }), // the company's real website
+      link('https://claim.example/', 'Read more', 'Scam alert: fake ads say you have won a prize. It is a scam.', { inAd: true })] },
   { code: 'SENDER_NAME_MISMATCH',
     triggers: [email({ name: 'PayPal', address: 'alerts@mail.example' }), email({ name: 'service@paypal.com', address: 'x@evil.example' }),
       email({ name: 'Apple', address: 'apple.support@icloud.com' }),
@@ -431,7 +437,9 @@ const RULE_TESTS = [
     doesNot: [page({ url: 'https://my-recipes.netlify.app/', title: 'Soup recipes' }), link('https://someone.github.io/recipes', 'Soup recipes'),
       link('https://login.example/x', 'Sign in')] },
   { code: 'INSECURE_FORM',
-    triggers: [page({ url: 'http://library.example/login', title: 'Sign in', forms: [passwordForm('http://library.example/session')] })],
+    triggers: [page({ url: 'http://library.example/login', title: 'Sign in', forms: [passwordForm('http://library.example/session')] }),
+      // The page itself isn't secure, even though the form says https (Chrome: "Not secure").
+      page({ url: 'http://shop.example/checkout', title: 'Checkout', forms: [{ action: 'https://shop.example/pay', hasPassword: false, hasPaymentField: true }] })],
     doesNot: [page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('/session')] }),
       page({ url: 'http://library.example/', title: 'Opening hours' }),
       page({ url: 'http://localhost:8080/login', title: 'Sign in', forms: [passwordForm('/session')] })] },
@@ -441,16 +449,21 @@ const RULE_TESTS = [
       page({ url: 'https://library.example/login', title: 'Sign in', forms: [passwordForm('/session')] })] },
   { code: 'PRIZE_CLAIM',
     triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a small fee to claim your prize.' }), email({ text: "Congratulations, you've won $5,000!" })],
-    doesNot: [page({ url: 'https://news.example/x', text: 'Local woman wins lottery jackpot.' }), email({ text: 'Our team won the bowling game!' })] },
+    doesNot: [page({ url: 'https://news.example/x', text: 'Local woman wins lottery jackpot.' }), email({ text: 'Our team won the bowling game!' }),
+      // Someone ELSE won (Person B's library newsletter page): with "Act now" it used to stop the page.
+      page({ url: 'https://library.example/news', text: "Congratulations to Dot, winner of last month's reading challenge! Act now to reserve a shift." })] },
   { code: 'PRIZE_WITH_PRESSURE',
     triggers: [link('https://claim.example/', 'Claim', 'You have won a gift card. Claim before midnight.')],
     doesNot: [link('https://bit.ly/claim', 'Claim', 'You have won a gift card.')] },
   { code: 'PAY_TO_CLAIM',
     triggers: [page({ url: 'https://winner.example/', text: 'You have won! Pay a $4.99 processing fee to claim your prize.' }),
-      email({ text: 'Pay the $1.99 redelivery fee.' }), link('https://parcel.example/', 'Pay', 'Your package is on hold. Pay the $1.99 redelivery fee now.')],
-    doesNot: [page({ url: 'https://garden-store.example/', text: 'Free shipping on orders over $50. Pay at checkout.' })] },
+      email({ text: 'Pay the $1.99 redelivery fee.' }), email({ text: 'To release your winnings, pay a $250 processing fee.' }), link('https://parcel.example/', 'Pay', 'Your package is on hold. Pay the $1.99 redelivery fee now.')],
+    doesNot: [page({ url: 'https://garden-store.example/', text: 'Free shipping on orders over $50. Pay at checkout.' }),
+      // Advice on a website: "never" in the same clause.
+      page({ url: 'https://library.example/news', text: 'Beware of scams: never pay with gift cards or wire transfers. Urgent: volunteers needed!' })] },
   { code: 'PAYMENT_METHOD_REQUEST',
-    triggers: [email({ text: 'Please buy gift cards and send me the numbers.' })],
+    // Emails are written TO the person: "don't" earlier in the clause doesn't turn the request into advice.
+    triggers: [email({ text: 'Please buy gift cards and send me the numbers.' }), email({ text: "Don't tell anyone and buy gift cards today." })],
     doesNot: [email({ text: 'Thanks for the birthday card!' })] },
   { code: 'ACCOUNT_PROBLEM_CLAIM',
     triggers: [email({ subject: 'Your account has been suspended' }), page({ url: 'https://alert.example/', text: 'Your computer is infected. Call 1-800-555-0199 now.' })],
@@ -462,8 +475,10 @@ const RULE_TESTS = [
     triggers: [email({ text: 'Please allow remote access with AnyDesk so we can fix it.' })],
     doesNot: [email({ text: "Hope you're over that flu virus!" })] },
   { code: 'PERSONAL_INFO_REQUEST',
-    triggers: [email({ text: 'Reply with your social security number to continue.' })],
-    doesNot: [email({ text: 'The Social Security office is closed Monday.' })] },
+    triggers: [email({ text: 'Reply with your social security number to continue.' }), email({ text: 'Please verify your password here.' })],
+    // A blackmail email's "I have your password" is a threat, not a request (SEXTORTION_THREAT explains it).
+    doesNot: [email({ text: 'The Social Security office is closed Monday.' }), email({ subject: 'I have your password', text: 'Pay $1,500 in bitcoin or I will send the video to all your contacts.' }),
+      email({ subject: 'Your password was changed', text: "Your password was changed. If this wasn't you, reset it on our website." })] },
   { code: 'DELIVERY_PROBLEM_CLAIM',
     triggers: [email({ text: 'Your package could not be delivered.' })],
     doesNot: [email({ text: 'Your package was delivered to the front door.' })] },
@@ -473,6 +488,11 @@ const RULE_TESTS = [
   { code: 'FAMILY_EMERGENCY',
     triggers: [email({ text: 'Grandma, I was arrested and need bail money.' })],
     doesNot: [email({ text: 'Grandma, the hospital visit went fine. See you Sunday!' })] },
+  { code: 'UNEXPECTED_CHARGE',
+    triggers: [email({ text: 'Your subscription was renewed for $399.99. To cancel, call 1-800-555-0177.' }),
+      page({ url: 'https://order-alert.example/', text: 'Your order of $499.00 was placed. If you did not make this purchase, call (888) 555-0100 for a refund.', forms: [] })],
+    doesNot: [email({ text: 'Your order of $45.00 has shipped. Questions? Call us at 1-800-555-0100.' }),
+      email({ text: 'Your subscription was renewed for $9.99. Manage or cancel it in your account settings.' })] },
   { code: 'PAYMENT_DEMAND',
     triggers: [email({ text: 'You owe $500. Pay now.' }), page({ url: 'https://bill.example/', text: 'Your outstanding balance must be paid. Pay now, or you will be arrested.' })],
     doesNot: [email({ text: 'Thanks for paying me back for lunch!' }), email({ text: 'Your payment of $45 is due on May 3.' })] },
@@ -491,6 +511,87 @@ const RULE_TESTS = [
   { code: 'PRESSURE_TACTICS',
     triggers: [email({ text: 'Act now, this is urgent.' })],
     doesNot: [email({ text: 'No rush, whenever you have time.' })] },
+  // ----- investment and crypto -----
+  { code: 'INVESTMENT_PROMISE',
+    triggers: [email({ text: 'My trading platform gives guaranteed returns of 40% a month.' }),
+      email({ text: 'Sweetheart, I made 300% this month on this crypto platform.' }),
+      email({ text: 'Our bitcoin robot pays 2% daily returns, risk-free profits.' }),
+      email({ text: 'Earn $1,000 a day trading forex with our system.' })],
+    doesNot: [email({ text: 'Investing involves risk; returns are not guaranteed.' }),
+      email({ text: 'Past performance does not guarantee future returns on your portfolio.' }),
+      email({ text: 'There are no guaranteed returns in the stock market.' }),
+      email({ text: 'Your portfolio returned 6% this year.' }),
+      email({ text: 'Free returns guaranteed on every order!' }), // shop returns, not investing
+      email({ text: 'Earn $500 a week walking dogs in your neighborhood.' })] },
+  { code: 'CRYPTO_GIVEAWAY',
+    triggers: [email({ text: 'Send 0.1 BTC and get 0.2 BTC back.' }),
+      email({ text: 'Send any amount of ETH to the wallet below and we will send back double.' }),
+      // A two-part story counts on a website by itself (keepText).
+      link('https://giveaway.example/', 'Join', 'Transfer USDT to this address and receive twice as much in return.')],
+    doesNot: [email({ text: 'Never send crypto to anyone who promises to send back double.' }),
+      email({ text: 'I sent you the bitcoin I owed you. Let me know when you get it.' })] },
+  { code: 'CELEBRITY_ENDORSEMENT',
+    triggers: [email({ text: 'Elon Musk is giving away bitcoin to celebrate.' }),
+      email({ text: 'Backed by Martin Lewis: the new trading app everyone is using.' }),
+      email({ text: 'Dolly Parton reveals her secret crypto investment.' })],
+    doesNot: [email({ text: 'Bitcoin rose after Elon Musk said Tesla may accept it again.' }),
+      email({ text: 'Elon Musk is not giving away bitcoin. Those videos are fake.' }),
+      email({ text: 'Dolly Parton reveals her secret for the perfect biscuit.' })] },
+  { code: 'DEPOSIT_TO_TRADE', // 0 points: it only shows next to a promise of profits
+    triggers: [email({ text: 'Guaranteed returns of 30% a month. Deposit $250 to start trading.' }),
+      email({ text: 'I made 300% this month on crypto. Deposit $5,000 in USDT so we can build our future.' })],
+    doesNot: [email({ text: 'Guaranteed returns on bitcoin! Read our guide.' }),
+      email({ text: 'Guaranteed returns on your crypto. Never deposit money on a platform a stranger recommends.' })] },
+  { code: 'INVESTMENT_PITCH',
+    triggers: [page({ url: 'https://ai-profits.example/', title: 'AI Trading', text: 'Guaranteed 400% returns. Deposit $250 to start.' }),
+      email({ text: 'Elon Musk recommends this trading platform. Invest $250 today.' })],
+    doesNot: [email({ name: 'Example Brokerage', address: 'support@brokerage.example', text: 'Fund your account with $100 to start trading. Investing involves risk.' }),
+      email({ name: 'Community Bank', address: 'hello@bank.example', text: 'Earn 4.50% APY on savings. Deposit $25 to open your account.' })] },
+  // ----- jobs -----
+  { code: 'JOB_FEE',
+    triggers: [email({ text: 'You have been selected for a remote data entry job. Send $200 for your equipment and training kit.' }),
+      email({ subject: 'Your offer of employment', text: 'Before your start date, purchase your laptop from our approved vendor.' }),
+      link('https://home-jobs.example/', 'Apply', "Work from home! You've been selected. Pay a $95 registration fee to start.")],
+    doesNot: [email({ subject: 'Job offer', text: 'Your start date is June 3. We will pay $300 for your training.' }),
+      email({ subject: 'Job offer', text: "Welcome! Your start date is May 1. We'll send you a $500 stipend to buy equipment." }),
+      email({ text: 'Real employers never ask you to pay $200 for equipment.' }),
+      email({ text: 'If a job asks you to pay $200 for a starter kit, walk away.' }),
+      email({ text: 'I paid $1,200 for the new laptop and software. It arrived today.' }),
+      email({ text: 'Please send $40 for the choir training weekend.' }), // not a job
+      email({ subject: 'Job offer', text: 'Your start date is May 1. Order your laptop from our approved vendor at no cost to you.' })] },
+  { code: 'OVERPAYMENT',
+    triggers: [email({ text: 'We mailed you a check for $2,450. Deposit it, keep $300, and send back the difference.' }),
+      email({ text: 'I overpaid you by mistake. Please wire the extra money back to me.' })],
+    doesNot: [email({ text: 'The price dropped, so we will refund the difference to your card.' }),
+      email({ text: 'Please pay the remaining balance by check.' }),
+      email({ text: 'Please return the extra chairs to the hall by Friday.' }), // no check or deposit involved
+      email({ text: "If someone overpays with a check and asks you to send back the difference, don't do it." })] },
+  { code: 'JOB_DETAILS_REQUEST',
+    triggers: [email({ subject: 'You are hired!', text: 'To set up payroll, reply with your Social Security number and bank routing number.' }),
+      email({ subject: 'Job offer', text: 'Congratulations on your new position. Text me your bank account number for direct deposit.' })],
+    doesNot: [email({ subject: 'Welcome aboard', text: 'Please enter your direct deposit and tax details in the onboarding portal.' }),
+      email({ subject: 'Job offer', text: 'On your first day, please provide your Social Security card for your I-9 form.' }),
+      email({ text: 'Reply with your account number and I will send the money.' })] }, // no job: PERSONAL_INFO_REQUEST covers it
+  // ----- recovery -----
+  { code: 'RECOVERY_FEE',
+    triggers: [email({ text: 'You lost $12,000 to a scam. Our recovery agency can get it back. Pay a $500 recovery fee.' }),
+      email({ text: 'We have recovered your stolen funds. To receive them, pay a $350 processing fee.' })],
+    doesNot: [email({ text: 'Our attorneys help recover your money lost to fraud. Free consultation and no upfront fees.' }),
+      email({ text: 'We issued a provisional credit for the fraud while we investigate. You do not need to do anything.' }),
+      email({ text: 'If you lost money to a scam, report it to your bank and the police.' }),
+      email({ text: 'Our data recovery service can get your photos back from a broken hard drive. Pay a $99 service fee.' })] }, // nothing was lost to anyone
+  // ----- blackmail -----
+  { code: 'SEXTORTION_THREAT',
+    triggers: [email({ text: 'I recorded you through your webcam. Pay $1,500 in bitcoin or I will send the video to all your contacts.' }),
+      email({ text: 'Send $2,000 to my wallet or the photos will be shared with your family.' })],
+    doesNot: [email({ text: 'Criminals threaten to send videos to victims\' contacts unless they pay in bitcoin.' }),
+      email({ text: 'Can you send the video of the party to your family? They will love it.' }),
+      email({ text: 'My neighbors got emails threatening to send a video to their contacts unless they paid in bitcoin.' })] }, // about others, not aimed at you
+  // ----- refund scam with a deadline -----
+  { code: 'CHARGE_WITH_PRESSURE',
+    triggers: [email({ text: 'Your plan was renewed for $349.00. If you did not authorize this, call 1-888-555-0193 within 24 hours to cancel.' })],
+    doesNot: [email({ text: 'Your membership renewed for $89.00. To cancel, call us at 1-800-555-0123, Monday to Friday.' }),
+      email({ text: 'Urgent: your order of $45.00 has shipped.' })] },
   { code: 'INSIDE_SCAM_EMAIL',
     triggers: [link('https://plain.example/', 'Click here', '', { surroundingResult: { verdict: 'warn', recommendedAction: 'GO_BACK' } })],
     doesNot: [link('https://plain.example/', 'Click here', '', { surroundingResult: { verdict: 'warn', recommendedAction: 'VERIFY_INDEPENDENTLY' } })] },
@@ -611,9 +712,12 @@ const COMBINED_TESTS = [
 
 // ---------- context: email services, ad networks, and kinds of message ----------
 const CONTEXT_TESTS = [
-  ['a store newsletter whose links go through an email-tracking service: never stopped, and the reason says why', () => {
+  ['a store newsletter whose links go through an email-tracking service: no warning on that alone', () => {
     const r = analyze(email({ name: 'Garden Store', address: 'news@garden-store.example', subject: 'Spring sale', text: '20% off. Unsubscribe.', links: [{ text: 'www.garden-store.example', url: 'https://u123.ct.sendgrid.net/ls/click?upn=abc' }] }));
-    assert.notStrictEqual(r.recommendedAction, 'GO_BACK');
+    assert.strictEqual(r.verdict, 'no_warning_signs');
+  }],
+  ['...but next to real warning signs, the reason explains why the link couldn\'t be checked', () => {
+    const r = analyze(email({ name: 'PayPal', address: 'alerts@mail.example', subject: 'Account locked', text: 'Your account is locked.', links: [{ text: 'www.paypal.com', url: 'https://u1.ct.sendgrid.net/ls/click?upn=x' }] }));
     assert.match(explanationOf(r, 'HIDDEN_DESTINATION'), /sendgrid\.net, a service that counts clicks/);
   }],
   ['a real IRS newsletter sent through GovDelivery: no warning signs', () => {
@@ -630,7 +734,7 @@ const CONTEXT_TESTS = [
     const newsletter = analyze(email({ name: 'Netflix', address: 'deals@partner-offers.example', subject: 'New this week', text: 'Shop now. Unsubscribe.' }));
     const alert = analyze(email({ name: 'Netflix', address: 'billing@partner-offers.example', subject: 'Payment declined', text: 'Update your payment details.' }));
     assert.match(tierOf(newsletter), /this alone isn't proof/);
-    assert.match(tierOf(alert), /account or payment notice/);
+    assert.match(tierOf(alert), /official notice/);
     assert.strictEqual(newsletter.recommendedAction, 'VERIFY_INDEPENDENTLY');
   }],
   ['a Google ad click with its destination written in: checked where it really goes', () => {
@@ -731,6 +835,12 @@ const ADAPTER_TESTS = [
       assert.strictEqual(explanationOf(linkViaEmail, code), explanationOf(linkViaClick, code));
       assert.ok(linkViaLegacyGuard.reasons.includes(explanationOf(linkViaClick, code)));
     }
+  }],
+  ['a prize ad with a claim button to an unverified website STOPS; the same words outside an ad do not', () => {
+    const inAd = analyze(link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.", { inAd: true }));
+    assert.deepStrictEqual([inAd.verdict, inAd.recommendedAction], ['warn', 'GO_BACK']);
+    assert.strictEqual(analyze(link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.")).verdict, 'no_warning_signs');
+    assert.strictEqual(analyze(link('https://claim-gift.example/a2', 'Claim your prize', "You've won! Claim your prize now.", { inAd: 'yes' })).verdict, 'no_warning_signs', 'inAd must be exactly true');
   }],
   ['every reason code has ONE title, whatever found it', () => {
     const titles = {};

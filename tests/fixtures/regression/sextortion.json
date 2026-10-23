@@ -1,0 +1,136 @@
+{
+  "category": "sextortion",
+  "cases": [
+    {
+      "id": "webcam-bitcoin",
+      "kind": "scam",
+      "summary": "\"I have your password\": recorded on webcam, pay $1,500 in bitcoin or the video goes to your contacts",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "I have your password - Gmail",
+        "visibleText": "I hacked your webcam and recorded you. Pay $1,500 in bitcoin within 48 hours or I will send the video to all your contacts.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Hacker",
+          "senderEmail": "anon.hk9@protonmail.com",
+          "subject": "I have your password"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SEXTORTION_THREAT",
+            "explanation": "It threatens to send private videos or photos to people you know unless you pay. These emails are sent to millions of people, and the \"recording\" almost never exists. Don't pay and don't reply."
+          },
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "A blackmail threat. These emails are sent to millions; nobody recorded you."
+    },
+    {
+      "id": "old-password-recording",
+      "kind": "scam",
+      "summary": "Quotes an old password, threatens to share a recording with family",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your password is sunshine123 - Gmail",
+        "visibleText": "I know your password is sunshine123. I recorded you through your camera. Send $2,000 in bitcoin to the wallet below or I will share the recording with your family and friends.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Unknown",
+          "senderEmail": "x8k2@mail-anon.example",
+          "subject": "Your password is sunshine123"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SEXTORTION_THREAT",
+            "explanation": "It threatens to send private videos or photos to people you know unless you pay. These emails are sent to millions of people, and the \"recording\" almost never exists. Don't pay and don't reply."
+          },
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "PAYMENT_DEMAND",
+            "explanation": "It asks you to pay or send money."
+          }
+        ]
+      },
+      "why": "The password came from an old data leak; the recording does not exist."
+    },
+    {
+      "id": "password-changed-notice",
+      "kind": "legitimate",
+      "summary": "Website notice: \"your password was changed\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your password was changed - Gmail",
+        "visibleText": "Your password for the Garden Club forum was changed. If this wasn't you, reset it on our website.",
+        "links": [
+          {
+            "text": "Reset password",
+            "url": "https://www.garden-club.example/reset"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Garden Club Forum",
+          "senderEmail": "noreply@garden-club.example",
+          "subject": "Your password was changed"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Says the password changed; doesn't ask for it."
+    },
+    {
+      "id": "sextortion-news",
+      "kind": "legitimate",
+      "summary": "News: police warn about sextortion emails",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://news.example/sextortion-warning",
+        "pageTitle": "Police warn of sextortion emails",
+        "visibleText": "Police warn of a sextortion scam: criminals claim they recorded victims and threaten to send the video to their contacts unless they pay in bitcoin. Do not pay; report it.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Sextortion warning"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Warns about the scam."
+    }
+  ]
+}

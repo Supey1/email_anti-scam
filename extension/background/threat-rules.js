@@ -102,7 +102,7 @@
   }
 
   // The entries as Chrome rules. Only trusted entries become rules.
-  //   blockPage    the extension's blocked page address
+  //   blockPage    the extension's warning page address, ending in "url=" (ui/warning.html?kind=dnr&url=)
   //   canRedirect  false when the person hasn't given website access: Chrome
   //                only sends a page to our blocked page with that access, but
   //                it can always stop it outright (Chrome shows its own error
@@ -114,7 +114,8 @@
     const urls = trusted.filter(e => e.type === 'url');
     const rules = [];
     const add = (action, condition) => rules.push({ id: rules.length + 1, priority: 1, action, condition });
-    const redirectTo = site => (canRedirect ? { type: 'redirect', redirect: { url: `${blockPage}#${encodeURIComponent(site)}` } } : { type: 'block' });
+    // blockPage ends with "url=": the warning page names the website that was blocked.
+    const redirectTo = site => (canRedirect ? { type: 'redirect', redirect: { url: `${blockPage}${encodeURIComponent(`https://${site}/`)}` } } : { type: 'block' });
 
     // Whole websites. The page you were trying to open -> our blocked page.
     if (domains.length <= PER_SITE_RULE_LIMIT) {

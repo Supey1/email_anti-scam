@@ -21,21 +21,15 @@
   const { parseUrl, isSameOrSubdomain, sameSite, findDomainInText, embeddedUrls, isFreeHosting } = core.urlNormalizer;
   const { BRANDS } = core.domainRules;
 
-  // Link shorteners hide where a link really goes.
-  const SHORTENERS = new Set([
-    'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'rebrand.ly',
-    'cutt.ly', 'shorturl.at', 'rb.gy', 't.ly', 'tiny.cc',
-  ]);
-
-  // Website endings that are cheap and often used by scam sites.
-  const RISKY_ENDINGS = new Set(['xyz', 'top', 'click', 'zip', 'mov', 'icu', 'buzz', 'cfd', 'sbs', 'rest', 'lol']);
+  if (typeof require !== 'undefined' && !(globalThis.GranblockData && globalThis.GranblockData.addresses)) require('../data/addresses.js');
+  const { SHORTENERS, RISKY_ENDINGS } = globalThis.GranblockData.addresses; // DATA: extension/data/addresses.js
 
   // Words that mean "sign in" or "pay", in a link's text or address.
   const SIGN_IN_TEXT = /\b(sign ?in|log ?in|log ?on|verify|confirm|unlock|update (your )?(account|payment|billing|card|details))\b/i;
   const SIGN_IN_PATH = /\/(login|log-in|signin|sign-in|logon|auth|verify|verification|account|billing|payment|checkout|wp-login\.php)(\/|\.|$)/i;
 
   // The known-dangerous list, as entries: { type: 'domain' | 'url', value, source, trusted }.
-  // Normally the bundled threat-list.js. The service worker builds the ACTIVE
+  // Normally the bundled data/threat-list.js. The service worker builds the ACTIVE
   // list (bundled + updates, minus expired entries and removed false positives),
   // and threat-sync.js hands it to useThreatEntries(), so the click guard and
   // Chrome's own blocking always agree.
@@ -50,7 +44,7 @@
         KNOWN_THREAT_SOURCE: typeof KNOWN_THREAT_SOURCE !== 'undefined' ? KNOWN_THREAT_SOURCE : { name: 'unknown', trusted: false },
       };
     } else if (typeof require !== 'undefined') {
-      list = require('../threat-list.js');
+      list = require('../data/threat-list.js');
     }
     if (!list) return [];
     const { name, trusted } = list.KNOWN_THREAT_SOURCE;
@@ -165,10 +159,12 @@
     if (!parsed.ok || !parsed.isWeb) return [];
     const shown = findDomainInText(linkText);
     if (!shown || sameSite(shown, parsed.hostname)) return [];
+    // Showing a company's REAL website and going elsewhere is impersonation.
+    const shownBrand = core.domainRules.officialBrandFor(shown);
     return [{
       code: 'HIDDEN_DESTINATION',
       subject: 'link',
-      data: { shown, host: parsed.host },
+      data: { shown, host: parsed.host, shownBrand: shownBrand ? shownBrand.label : null },
       evidence: { kind: 'url', value: parsed.href },
     }];
   }
@@ -181,6 +177,14 @@
     const findings = [];
     const add = (code, data, value) => findings.push({ code, subject: 'page', data: { host: page.host, ...data }, evidence: { kind: 'form', value } });
     const seen = new Set();
+    // Your own computer (localhost) counts as secure, as it does in Chrome.
+    const ownComputer = host => /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(host);
+    // A password or card box on a page that itself isn't secure: the page (and the box) can be
+    // read or changed on the way, wherever the form says it sends. Chrome marks these "Not secure".
+    if (page.protocol === 'http:' && !ownComputer(page.hostname)) {
+      seen.add('INSECURE_FORM');
+      add('INSECURE_FORM', {}, page.href);
+    }
     for (const form of forms) {
       const action = parseUrl(form.action || '', page.href);
       if (!action.ok) continue;
@@ -195,9 +199,7 @@
           add('CREDENTIALS_SENT_ELSEWHERE', { elsewhere: action.host }, action.href);
         }
       }
-      // Your own computer (localhost) counts as secure, as it does in Chrome.
-      const ownComputer = /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(action.hostname);
-      if (action.protocol === 'http:' && !ownComputer && !seen.has('INSECURE_FORM')) {
+      if (action.protocol === 'http:' && !ownComputer(action.hostname) && !seen.has('INSECURE_FORM')) {
         seen.add('INSECURE_FORM');
         add('INSECURE_FORM', {}, action.href);
       }

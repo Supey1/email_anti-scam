@@ -1,0 +1,150 @@
+{
+  "category": "legit-bank-notifications",
+  "cases": [
+    {
+      "id": "chase-payment-received",
+      "kind": "legitimate",
+      "summary": "Chase payment confirmation from chase.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your payment was received - Gmail",
+        "visibleText": "We received your payment of $45.00 to your credit card ending in 1234.",
+        "links": [
+          {
+            "text": "See activity",
+            "url": "https://secure.chase.com/web/auth/dashboard"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Chase",
+          "senderEmail": "no.reply.alerts@chase.com",
+          "subject": "Your payment was received"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "From Chase, links only to Chase, asks for nothing."
+    },
+    {
+      "id": "wells-fargo-statement",
+      "kind": "legitimate",
+      "summary": "Wells Fargo statement-ready notice",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your statement is ready - Gmail",
+        "visibleText": "Your monthly account statement is ready to view. Sign in to see it.",
+        "links": [
+          {
+            "text": "Sign in",
+            "url": "https://connect.secure.wellsfargo.com/auth/login"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Wells Fargo Online",
+          "senderEmail": "alerts@notify.wellsfargo.com",
+          "subject": "Your statement is ready"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "From Wells Fargo, links only to Wells Fargo."
+    },
+    {
+      "id": "bofa-real-fraud-alert",
+      "kind": "legitimate",
+      "summary": "Real Bank of America fraud alert (\"did you make this purchase?\")",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Did you make this purchase? - Gmail",
+        "visibleText": "We noticed unusual activity on your card ending in 1234. Sign in to review the purchase. If you did not make it, call the number on the back of your card.",
+        "links": [
+          {
+            "text": "Review purchase",
+            "url": "https://secure.bankofamerica.com/review"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Bank of America",
+          "senderEmail": "onlinebanking@ealerts.bankofamerica.com",
+          "subject": "Did you make this purchase?"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A real bank alert: sent from the bank, links only to the bank, and tells you to use the number on your card."
+    },
+    {
+      "id": "paypal-payment-received",
+      "kind": "legitimate",
+      "summary": "PayPal \"you received a payment\" from paypal.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "You received a payment - Gmail",
+        "visibleText": "Linda sent you $20.00 for lunch.",
+        "links": [
+          {
+            "text": "View transaction",
+            "url": "https://www.paypal.com/activity"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "PayPal",
+          "senderEmail": "service@paypal.com",
+          "subject": "You received a payment"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "From PayPal, links only to PayPal."
+    },
+    {
+      "id": "chase-new-signin",
+      "kind": "legitimate",
+      "summary": "Chase \"new sign-in\" security alert from chase.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "New sign-in to your account - Gmail",
+        "visibleText": "We noticed a new sign-in to your account. If this wasn't you, change your password.",
+        "links": [
+          {
+            "text": "Review security",
+            "url": "https://secure.chase.com/web/auth/security"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Chase",
+          "senderEmail": "no.reply.alerts@chase.com",
+          "subject": "New sign-in to your account"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Security wording, but from Chase with links only to Chase."
+    }
+  ]
+}

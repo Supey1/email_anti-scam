@@ -1,0 +1,150 @@
+{
+  "category": "legit-marketing",
+  "cases": [
+    {
+      "id": "amazon-deals",
+      "kind": "legitimate",
+      "summary": "Amazon deals newsletter from amazon.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Today's deals for you - Gmail",
+        "visibleText": "Today's deals: up to 40% off kitchen gadgets. Shop now. Unsubscribe.",
+        "links": [
+          {
+            "text": "Shop deals",
+            "url": "https://www.amazon.com/deals"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Amazon.com",
+          "senderEmail": "store-news@amazon.com",
+          "subject": "Today's deals for you"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "From Amazon, links only to Amazon."
+    },
+    {
+      "id": "small-business-mailchimp",
+      "kind": "legitimate",
+      "summary": "Small business sale sent through Mailchimp, with a deadline",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Spring sale ends tonight! - Gmail",
+        "visibleText": "Spring sale ends tonight! 20% off everything. Act now. Unsubscribe.",
+        "links": [
+          {
+            "text": "Shop the sale",
+            "url": "https://gardenstore.us1.list-manage.com/track/click?u=1"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Garden Store",
+          "senderEmail": "hello@garden-store.example",
+          "subject": "Spring sale ends tonight!"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A deadline in a sale newsletter is ordinary marketing."
+    },
+    {
+      "id": "final-hours-sale",
+      "kind": "legitimate",
+      "summary": "Retailer newsletter: \"Last chance, final hours\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Last chance! - Gmail",
+        "visibleText": "Last chance! Final hours of our sale. Shop now. Manage preferences or unsubscribe.",
+        "links": [
+          {
+            "text": "Shop now",
+            "url": "https://shoe-shop.example/sale"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Shoe Shop",
+          "senderEmail": "deals@shoe-shop.example",
+          "subject": "Last chance!"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Marketing pressure alone isn't a scam sign."
+    },
+    {
+      "id": "restaurant-giveaway",
+      "kind": "legitimate",
+      "summary": "Restaurant: \"Enter our giveaway to win a free dinner\"",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Win a free dinner - Gmail",
+        "visibleText": "Enter our giveaway for a chance to win a free dinner for two! Unsubscribe.",
+        "links": [
+          {
+            "text": "Enter",
+            "url": "https://corner-diner.example/giveaway"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Corner Diner",
+          "senderEmail": "news@corner-diner.example",
+          "subject": "Win a free dinner"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A chance to win, not a claim that you already won."
+    },
+    {
+      "id": "paypal-shopping-via-service",
+      "kind": "legitimate",
+      "summary": "\"PayPal Shopping\" newsletter sent through an email service",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Shop with PayPal this week - Gmail",
+        "visibleText": "Find deals at stores that take PayPal. Shop now. Unsubscribe.",
+        "links": [
+          {
+            "text": "See deals",
+            "url": "https://u5.ct.sendgrid.net/ls/click?upn=x"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "PayPal Shopping Deals",
+          "senderEmail": "deals@sendgrid.net",
+          "subject": "Shop with PayPal this week"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "A newsletter through an email service: a company name there is normal."
+    }
+  ]
+}

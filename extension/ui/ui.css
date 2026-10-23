@@ -1,0 +1,59 @@
+/* ui.css: shared look of the popup and settings page.
+   Big text, high contrast, visible focus. Sizes are in rem so the text size setting scales everything. */
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #111111;
+  background: #ffffff;
+}
+main { padding: 0.8rem 1rem 1.2rem; }
+h1 { font-size: 1.4rem; margin: 0 0 0.6rem; }
+h2 { font-size: 1.15rem; margin: 1.1rem 0 0.4rem; }
+section { border-top: 2px solid #dddddd; padding-top: 0.2rem; }
+p { margin: 0.4rem 0; }
+.muted { color: #333333; font-size: 0.9rem; }
+.status { font-size: 1.15rem; font-weight: bold; display: flex; gap: 0.5rem; align-items: flex-start; }
+.status .icon { font-size: 1.6rem; line-height: 1.1; }
+.status.yes { color: #0d5c27; }
+.status.no { color: #8a0018; }
+.status.unknown { color: #5c4500; }
+
+button {
+  font: inherit;
+  font-weight: bold;
+  padding: 0.5rem 0.8rem;
+  margin: 0.25rem 0.4rem 0.25rem 0;
+  border: 2px solid #222222;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111111;
+  cursor: pointer;
+}
+button.primary { background: #0b3d91; color: #ffffff; border-color: #062a66; }
+button:hover { background: #e8eefc; }
+button.primary:hover { background: #062a66; }
+button.danger { border-color: #8a0018; color: #8a0018; }
+:focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
+button:disabled { opacity: 0.6; cursor: default; }
+
+fieldset { border: 2px solid #cccccc; border-radius: 10px; margin: 0.6rem 0; padding: 0.5rem 0.8rem 0.8rem; }
+legend { font-weight: bold; padding: 0 0.3rem; }
+label { display: block; margin: 0.4rem 0; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { width: 1.2em; height: 1.2em; margin-right: 0.5rem; vertical-align: -0.15em; }
+input[type="text"], select {
+  font: inherit; padding: 0.4rem 0.6rem; border: 2px solid #222222; border-radius: 8px; background: #ffffff; color: #111111;
+}
+input[type="text"] { width: min(24rem, 100%); }
+ul.sites { list-style: none; margin: 0.4rem 0; padding: 0; }
+ul.sites li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; border-bottom: 1px solid #dddddd; padding: 0.2rem 0; }
+.sample { border: 2px dashed #555555; border-radius: 8px; padding: 0.5rem 0.8rem; margin-top: 0.5rem; }
+.note { background: #f4f4f4; border-left: 6px solid #0b3d91; padding: 0.4rem 0.8rem; border-radius: 4px; }
+.error { color: #8a0018; font-weight: bold; }
+.saved { color: #0d5c27; font-weight: bold; min-height: 1.5em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-contrast: more) { section, fieldset { border-color: #000000; } .muted { color: #000000; } }
+@media (forced-colors: active) { button, input, select { border: 2px solid ButtonText; } :focus-visible { outline: 3px solid Highlight; } }

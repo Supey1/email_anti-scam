@@ -4,23 +4,38 @@
 //   - keeps Chrome's network-blocking rules in step with the known-threat list,
 //     so known dangerous websites are blocked before they load, however you get there
 //   - answers "is this address known to be dangerous?" (LOOKUP_URL)
-//   - opens the extension's own warning page
-//   - reads and changes the protection settings
+//   - opens the extension's own warning page (ui/warning.html) when the click
+//     guard stops a link, and continues only when the person chooses to (never
+//     to a known dangerous website)
+//   - reads and changes the protection settings; shows "OFF" on the toolbar
+//     button when protection is off
 //   - starts and stops the page scripts to match the website access the
 //     person has given (asked for on the welcome page, never at install)
-//   - passes warnings from ads and other frames up to the main page
+//   - keeps "false alarm" reports on this computer
 // Message formats: docs/interfaces.md ("Service worker messages").
 //
 // Chrome can stop this script whenever it's idle, so nothing important lives
-// only in memory: settings and threat updates are in chrome.storage.local,
-// warnings for the warning page in chrome.storage.session (gone when the
-// browser closes). Anything in memory is rebuilt on first use after a restart.
+// only in memory: settings, threat updates, and false-alarm reports are in
+// chrome.storage.local. Anything in memory is rebuilt on first use after a restart.
 
 importScripts(
-  'threat-list.js',
+  // The person's choices (extension/settings.js)
+  'settings.js',
+  // The scam checks (to check a link again before "continue")
+  'data/threat-list.js',
+  'data/addresses.js',
+  'data/companies.js',
+  'data/services.js',
+  'data/people.js',
   'core/url-normalizer.js',
   'core/domain-rules.js',
   'core/url-rules.js',
+  'core/text-rules.js',
+  'core/risk-policy.js',
+  'core/explanations.js',
+  'core/analyzer.js',
+  'rules.js',
+  // The background itself
   'background/threat-rules.js',
   'background/threat-lookup.js',
   'background/content-scripts.js',
@@ -35,7 +50,6 @@ const storageArea = area => ({
 
 const background = GranblockBackground.createBackground({
   storage: storageArea(chrome.storage.local),
-  session: storageArea(chrome.storage.session),
   dnr: chrome.declarativeNetRequest,
   tabs: chrome.tabs,
   permissions: chrome.permissions,
@@ -44,17 +58,29 @@ const background = GranblockBackground.createBackground({
     ...KNOWN_THREAT_DOMAINS.map(value => ({ type: 'domain', value, source: KNOWN_THREAT_SOURCE.name, trusted: KNOWN_THREAT_SOURCE.trusted })),
     ...KNOWN_THREAT_URLS.map(value => ({ type: 'url', value, source: KNOWN_THREAT_SOURCE.name, trusted: KNOWN_THREAT_SOURCE.trusted })),
   ],
-  blockPage: chrome.runtime.getURL('blocked.html'),
+  warningPage: chrome.runtime.getURL('ui/warning.html'),
+  checkLink: ({ url, text, entries }) => {
+    GranblockCore.urlRules.useThreatEntries(entries);
+    return checkLinkClick({ url, text });
+  },
+  badge: on => Promise.all([
+    chrome.action.setBadgeText({ text: on ? '' : 'OFF' }),
+    chrome.action.setBadgeBackgroundColor({ color: '#b00020' }),
+  ]),
   extensionOrigin: chrome.runtime.getURL(''),
   newToken: () => crypto.randomUUID(),
 });
-// For the browser tests (tests/browser/acceptance.test.js).
+// For the browser tests (tests/browser/blocking.test.js).
 GranblockBackground.instance = background;
 
 chrome.runtime.onInstalled.addListener(details => {
   background.refreshRules();
   // Right after installing: the welcome page, where the person chooses which websites to check.
-  if (details.reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('settings.html?welcome=1') });
+  if (details.reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('ui/options.html?welcome=1') });
+});
+// The person turned protection on or off (popup or settings page): apply it.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) background.settingsChanged();
 });
 chrome.runtime.onStartup.addListener(() => background.refreshRules());
 // Website access given or taken away (here or in Chrome's own settings):

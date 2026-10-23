@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Weather today</title></head>
+<body style="font-family:Arial;max-width:560px;margin:40px auto">
+  <h1>Weather today</h1>
+  <p>Sunny with a light breeze.</p>
+  <div id="ad-slot"></div>
+  <script>
+    // Simulates an ad that loads a few seconds after the page. Practice page only.
+    setTimeout(() => {
+      document.getElementById('ad-slot').innerHTML =
+        '<h2>Congratulations! You have won a $2,000 gift card.</h2><p>Claim your reward before midnight. Act now!</p>' +
+        '<a href="https://claim-gift.example/start">Claim reward</a>';
+    }, 2000);
+  </script>
+</body></html>

@@ -1,0 +1,311 @@
+{
+  "category": "tech-support",
+  "cases": [
+    {
+      "id": "virus-popup-call-number",
+      "kind": "scam",
+      "summary": "Fake virus pop-up telling you to call a number and not close the page",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://security-alert-x.example/",
+        "pageTitle": "Windows Security Alert",
+        "visibleText": "Virus detected! Your computer is infected. Call support at (800) 555-0142 immediately. Do not close this page.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": []
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says your account or computer has a serious problem."
+          },
+          {
+            "code": "CALL_THIS_NUMBER",
+            "explanation": "It tells you to call a phone number, or not to close the page. Real security warnings never do this."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you."
+          }
+        ]
+      },
+      "why": "A device scare plus \"call this number\": how tech-support scams work."
+    },
+    {
+      "id": "subscription-renewal-refund",
+      "kind": "scam",
+      "summary": "\"Norton\" renewal for $399.99 from a free account: call to cancel",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your subscription has been renewed - Gmail",
+        "visibleText": "Your Norton 360 subscription was renewed for $399.99. If you did not authorize this charge, call our billing team at 1-800-555-0177 within 24 hours to cancel.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Norton Billing",
+          "senderEmail": "billing.dept.norton@gmail.com",
+          "subject": "Your subscription has been renewed"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          },
+          {
+            "code": "CHARGE_WITH_PRESSURE",
+            "explanation": "It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement."
+          },
+          {
+            "code": "COMPANY_ON_FREE_EMAIL",
+            "explanation": "The sender says it is a company or department, but it uses a free personal email address (billing.dept.norton@gmail.com)."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "The \"refund\" scam: a surprise charge, a phone number to cancel, a deadline, from a free account."
+    },
+    {
+      "id": "microsoft-remote-access",
+      "kind": "scam",
+      "summary": "\"Microsoft Support\" from another company's address asking for remote access",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Security warning - Gmail",
+        "visibleText": "Your computer has been infected. Allow remote access with AnyDesk so our technician can fix it.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Microsoft Support",
+          "senderEmail": "support@ms-helpdesk.example",
+          "subject": "Security warning"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "This looks like an official notice from Microsoft, but it came from support@ms-helpdesk.example, not one of Microsoft's own email addresses."
+          },
+          {
+            "code": "TECH_SUPPORT_CLAIM",
+            "explanation": "It talks about computer viruses or \"tech support.\" Real companies won't contact you this way."
+          }
+        ]
+      },
+      "why": "Microsoft doesn't email about infections, and remote access lets a scammer take over the computer."
+    },
+    {
+      "id": "pc-at-risk-ad",
+      "kind": "scam",
+      "summary": "Ad: \"Your PC may be at risk, call technicians now\"",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Get help now",
+            "url": "https://pc-repair-help.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Your PC may be at risk! Call Microsoft certified technicians at 1-800-555-0123.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "ACCOUNT_PROBLEM_CLAIM",
+            "explanation": "It says your account or computer has a serious problem."
+          },
+          {
+            "code": "CALL_THIS_NUMBER",
+            "explanation": "It tells you to call a phone number, or not to close the page. Real security warnings never do this."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "The offer mentions Microsoft, but the link goes to pc-repair-help.example, not Microsoft's real website."
+          }
+        ]
+      },
+      "why": "A device scare plus a phone number in an ad."
+    },
+    {
+      "id": "malware-removal-article",
+      "kind": "legitimate",
+      "summary": "Help article on removing malware",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://help.example/malware",
+        "pageTitle": "How to remove malware from your PC",
+        "visibleText": "If your computer is slow or shows pop-ups, run a scan with your antivirus. Real security warnings never ask you to call a phone number. Scammers often fake virus alerts.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "Remove malware"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Advice about scams, asking nothing of the reader."
+    },
+    {
+      "id": "applecare-receipt",
+      "kind": "legitimate",
+      "summary": "Real AppleCare receipt from apple.com",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your receipt from Apple - Gmail",
+        "visibleText": "Receipt: AppleCare+ for iPhone, $9.99/month. Manage your subscriptions in Settings.",
+        "links": [
+          {
+            "text": "Manage subscriptions",
+            "url": "https://www.apple.com/account"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Apple",
+          "senderEmail": "no_reply@email.apple.com",
+          "subject": "Your receipt from Apple"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Sent from Apple, links only to Apple."
+    },
+    {
+      "id": "geek-squad-refund-free-mail",
+      "kind": "scam",
+      "summary": "\"Geek Squad\" renewal for $299.99 from a free account, call within 24 hours to cancel",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Invoice #4471 - Gmail",
+        "visibleText": "Your Geek Squad membership renewed for $299.99. If you did not authorize this, call 1-800-555-0177 to cancel within 24 hours.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Geek Squad",
+          "senderEmail": "renewals.geeksquad@gmail.com",
+          "subject": "Invoice #4471"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          },
+          {
+            "code": "CHARGE_WITH_PRESSURE",
+            "explanation": "It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "A surprise charge, a number to call, and a deadline: the start of a refund scam."
+    },
+    {
+      "id": "pc-plan-refund-deadline",
+      "kind": "scam",
+      "summary": "Renewal for $349 from a company address, call within 24 hours for a refund",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Order confirmation - Gmail",
+        "visibleText": "Your PC Protect Plus plan was renewed for $349.00. If you did not authorize this, call 1-888-555-0193 within 24 hours to cancel and get a refund.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "PC Protect Billing",
+          "senderEmail": "billing@pcprotect-renewals.example",
+          "subject": "Order confirmation"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          },
+          {
+            "code": "CHARGE_WITH_PRESSURE",
+            "explanation": "It says you were charged AND gives you a deadline to call. Scammers rush you so you call before checking your bank or card statement."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          }
+        ]
+      },
+      "why": "The deadline is there so you call before checking your statement."
+    },
+    {
+      "id": "gym-renewal-call-to-cancel",
+      "kind": "legitimate",
+      "summary": "Gym renewal receipt with a phone number to cancel, no deadline",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your membership renewed - Gmail",
+        "visibleText": "Your annual membership renewed for $89.00 on May 1. To cancel or request a refund, call us at 1-800-555-0123, Monday to Friday.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "City Gym",
+          "senderEmail": "members@city-gym.example",
+          "subject": "Your membership renewed"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "VERIFY_INDEPENDENTLY",
+        "reasons": [
+          {
+            "code": "UNEXPECTED_CHARGE",
+            "explanation": "It says you were charged for something and gives a phone number to cancel or get a refund. This is how \"refund\" scams start. Don't call: check your bank or card statement yourself."
+          }
+        ]
+      },
+      "why": "Real businesses do this too, so it is only noted, never stopped: check your statement yourself."
+    }
+  ]
+}

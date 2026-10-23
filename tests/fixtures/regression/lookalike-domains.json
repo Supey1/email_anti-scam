@@ -1,0 +1,334 @@
+{
+  "category": "lookalike-domains",
+  "cases": [
+    {
+      "id": "paypa1-alone",
+      "kind": "scam",
+      "summary": "Link to paypa1-secure.example with nothing else suspicious",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Open",
+            "url": "https://paypa1-secure.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "VERIFY_INDEPENDENTLY",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be PayPal, but it goes to paypa1-secure.example, not PayPal's real website."
+          }
+        ]
+      },
+      "why": "A look-alike address alone is a warning sign, not proof: \"check first\", not a stop."
+    },
+    {
+      "id": "paypal-in-front",
+      "kind": "scam",
+      "summary": "Link to paypal.com.account-verify.example",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Open",
+            "url": "https://paypal.com.account-verify.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link's address starts with paypal.com, but it really belongs to account-verify.example, not PayPal."
+          }
+        ]
+      },
+      "why": "Writing paypal.com in front of another website has no innocent use."
+    },
+    {
+      "id": "cyrillic-paypal",
+      "kind": "scam",
+      "summary": "Link to \"pаypal\" spelled with a Cyrillic letter",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Open",
+            "url": "https://xn--pypal-4ve.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link uses letters from another alphabet to look like PayPal, but xn--pypal-4ve.example is not PayPal's real website."
+          }
+        ]
+      },
+      "why": "Using another alphabet to imitate a company name has no innocent use."
+    },
+    {
+      "id": "amazom-misspelling",
+      "kind": "scam",
+      "summary": "Link to amazom-deals.example",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Deals",
+            "url": "https://amazom-deals.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "VERIFY_INDEPENDENTLY",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link is a misspelling of Amazon: amazom-deals.example is not Amazon's real website."
+          }
+        ]
+      },
+      "why": "A misspelled company name: a warning sign."
+    },
+    {
+      "id": "rnicrosoft-signin",
+      "kind": "scam",
+      "summary": "Sign-in page on rnicrosoft-login.example (\"rn\" looks like \"m\")",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://rnicrosoft-login.example/",
+        "pageTitle": "Sign in to your Microsoft account",
+        "visibleText": "Email. Password. Sign in.",
+        "links": [],
+        "forms": [
+          {
+            "action": "https://rnicrosoft-login.example/s",
+            "hasPassword": true,
+            "hasPaymentField": false
+          }
+        ],
+        "context": {
+          "mainHeadings": [
+            "Microsoft"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "DO_NOT_ENTER_INFO",
+        "reasons": [
+          {
+            "code": "FAKE_SIGN_IN_PAGE",
+            "explanation": "This page looks like a sign-in or payment page for Microsoft, but it is on rnicrosoft-login.example, not Microsoft's real website."
+          },
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "This website's name pretends to be Microsoft, but rnicrosoft-login.example is not Microsoft's real website."
+          }
+        ]
+      },
+      "why": "A Microsoft sign-in page on a look-alike address."
+    },
+    {
+      "id": "arnazon-sender",
+      "kind": "scam",
+      "summary": "\"Amazon\" order email from arnazon-orders.example",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Your order has shipped - Gmail",
+        "visibleText": "Your order #112-555 has shipped.",
+        "links": [
+          {
+            "text": "View order",
+            "url": "https://arnazon-orders.example/o"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "senderName": "Amazon",
+          "senderEmail": "orders@arnazon-orders.example",
+          "subject": "Your order has shipped"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "LOOKALIKE_DOMAIN",
+            "explanation": "A link pretends to be Amazon, but it goes to arnazon-orders.example, not Amazon's real website."
+          },
+          {
+            "code": "LOOKALIKE_SENDER",
+            "explanation": "The sender's address (orders@arnazon-orders.example) pretends to be Amazon, but it isn't Amazon's real address."
+          },
+          {
+            "code": "BRAND_NAME_MISMATCH",
+            "explanation": "This email says it's from Amazon, but none of its links go to Amazon's real website (one goes to arnazon-orders.example)."
+          },
+          {
+            "code": "SENDER_NAME_MISMATCH",
+            "explanation": "The sender's name says Amazon, but the email address (orders@arnazon-orders.example) is not from Amazon. Companies sometimes send ads through other services, so this alone isn't proof."
+          }
+        ]
+      },
+      "why": "A look-alike Amazon sender and website."
+    },
+    {
+      "id": "real-paypal",
+      "kind": "legitimate",
+      "summary": "Link to www.paypal.com",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Log in to PayPal",
+            "url": "https://www.paypal.com/signin"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "PayPal's real website."
+    },
+    {
+      "id": "real-amazon-uk",
+      "kind": "legitimate",
+      "summary": "Link to amazon.co.uk",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Amazon UK",
+            "url": "https://www.amazon.co.uk/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Amazon's real UK website."
+    },
+    {
+      "id": "applebees-not-apple",
+      "kind": "legitimate",
+      "summary": "Link to applebees.example (a restaurant, not Apple)",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Order online",
+            "url": "https://www.applebees.example/order"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "\"apple\" inside a longer word is not an imitation."
+    },
+    {
+      "id": "chaseoutdoors-not-chase",
+      "kind": "legitimate",
+      "summary": "Link to chaseoutdoors.example (not Chase)",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Camping gear",
+            "url": "https://chaseoutdoors.example/"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "\"chase\" inside a longer word is not an imitation."
+    }
+  ]
+}

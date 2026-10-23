@@ -10,57 +10,53 @@ Scammers target older adults by email because many are less familiar with newer 
 
 > TODO: add one or two statistics from a trusted source (for example, the FBI's annual Elder Fraud Report from IC3) and link to it.
 
-## What it does (version 0.2)
+## What it does (version 0.6)
 
 It protects at three levels. The stronger the evidence, the stronger the response.
 
 | Level | When | What happens |
 |---|---|---|
-| 🛑 **Block** | The website is on the list of **known** dangerous websites | It never loads. A "We blocked a dangerous website" page appears instead. No way through. |
-| 🛑 **Stop and check** | Strong warning signs, like a link pretending to be your bank, or an ad promising a prize and rushing you | The click is cancelled and a big warning explains why. "Go back to safety" is the big button; "Open it anyway" is small. |
+| 🛑 **Danger** (block) | The website is on the list of **known** dangerous websites | It never loads. The extension's own warning page appears instead. No way through. |
+| ⚠️ **Stop and check this first** | Strong warning signs, like a link pretending to be your bank, or an ad promising a prize and rushing you | The click is cancelled and the extension's warning page explains why. "Go back to safety" is the big button; "I understand the risk. Continue anyway" is small. |
 | ⚠️ **Be careful** | Weaker signs, like a shortened link or one rushed word | Shown in the Gmail panel, but **never** interrupts a click. Too many false alarms and people stop trusting the warnings. |
 
-**In Gmail** (from version 0.1):
-- Notices when you open an email and checks it automatically
-- Shows a big-text panel with high contrast, color **and** icons, and short sentences
+**In Gmail:**
+- Notices when you open an email and checks it automatically, with a big-text panel: the verdict (icon **and** word, never color alone), the top three reasons, who sent it, where each link really goes, and what to do
 - Checks the sender against each company's **own** email addresses. How much a mismatch matters depends on the message: a "PayPal" account alert from someone else's address is a real warning sign, but a newsletter sent through an email service (SendGrid, Mailchimp, GovDelivery...) is normal. A company's address written into the sender's *name* (`service@paypal.com <x@evil.example>`) is always a warning.
 - Notices when an email says it's from a company but none of its links go to that company's website
 - Checks the wording: gift cards and wire transfers, "your account is locked," rushing, secrecy, prizes, fake delivery notices and redelivery fees, tech-support scams, the "grandparent scam," and **urgent demands for money** ("pay today or you will be arrested")
 - Knows that the IRS says it never emails people first to ask for money or personal details
-- **New:** clicking *any* link in an email that looks like a scam brings up the "Stop and check" warning first
+- Catches "refund" scams (a surprise charge and a phone number to cancel it; with a deadline to call, it stops you) and "Hi Mom, this is my new number" messages
+- Catches investment and crypto scams (guaranteed or impossible profits plus a deposit, "send crypto and get double back", famous names on fake investment offers, including the "sweetheart, I made 300% on this platform" end of romance scams), job scams (paying for equipment or training, "deposit our check and send back the difference", emailing your Social Security or bank number for a job), "we can recover the money you lost" for a fee, and blackmail emails ("pay or the video goes to your contacts")
+- Doesn't warn about real bank alerts and newsletters sent from the company's own address with links only to the company, about ordinary marketing ("sale ends tonight"), or about newsletters that warn *about* scams
+- Clicking *any* link in an email that looks like a scam brings up the "Stop and check" warning first
 
-**On every website** (new in 0.2):
-- **Before a click:** checks where the link really goes and what the words around it (like the rest of an ad) promise
-  - links that pretend to be a company (`paypa1-secure.xyz`, `paypal.com.fake-domain.example`, `paypal.com@evil.example`), or whose words say one website but really go to another
+**On every website:**
+- **Before a click:** checks where the link really goes and, for ads, what the ad says
+  - links that pretend to be a company (`paypal.com.fake-domain.example`, `paypal.com@evil.example`, `paypa1-secure.xyz` when the link names PayPal), or whose words show a company's real website but go somewhere else
   - links through well-known pass-through services (Google, Outlook, Facebook, YouTube) are checked where they really end up
-  - number addresses, shortened links, and risky website endings
-  - ads that say *you* won a prize, ask you to pay a fee or use gift cards first, say *your* package is on hold, say *your* computer is infected, or tell you to call a number
-  - ad clicks that go through an ad network (like Google's) are checked where they really go when the link says so; when it doesn't, the ad's wording is still checked, but the engine doesn't pretend to know the destination
-  - clicks inside ads that load in their own frame are caught too, and the warning covers the whole screen
-- **On the page itself:** warns if the page looks like a company's sign-in page but isn't on that company's website, sends your password to a different website or to a known dangerous one, asks for a password on a free hosting website, sends it without encryption, or is a fake virus or prize pop-up (including pop-ups that appear after the page loads)
-- **Known dangerous websites** are blocked by Chrome itself, so typed addresses, redirects, and pop-ups are stopped too. Only a list from a trusted source blocks outright; everything else gets a warning the person can choose to go past.
+  - ads (recognized by their markers: `docs/ad-support-matrix.md`) that say *you* won a prize and send you to a website nobody can tie to the company, ask you to pay a fee or use gift cards first, promise guaranteed profits for a deposit, use a famous name to sell crypto, ask you to pay to start a job, or charge to "recover" lost money. Ordinary ads are left alone, and no ad is ever hidden.
+  - clicks inside ads that load in their own frame are caught too, and the warning replaces the whole tab
+  - ordinary clicks, Enter, middle-click, Ctrl/Cmd/Shift-click, new-tab links, links in shadow DOM and SVG (limits: `docs/click-guard-limits.md`)
+- **On the page itself** (a card in the corner, only for strong signs): a page that looks like a company's sign-in page but isn't on that company's website, a password or card box that sends what you type to another website or to a known dangerous one, a sign-in page on a free hosting website, a password box on a page without a secure connection, a fake virus or prize pop-up (including content that appears after the page loads), or a scam ad on the page
+- **Known dangerous websites** are blocked by Chrome itself, so typed addresses, redirects, and pop-ups are stopped too. Only a list from a trusted source blocks outright.
 
 **Everywhere:**
-- **🔊 Read to me** and **⏹ Stop reading** on every warning, at the speed you choose, optionally reading each warning as soon as it appears. If this computer can't read aloud, the button says so; the warning is always written on screen too.
-- A settings page (also the welcome page after installing): turn protection on or off, choose which websites to check, text size, reading aloud, and a plain explanation of every permission
-- Every warning lists the actual evidence that triggered it
+- **🔊 Read to me** on every warning, at the speed you choose, or reading each warning out loud on its own
+- **The toolbar button** answers three questions in plain words: Is protection on? Is this page being checked (and if not, why)? What can I do when I need help? It turns protection, or one website, on or off; the button says OFF when protection is off.
+- **The settings page** (also the welcome page after installing): website access, protection on or off, Gmail on or off, which websites are checked (all except ones you turn off, or only ones you choose), reading aloud, text size, what is and isn't checked, every permission explained, and your saved "This is a false alarm" reports
+- Every warning lists the actual evidence that triggered it, and "No warning signs found" never says "safe"
 - Runs entirely on your computer; nothing you read or click is sent anywhere
+
+The "Ask someone I trust" feature is **not built yet** on purpose: sharing a suspicious email or link with another person raises consent and sensitive-data questions that need their own design.
 
 ## Try it
 
-### Option A: the practice pages (no extension needed)
+### Option A: the Gmail practice page (no extension needed)
 
 1. Download this repo (green **Code** button, then **Download ZIP**) and unzip it.
-2. Open any of these files in Chrome:
-
-| Practice page | What to try |
-|---|---|
-| `tests/fake-gmail.html` | Click the test emails at the top and watch the panel change. Open "Fake PayPal" and click its link. |
-| `tests/practice-ads.html` | A pretend news site with ads. Click the scam ads and links (warning), then the normal ones (nothing happens). |
-| `tests/practice-fake-login.html` | A fake PayPal sign-in page. The page warning appears right away. |
-| `tests/practice-popup.html` | A recipe page. After 3 seconds a fake virus pop-up appears; the warning follows. |
-
-The practice pages load the extension's files themselves, so open them as files, not with the extension also running on them, or you'll see two warnings.
+2. Open `tests/fake-gmail.html` in Chrome. (Its scripts load straight from the repo.)
+3. Click the test emails at the top and watch the panel change.
 
 ### Option B: the real extension
 
@@ -68,90 +64,96 @@ The practice pages load the extension's files themselves, so open them as files,
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and choose the `extension` folder.
 4. The welcome page opens. Choose **Check all websites and Gmail**; Chrome then asks you to allow it to "read and change all your data on all websites." That's needed to check links and pages (see [Privacy](#privacy)). Until you allow it, the extension can only block known dangerous websites.
-5. Open Gmail and open any email: the panel appears on the right. Browse normally: warnings only appear when something looks wrong.
-6. Settings (protection on/off, which websites, text size, reading aloud) are on the extension's **Options** page, or right-click its icon → Options.
-7. To see blocking, type `known-phish.example` into the address bar. (It's on the practice list in `extension/threat-list.js`.)
+5. Open Gmail and open any email: the panel appears. Browse normally: warnings only appear when something looks wrong.
+6. Click the extension's button in the toolbar to see whether a page is being checked, or open Settings from there.
+7. To see blocking, type `known-phish.example` into the address bar. (It's on the practice list in `extension/data/threat-list.js`.)
 8. After changing any code, click the ↻ reload button on the extension's card, then refresh the page.
+
+### The webpage practice pages
+
+With the extension loaded, run `python3 -m http.server 8000` inside `tests/pages`, then open `http://localhost:8000/`:
+- `fake-login.html` (warns), `prize-ad.html` and `ads.html` (the scam ads warn when clicked; the ordinary ones don't, and nothing is hidden), `legit-shop.html` and `fake-legitimate.html` (no warnings)
+- `dangerous-link.html` and `click-guard.html`: the suspicious links don't open and show a warning; `known-phish.example` is on the built-in blocklist and has no continue button; ordinary links open normally
+- Every page is described in [`docs/testing.md`](docs/testing.md).
 
 ## How it works
 
 ```
-1. COLLECT EVIDENCE                 2. CHECK IT (rules.js + core/)      3. ACT
-gmail.js  the open email     ──►    analyzeEmail()   ──►  panel (+ tells guard.js)
-guard.js  a link being clicked ──►  analyzeLink()    ──►  "Stop and check" warning
-page.js   the page you're on   ──►  analyzePage()    ──►  "Be careful" warning
+1. COLLECT EVIDENCE (Person B)                 2. CHECK IT (Person A)              3. ACT (Person B)
+content/gmail-adapter.js  the open email   ──►  checkEmail()      ──► Gmail panel
+content/page-scanner.js   the page + ads   ──►  checkWebpage()    ──► corner card (strong signs only)
+content/click-guard.js    a link clicked   ──►  checkLinkClick()  ──► the extension's warning page
+                                                 (rules.js: analyze() + core/ + data/)
 
-service-worker.js + threat-list.js  ──►  Chrome blocks known dangerous websites before they load
+service-worker.js + background/  ►  Chrome blocks known dangerous websites before they load,
+                                    opens the warning page, and applies your settings
 ```
 
 Each check adds "risk points" for a warning sign (`core/risk-policy.js` says how many), and the answer comes with the list of signs that caused it:
 
-| Evidence | Level | Action |
+| Evidence | Verdict | What the person sees |
 |---|---|---|
-| On the known-dangerous list (confirmed, not a guess) | high | **block** |
-| 5+ points | high | **warn**: stop and explain |
-| 1–4 points | medium | allow (Gmail panel says "be careful") |
-| 0 points | low | allow |
+| On the known-dangerous list from a trusted source | `block` | Danger, no way through |
+| A strong sign, or 5+ points including a real warning sign | `warn` + `GO_BACK` (or `DO_NOT_ENTER_INFO` on a page with a password or card box) | Stop and check this first |
+| Anything else that counts (weak signs alone, however many) | `warn` + `VERIFY_INDEPENDENTLY` | Be careful (Gmail only; never interrupts) |
+| Nothing | `no_warning_signs` | No warning signs found (never "safe") |
 
-Some signs only count together. "Lottery" on a news site is normal; "Congratulations, **you** have won... claim before midnight" next to a link to an unknown website is not. Links to another page on the same website, and links to a company's real website, aren't treated as offers.
+Some signs only count together. "Lottery" on a news site is normal; "Congratulations, **you** have won... claim before midnight" next to a link to an unknown website is not. On websites, one scary phrase alone never counts. Links to another page on the same website, and links to a company's real website, aren't treated as offers.
 
-Every warning comes from a rule a person can read and understand, so the extension can always explain *why* it is warning you. There is no AI in this version: it's a rules-based scam detection engine.
+Every warning comes from a rule a person can read and understand, so the extension can always explain *why* it is warning you. There is no AI in this version: it's a rules-based scam detection engine. The contract between the parts is [`docs/interfaces.md`](docs/interfaces.md).
 
 ## Project structure
 
 | File | What it does |
 |---|---|
-| `extension/manifest.json` | Tells Chrome what the extension is, which files run where, and what it's allowed to do |
-| `extension/rules.js` | The front door to the scam checks: `analyze()` (see `docs/interfaces.md`) |
-| `extension/core/` | The scam checks, in groups: reading addresses, address rules, company-name rules, wording rules, the risk policy, and the plain-language explanations |
-| `extension/threat-list.js` | The list of known dangerous websites (practice addresses for now) |
-| `extension/gmail.js` | Reads the open email in Gmail and builds the panel |
-| `extension/guard.js` | Stops risky link clicks before the browser leaves the page |
-| `extension/page.js` | Checks the website you're on, including pop-ups that appear later |
-| `extension/warning.js` | The big full-screen warning and read-aloud |
-| `extension/panel-styles.js` | How the panel and warning look (big text, colors) |
-| `extension/service-worker.js` | Connects Chrome to `background/`: blocking rules, threat lookups, settings, the warning page |
-| `extension/background/` | Turns the known-threat list into Chrome's blocking rules, answers threat lookups, and handles the service worker's messages |
-| `extension/threat-sync.js` | Gives the scam checks in each page the same known-threat list Chrome blocks with |
-| `extension/settings.html`, `settings.js` | Settings and welcome page: protection, website access, reading and text, privacy |
-| `extension/speech.js` | Reading warnings aloud: read, stop, no restarts, a message when it can't |
-| `extension/settings-sync.js` | Gives the warnings in each page the reading and text settings |
-| `extension/blocked.html`, `blocked.js` | The extension's own warning page: shown instead of a blocked website, or for any warning |
-| `tests/rules.test.js` | Automatic tests for the scam checks, with a caught / false-alarm count |
-| `tests/fake-gmail.html` | Practice page that imitates Gmail |
-| `tests/practice-*.html` | Practice pages for ads, a fake sign-in page, and a fake virus pop-up |
-| `tests/contract.js`, `contract.test.js` | Checks inputs and results against the interface contract |
-| `tests/fixtures/` | Fixed inputs and results, so each workstream can build without waiting for the other |
-| `docs/interfaces.md` | The contract between the scanner, the engine, and the warning interface |
-| `docs/WORKING_AGREEMENT.md`, `integration-checklist.md` | How the two workstreams work together, and open integration issues |
+| `extension/manifest.json` | Tells Chrome what the extension is and what it's allowed to do (website access is optional, asked for on the welcome page) |
+| **Scam checks (Person A)** | |
+| `extension/rules.js` | The front door: `analyze()` (see `docs/interfaces.md`), plus `checkWebpage`, `checkLinkClick`, `checkEmail`, `stopsPerson` for the screens |
+| `extension/core/` | The checks, in groups: reading addresses, address rules, company-name rules, wording rules, the risk policy, and the plain-language explanations |
+| `extension/data/` | Facts the checks use, kept apart from the rules: companies and their official websites, email services and ad networks, web-address lists, famous names used on fake investment ads, and the known-dangerous list (practice addresses for now) |
+| `extension/service-worker.js`, `extension/background/` | Chrome's blocking rules from the known-threat list, threat lookups, starting the page scripts for the website access given, the warning page, settings, false-alarm reports |
+| `extension/threat-sync.js` | Gives the checks in each page the same known-threat list Chrome blocks with |
+| **Screens (Person B)** | |
+| `extension/content/page-scanner.js`, `ad-signals.js` | Collect evidence from webpages (text, links, form metadata, ads), including content added later. Never read typed values |
+| `extension/content/click-guard.js` | Stops a risky link click before the browser navigates |
+| `extension/content/gmail-adapter.js`, `gmail.js` | Read the open Gmail email (all Gmail selectors live in the adapter) and show the panel |
+| `extension/page.js` | Connects the scanner, the checks, and the warning card on ordinary webpages |
+| `extension/ui/warning.html`, `warning.js` | The extension's own warning page: a website can't remove or fake it |
+| `extension/ui/explain.js`, `warning-view.js`, `extension/panel.js`, `panel-styles.js` | One place for the warning's words and layout: headline, top reasons, safe action, read aloud, false-alarm report |
+| `extension/ui/popup.*`, `status.js`, `options.*`, `ui.css` | The toolbar popup and the settings and welcome page |
+| `extension/settings.js` | The person's choices, saved on this computer and shared by every part |
+| **Tests and documents** | |
+| `tests/` | See [Running the tests](#running-the-tests) |
+| `tests/pages/`, `tests/fake-gmail.html` | Practice pages for each kind of check |
+| `docs/interfaces.md` | The contract between the scanner, the checks, and the warning interface |
+| `docs/WORKING_AGREEMENT.md`, `docs/integration-checklist.md` | Who owns which files, and open issues between the two workstreams |
+| `docs/testing.md`, `docs/test-results.md`, `docs/findings.md`, `docs/regression-cases.md` | How the testing works, the latest numbers, what testing found, and every regression example with the words the person reads |
+| `docs/usability-testing.md`, `docs/usability-findings.md` | The plan and scoring for sessions with older adults (none run yet) |
+| `docs/threat-intelligence.md`, `docs/ad-support-matrix.md`, `docs/click-guard-limits.md` | Known-threat blocking, which ads are understood, and what the click guard can't catch |
 
 ## Running the tests
 
 If you have [Node.js](https://nodejs.org) installed, run this from the project folder:
 
 ```
-node tests/contract.test.js
-node tests/rules.test.js
-node tests/service-worker.test.js
-node tests/speech.test.js
-node tests/browser/acceptance.test.js
+npm test              # everything (browser tests need Playwright: npm install)
+npm run test:fast     # everything that doesn't need a browser
+node tests/metrics.js # accuracy on the labelled examples, with every miss and false alarm listed
 ```
 
-The last one loads the real extension into Chromium, opens local fake pages (a normal page, a fake sign-in page, a news page with ads, a pop-up, and a pretend Gmail inbox), and checks that suspicious clicks are stopped before the browser even asks for the address. It also checks the settings page, a fresh install without website access, and a browser restart. (Chrome's own "Allow" prompt can't be clicked by a test, so most of it runs on a copy of the extension that already has website access.) It needs Playwright (`npm i playwright` and `npx playwright install chromium`); without it, it skips.
+The scam checks:
+- `rules.test.js` checks each scam rule: an example that should trigger it and one that should not, which combinations of signs lead to each verdict, and the trickiest address cases (`paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, two `github.io` sites belong to different people).
+- `regression.test.js` runs 103 realistic scam and legitimate examples in fourteen groups (fake account alerts, prizes, delivery fees, tech support and refund scams, grandparent scams, investment and crypto, jobs, recovery, blackmail, look-alike addresses, link mismatches, real bank alerts, real marketing, and articles about scams), each with the verdict it should get and the exact explanation the person reads. Readable version: [`docs/regression-cases.md`](docs/regression-cases.md).
+- `robustness.test.js` checks hostile input: huge or tricky text can't slow the checks down, invisible or look-alike letters can't hide a company name, address tricks can't get past the known-dangerous list, and malformed input never crashes anything.
+- `screens.test.js` checks what each screen gets from the checks (pages with ads, clicks, emails, and when a person is stopped).
+- `service-worker.test.js` checks threat lookups, the blocking rules Chrome gets (normal addresses are never blocked), the warning page messages, and the on/off switch.
+- `contract.test.js` checks the shared fixtures against the contract.
 
-`contract.test.js` checks the shared fixtures against the interface contract in [`docs/interfaces.md`](docs/interfaces.md). `rules.test.js` checks the scam rules. `service-worker.test.js` checks threat lookups and the blocking rules Chrome gets (including that normal addresses are never blocked).
+The screens: `explain.test.js` (the warning's words), `settings.test.js` (settings and the popup), `scanner-merge.test.js`, `usability-score.test.js`, and the real-browser tests in `tests/browser/`: blocking (known dangerous websites, a fresh install without website access, a browser restart), the scanner, the click guard, ads, Gmail, settings, every practice page (`systematic`), the click-protection matrix, and performance. The browser tests load the real extension into Chromium; most of them use a copy that already has website access, because Chrome's own "Allow" prompt can't be clicked by a test.
+
+How the tests work, what each measure means, and what they deliberately do not claim: [`docs/testing.md`](docs/testing.md). Latest numbers: [`docs/test-results.md`](docs/test-results.md).
 
 Node is only needed for running tests. The extension itself is plain JavaScript that Chrome runs directly.
-
-The tests end with two numbers:
-
-```
-302/302 tests passed
-Scams caught:          18/18
-False alarms (normal): 0/15
-```
-
-Every rule has at least one example that should trigger it and one that should not, and the policy tests check which combinations of signs lead to each verdict (for example, a strange website ending or an urgent phrase on its own never stops a click). The tests also check the trickiest address cases directly: `paypal.com.fake-domain.example` must never count as PayPal, `paypal.com@evil.example` really goes to evil.example, and two `github.io` sites belong to different people.
 
 Be honest about what these mean: we wrote these examples ourselves, alongside the rules, so of course the rules pass them. They show the extension *works*, not that it catches scams *in general*. For the submission, collect a separate set of real-world-style examples (scam **and** normal emails, ads, and sign-in pages) that nobody tuned the rules on, and report those numbers too.
 
@@ -165,57 +167,59 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 
 ## Known limits
 
-- **The known-dangerous list is a practice list.** It only has made-up `.example` addresses until we connect a real source (Step 4b). The blocking machinery is real and tested; the list isn't. Until a real source is connected, the "Stop and check" warnings are what protect people.
-- **Not every way of opening a link is caught.** Normal clicks, middle clicks, Ctrl/Cmd clicks, and Enter are. "Open in new tab" from the right-click menu, and pages that move you somewhere with their own code, are not (except known dangerous websites, which Chrome blocks however you get there). Test each new case before claiming it works.
-- **Ads we can't read can't be checked.** Clicks inside ad frames are checked, but an ad that's only a picture with no words or description gives us little to go on.
-- **A scam ad placed directly in a real website's page** (not in its own frame) can make the whole page get a "Be careful" warning.
+- **The known-dangerous list is a practice list.** It only has made-up `.example` addresses until we connect a real source. The blocking machinery is real and tested; the list isn't. Until a real source is connected, the "Stop and check" warnings are what protect people.
+- **One warning sign alone doesn't stop a click.** A look-alike address (`paypa1-secure.example`), a raw number address, or a link that shows one website and goes to another unknown one is a "Be careful" sign; it stops the click only with a second sign (like the link naming PayPal). This keeps false alarms down, and means some scams get only a note.
+- **Not every way of opening a link is caught.** "Open in new tab" from the right-click menu, links dragged to the address bar, and pages that move you somewhere with their own code are not (except known dangerous websites, which Chrome blocks however you get there). See `docs/click-guard-limits.md`.
+- **Advertisements:** only ads that carry a recognizable marker are examined, and ads in other websites' frames (the usual ad-network case) can't be read. An ad that's only a picture with no words gives little to go on. See `docs/ad-support-matrix.md`.
 - **A sign-in page with a company's name on it** (in its title or main heading) that isn't on that company's website gets a warning, even if it's a real partner site.
-- Gmail sometimes changes its page layout. If the panel stops appearing, check the `SELECTORS` at the top of `gmail.js`.
+- **Gmail:** the adapter is tested against a Gmail-shaped practice page, not live Gmail. If the panel stops appearing, check the `SELECTORS` in `extension/content/gmail-adapter.js` (`GmailAdapter.diagnose()` shows which still match). Gmail only shows us the sender's name and address, not the hidden headers that would prove who sent a message.
+- **An email from a company's own address, with links only to that company, is trusted like the company's website.** That stops false alarms on real bank alerts, but a forged sender address on a real company's domain would get the same trust. Gmail usually rejects or flags those, but not always.
+- **Investment, job, recovery, and blackmail checks look for the moment money or details are asked for.** Romance and investment scams build trust for weeks, mostly in chat apps we can't see. The famous-name list (`data/people.js`) is hand-picked, and a famous name alone never counts: only with an investment offer.
+- **Some honest messages are noted:** a real receipt that gives a phone number to cancel ("Be careful", never "Stop") and a CD or annuity ad that says "guaranteed returns". A real employer who asks you to *email* your bank or Social Security number gets "Stop and check" on purpose: an email can't show whether there was an interview, and sending those numbers by email is unsafe even for a real job. Safety advice is recognized when it says "not", "never", "no", or "if someone…" right before the scam words, or mentions scams twice; advice worded any other way can still be flagged.
+- **Shortened and tracking links aren't followed.** We never open a link to see where it goes (that could warn the scammer). A shortened link stays a weak warning sign.
+- **Hand-picked lists:** email services and ad networks, companies and their official websites, and website endings (`core/url-normalizer.js` knows common two-part endings and free hosting sites, not the full Public Suffix List). Check each company entry against the company's own website.
 - Rules can't catch every scam, especially new tricks, and scammers can avoid our exact wording.
-- **Shortened and tracking links aren't followed.** We never open a link to see where it goes (that could warn the scammer, and the answer can change depending on who asks). A shortened link stays a weak warning sign. Only well-known pass-through services that write the destination into the link are followed.
-- **The lists of email services and ad networks (`core/domain-rules.js`) are hand-picked.** A real company's newsletter sent through a service that isn't listed may get a mild "check first" note; a scam sent through a listed service is still checked on everything else.
-- **Gmail only shows us the sender's name and address.** The hidden email headers that would prove who really sent a message aren't visible to the extension.
-- **Telling owners apart uses a partial list of website endings.** `core/url-normalizer.js` knows common two-part endings (`co.uk`, `com.au`...) and free hosting sites (`github.io`, `netlify.app`...), but not the full Public Suffix List. An ending it doesn't know can make two different owners look like one website.
-- **The list of companies and their official websites (`core/domain-rules.js`) must be checked against each company's own site.** A missing official website means a real link gets flagged; a wrong one would let a fake through.
-- Chrome only. It can't see text messages, phone calls, or other apps on the computer; that would be a different product.
+- Chrome only. It can't see text messages, phone calls, or other apps on the computer.
 
 ## Roadmap
 
 - [x] Step 1: Repo and project setup
 - [x] Step 2: Extension that reads Gmail and shows the big-text panel
-- [x] Step 3: First set of rule-based scam checks
-- [x] Step 4a: Protection on every website: click guard, page warnings, and browser-level blocking of known dangerous websites (practice list)
-- [x] Step 5a: Service worker: threat lookups (match / no match / error), browser-level blocking built from the list (updates, duplicates, expiry, false positives), settings, and the extension's own warning page. Tested with made-up addresses only.
-- [ ] Step 4b: Fill the known-dangerous list from a maintained source. Check its current API, terms, and privacy first: Google Safe Browsing (use **v5**; v4 is deprecated) is for non-commercial use only, Google Web Risk is the commercial version, and open phishing feeds are another option. A lookup service that receives the addresses you visit changes our privacy promise, so update [Privacy](#privacy) first.
+- [x] Step 3: Rule-based scam checks, including investment, job, recovery, and blackmail scams
+- [x] Step 4a: Protection on every website: page scanner, ads, click guard, the extension's own warning page, and browser-level blocking of known dangerous websites (practice list)
+- [x] Step 5a: Service worker: threat lookups (match / no match / error), blocking rules built from the list (updates, duplicates, expiry, false positives). Tested with made-up addresses only.
+- [x] Step 6a: Settings page, welcome page, toolbar popup, optional website access
+- [x] Step 7a: Systematic testing, metrics, and a record of false positives and misses
+- [ ] Step 4b: Fill the known-dangerous list from a maintained source. Check its current API, terms, and privacy first: Google Safe Browsing (use **v5**) is for non-commercial use only, Google Web Risk is the commercial version, and open phishing feeds are another option. A lookup service that receives the addresses you visit changes our privacy promise, so update [Privacy](#privacy) first.
 - [ ] Step 5 (only if testing shows rules miss real cases): AI plain-language summary and second opinion on risk
-- [ ] Step 6: "Ask someone I trust" button and an options page
-- [ ] Step 7: Test with 15–20 practice emails and with older adults
+- [ ] Step 6b: "Ask someone I trust" (deferred: needs its own consent and privacy design)
+- [ ] Step 7b: Test with 15–20 practice scenarios with older adults (plan and scoring ready: `docs/usability-testing.md`)
 - [ ] Step 8: Demo video and submission write-up
 
 ## Privacy
 
-**What it reads:** in Gmail, the email you have open (sender, subject, text, links). On other websites, the page's address, title, main heading, visible words, whether it has a password box and where that box sends what you type, and the link you click plus the words around it.
+**What it reads:** in Gmail, the email you have open (sender, subject, text, links). On other websites, the page's address, title, visible words, links, ads, whether it has a password or card box and where that box sends what you type, and the link you click plus the ad around it. Never anything you type.
 
 **What it sends:** nothing. Every check happens inside your own browser, and the extension has no server. Looking addresses up with an online threat service is built but **off**, and only a pretend (development) service exists; see [`docs/threat-intelligence.md`](docs/threat-intelligence.md). Turning a real one on would send the addresses you check to that service, and this section must say so first.
 
-**What it saves, on your computer only:** the protection settings, updates to the known-dangerous list, and, until you close the browser, the warnings shown on the warning page (the link's address and the reasons). Nothing you type, and no browsing history.
+**What it saves, on your computer only:** your settings, updates to the known-dangerous list, and the "This is a false alarm" reports you choose to send during testing (the website's name, the verdict, up to five reasons shown, where, and the time; the last 100). You can save or delete the reports in Settings. No browsing history.
 
 **Permissions it asks for, and why.** At install, only the three without website access. Website access is asked for on the welcome page, can be all websites or Gmail only, and can be taken back at any time; without it, known dangerous websites are still blocked.
 
 | Permission | When | Why |
 |---|---|---|
-| Access to `http`/`https` websites (optional) | Only when you choose it on the welcome or settings page | To check pages and links, inside ads, and in Gmail. Chrome shows this as "read and change all your data on all websites." Choose "Gmail only" to allow just `mail.google.com`. |
+| Access to `http`/`https` websites (optional) | Only when you choose it on the welcome or settings page | To check pages and links, ads, and Gmail. Chrome shows this as "read and change all your data on all websites." Choose "Gmail only" to allow just `mail.google.com`. |
 | `declarativeNetRequest` | At install | To have Chrome block known dangerous websites before they load. Chrome does this matching itself; the extension doesn't see your browsing history. Chrome shows this as "block content on any page." |
-| `storage` | At install | To keep the settings and the known-dangerous list (`storage.local`), and to pass a warning to the extension's own warning page (`storage.session`, gone when the browser closes). |
+| `storage` | At install | To keep your settings, the known-dangerous list, and false-alarm reports on this computer. |
 | `scripting` | At install | To start or stop checking pages when you give or take back website access, or turn protection off. |
 
-It never asks for cookies, browsing history, tabs, or anything else.
+It never asks for cookies, browsing history, or anything else.
 
 If a threat-lookup service or AI is added later, this section must say exactly what is sent, to whom, and when, *before* that version ships. Don't promise that nothing leaves the browser once anything does. The Chrome Web Store also requires this disclosure, even for data that never leaves your computer.
 
 ## Working together
 
-Two workstreams (detection engine and browser protection) share one analyzer interface. Read [`docs/WORKING_AGREEMENT.md`](docs/WORKING_AGREEMENT.md) for the rules and who owns which files, [`docs/interfaces.md`](docs/interfaces.md) for the contract between them, and [`docs/integration-checklist.md`](docs/integration-checklist.md) for open integration issues.
+Two workstreams (the scam checks and the browser screens) share one contract. Read [`docs/WORKING_AGREEMENT.md`](docs/WORKING_AGREEMENT.md) for the rules and who owns which files, [`docs/interfaces.md`](docs/interfaces.md) for the contract between them, and [`docs/integration-checklist.md`](docs/integration-checklist.md) for open issues.
 
 ## Team
 

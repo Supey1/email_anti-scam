@@ -8,8 +8,8 @@ threat service is added.
 
 | Layer | What it's for | Where |
 |---|---|---|
-| Local click guard | Analyze a link's destination before a normal click navigates | `guard.js` + the engine |
-| Extension-owned warning page | A warning the website can't hide or fake, with safe choices | `blocked.html` (`OPEN_WARNING_PAGE`) |
+| Local click guard | Analyze a link's destination before a normal click navigates | `content/click-guard.js` + the engine |
+| Extension-owned warning page | A warning the website can't hide or fake, with safe choices | `ui/warning.html` (`SHOW_WARNING`; Chrome's blocking redirects there too) |
 | Browser-level network rules | Block known dangerous addresses before they load, however you got there (typed, redirected, pop-up) | `background/threat-rules.js` → Chrome's `declarativeNetRequest` |
 | Threat lookup | Ask "is this address known to be dangerous?" for addresses not on the local list | `background/threat-lookup.js` (`LOOKUP_URL`) |
 
@@ -19,7 +19,7 @@ they can't read what an ad says. That's still the analyzer's job.
 
 ## Today: local only
 
-- The **active list** is the bundled `threat-list.js` (made-up `.example`
+- The **active list** is the bundled `data/threat-list.js` (made-up `.example`
   addresses) plus updates sent with `UPDATE_THREAT_RULES`, minus expired
   entries and false positives someone removed.
 - The service worker builds it, installs it as Chrome rules, and saves it for
@@ -83,7 +83,7 @@ written into `extension/` is a published key.** So:
 ## Testing rules
 
 Never use real malicious links, not even in tests. Use reserved `.example`
-addresses. `tests/service-worker.test.js` and `tests/browser/acceptance.test.js`
+addresses. `tests/service-worker.test.js` and `tests/browser/blocking.test.js`
 check: a matching test address is blocked; look-alike normal addresses are
 **not** blocked; updates, duplicates, stale entries, and false-positive removal;
 untrusted sources; and lookup errors and timeouts.

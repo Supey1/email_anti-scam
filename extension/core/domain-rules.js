@@ -14,66 +14,12 @@
   if (typeof require !== 'undefined' && !core.urlNormalizer) require('./url-normalizer.js');
   const { registrableDomain, isSameOrSubdomain, publicSuffix, toLookalikeAscii } = core.urlNormalizer;
 
-  // Companies scammers pretend to be most often, and their OFFICIAL websites.
-  //   nameRe        how the company's name is written in text
-  //   keys          words to look for inside a web address
-  //   domains       official websites (and everything under them). Their email
-  //                 comes from these too, unless emailDomains says otherwise.
-  //   emailDomains  extra official addresses its email comes from
-  //   asksByEmail   false if the organization says it never emails people first
-  //                 to ask for personal or financial details
-  // Before adding anything here, check it on the organization's own website.
-  const BRANDS = [
-    { label: 'PayPal', nameRe: /paypal/i, keys: ['paypal'], domains: ['paypal.com', 'paypal.me', 'paypal.co.uk'] },
-    { label: 'Amazon', nameRe: /amazon/i, keys: ['amazon'], domains: ['amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.com.au'] },
-    { label: 'Apple', nameRe: /\bapple\b|icloud/i, keys: ['apple', 'icloud'], domains: ['apple.com', 'icloud.com'] },
-    { label: 'Microsoft', nameRe: /microsoft|office ?365/i, keys: ['microsoft', 'office365'], domains: ['microsoft.com', 'live.com', 'outlook.com', 'office.com', 'office365.com'] },
-    { label: 'Netflix', nameRe: /netflix/i, keys: ['netflix'], domains: ['netflix.com'] },
-    { label: 'Chase', nameRe: /\bchase\b/i, keys: ['chase'], domains: ['chase.com'] },
-    { label: 'Wells Fargo', nameRe: /wells ?fargo/i, keys: ['wellsfargo'], domains: ['wellsfargo.com'] },
-    { label: 'Bank of America', nameRe: /bank of america/i, keys: ['bankofamerica', 'bofa'], domains: ['bankofamerica.com', 'bofa.com'] },
-    // irs.gov: "The IRS doesn't initiate contact with taxpayers by email ... to request personal or financial information."
-    { label: 'the IRS', nameRe: /\birs\b|internal revenue/i, keys: ['irs'], domains: ['irs.gov'], asksByEmail: false },
-    { label: 'Social Security', nameRe: /social security/i, keys: ['ssa', 'socialsecurity'], domains: ['ssa.gov'] },
-    { label: 'the Post Office (USPS)', nameRe: /\busps\b|postal service/i, keys: ['usps'], domains: ['usps.com'] },
-    { label: 'FedEx', nameRe: /fedex/i, keys: ['fedex'], domains: ['fedex.com'] },
-    { label: 'UPS', nameRe: /\bups\b/i, keys: ['ups'], domains: ['ups.com'] },
-  ];
-
-  // Websites with a company's word in their name that are NOT pretending:
-  // "amazonaws.com" is where anyone can put files, not Amazon's shop.
-  const NOT_IMPERSONATION = ['amazonaws.com'];
-
-  // Services that send email and count clicks FOR other businesses. A real
-  // company's newsletter may come from (or link through) one of these, so a
-  // company name on them isn't proof of anything by itself. Scammers use them
-  // too, so they're never a sign of safety either. Check before adding.
-  const EMAIL_SERVICES = [
-    'sendgrid.net', 'mcsv.net', 'mcdlv.net', 'rsgsv.net', 'list-manage.com', 'mandrillapp.com',
-    'amazonses.com', 'awstrack.me', 'sparkpostmail.com', 'mailgun.org', 'constantcontact.com', 'ccsend.com',
-    'rs6.net', 'createsend.com', 'hubspotemail.net', 'klaviyomail.com', 'exacttarget.com', 'mktomail.com',
-    'postmarkapp.com', 'sendinblue.com', 'govdelivery.com',
-  ];
-
-  // Advertising networks. A click on a real ad usually goes through one of
-  // these first, so "the ad names Amazon but the link goes to
-  // googleadservices.com" is normal and says nothing.
-  const AD_NETWORKS = [
-    'googleadservices.com', 'doubleclick.net', 'googlesyndication.com', 'amazon-adsystem.com', 'adnxs.com', 'criteo.com',
-  ];
-
-  // Free personal email services. A real company never emails you from one of these.
-  const FREE_MAIL = new Set([
-    'gmail.com', 'googlemail.com', 'yahoo.com', 'ymail.com', 'hotmail.com', 'outlook.com', 'live.com',
-    'msn.com', 'aol.com', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com', 'gmx.com', 'mail.com',
-  ]);
-
-  // Words scammers glue onto a short company name: "applesupport", "chase-secure".
-  const SCAM_AFFIXES = [
-    'secure', 'security', 'support', 'login', 'signin', 'verify', 'verification', 'account', 'accounts', 'id',
-    'help', 'service', 'services', 'billing', 'update', 'alert', 'alerts', 'online', 'bank', 'banking', 'pay',
-    'payment', 'care', 'team', 'center', 'centre', 'mail', 'notice', 'auth',
-  ];
+  // The lists (companies and their official websites, email services, ad
+  // networks, free email) are DATA, kept in extension/data/.
+  if (typeof require !== 'undefined' && !(globalThis.GranblockData && globalThis.GranblockData.companies)) require('../data/companies.js');
+  if (typeof require !== 'undefined' && !(globalThis.GranblockData && globalThis.GranblockData.services)) require('../data/services.js');
+  const { BRANDS, NOT_IMPERSONATION, SCAM_AFFIXES } = globalThis.GranblockData.companies;
+  const { EMAIL_SERVICES, AD_NETWORKS, FREE_MAIL } = globalThis.GranblockData.services;
 
   // Turns look-alike characters back into letters: "paypa1" -> "paypal", "rnicrosoft" -> "microsoft".
   function normalizeLookalikes(text) {
@@ -93,6 +39,16 @@
 
   function sendsEmailFrom(domain, brand) {
     return isOfficialFor(domain, brand) || (brand.emailDomains || []).some(d => isSameOrSubdomain(domain, d));
+  }
+
+  // The company whose own email address this is ("alerts@notify.wellsfargo.com"
+  // -> Wells Fargo), or null. Free personal accounts never count, even a
+  // company's own (icloud.com).
+  function officialSender(senderEmail) {
+    const address = (senderEmail || '').toLowerCase().trim();
+    const domain = address.includes('@') ? address.split('@').pop() : '';
+    if (!domain || FREE_MAIL.has(domain)) return null;
+    return BRANDS.find(b => sendsEmailFrom(domain, b)) || null;
   }
 
   // 'email' for an email service, 'ad' for an ad network, or ''.
@@ -126,6 +82,12 @@
   function hostTokens(hostname) {
     const suffix = publicSuffix(hostname);
     return hostname.slice(0, -(suffix.length + 1)).split(/[.-]/).filter(Boolean);
+  }
+
+  // "amazom" for "amazon": one letter changed or added, same first letter.
+  // Never one letter LESS: "cloud" is a word, not a misspelled "icloud".
+  function misspells(token, key) {
+    return key.length >= 6 && token.length >= key.length && token[0] === key[0] && editDistanceIsOne(token, key);
   }
 
   function editDistanceIsOne(a, b) {
@@ -178,8 +140,8 @@
       if (brand) return { brand, technique: 'other_alphabet' };
     }
 
-    const name = registrableDomain(hostname).split('.')[0];
-    brand = BRANDS.find(b => b !== owner && b.keys.some(k => k.length >= 6 && editDistanceIsOne(name, k)));
+    const candidates = [registrableDomain(hostname).split('.')[0], ...tokens];
+    brand = BRANDS.find(b => b !== owner && b.keys.some(k => candidates.some(t => misspells(t, k))));
     if (brand) return { brand, technique: 'misspelling' };
     return null;
   }
@@ -290,7 +252,7 @@
 
   core.domainRules = {
     BRANDS, FREE_MAIL, EMAIL_SERVICES, AD_NETWORKS, normalizeLookalikes, officialBrandFor, brandNamedIn, lookalikeOf,
-    serviceKind, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage,
+    serviceKind, officialSender, isOfficialFor, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage,
   };
   if (typeof module !== 'undefined') module.exports = core.domainRules;
 })();

@@ -1,81 +1,72 @@
-// page.js: checks the website you're looking at (every site except Gmail,
-// which gmail.js handles).
-// 1. Reads the page's address, title, main heading, words, and sign-in boxes.
-// 2. Checks it with analyzePage() from rules.js.
-// 3. If it looks like a scam, covers it with the big warning (warning.js).
-//
-// Many scam pop-ups appear after the page has loaded, so we keep watching for
-// changes for a while. We only warn once per page: if the person chooses to
-// stay, we don't keep interrupting them.
+// page.js: runs on ordinary websites (not Gmail), in the main page only.
+// Connects the scanner (collects evidence) to the scam checks (checkWebpage in rules.js) and the panel (shows).
+// The card appears only when the result stops the person (block, or warn with GO_BACK /
+// DO_NOT_ENTER_INFO). Weaker signs ("check first") are not worth interrupting someone's reading.
+// This file makes no decisions about scams itself. It only starts and stops checking
+// according to the person's settings.
 
 (() => {
   'use strict';
 
-  if (window.top !== window) return; // only the main page; guard.js covers ads and frames
+  let scanner = null;
+  let evidence = null; // everything the scanner has seen on this page, within limits
+  let lastSignature = '';
+  const dismissed = new Set();
 
-  const RECHECK_DELAY = 2000; // re-check at most every 2 seconds...
-  const MAX_RECHECKS = 30;    // ...and stop after a while, so busy pages don't slow down
-
-  let warned = false;
-  let rechecks = 0;
-  let lastTextLength = -1;
-
-  // Practice pages (tests/*.html) are opened as files, which have no web
-  // address. They pretend to be a website by setting data-practice-url.
-  function pageUrl() {
-    if (window.location.protocol === 'file:') {
-      return document.documentElement.dataset.practiceUrl || window.location.href;
-    }
-    return window.location.href;
+  function leave() {
+    if (history.length > 1) history.back(); else location.replace('about:blank');
   }
 
-  function readPage() {
-    const passwordForms = [...document.querySelectorAll('input[type="password"]')]
-      .map(input => input.form)
-      .filter(Boolean);
-    return {
-      url: pageUrl(),
-      title: document.title,
-      headings: [...document.querySelectorAll('h1')].slice(0, 3).map(h => h.innerText).join('\n'),
-      text: document.body ? document.body.innerText.slice(0, 5000) : '',
-      hasPassword: !!document.querySelector('input[type="password"]'),
-      // Where each sign-in form sends what you type. (A form with no address sends it back to this page.)
-      formActions: passwordForms.map(form => new URL(form.getAttribute('action') || '', pageUrl()).href),
-    };
-  }
+  function evaluate() {
+    const result = checkWebpage(evidence);
+    if (!stopsPerson(result)) return;
+    const signature = result.verdict + result.reasons.map(r => r.code).join('|');
+    if (signature === lastSignature || dismissed.has(signature)) return;
+    lastSignature = signature;
+    dismissed.add(signature); // "Hide" keeps it hidden until something new is found
 
-  function leavePage() {
-    if (window.history.length > 1) window.history.back();
-    else window.location.replace('about:blank');
-  }
-
-  function check() {
-    if (warned || !document.body) return;
-    const page = readPage();
-    if (page.text.length === lastTextLength) return;
-    lastTextLength = page.text.length;
-
-    const result = analyzePage(page);
-    if (result.action === 'allow') return;
-    warned = true;
-    const blocked = result.action === 'block';
-    showWarning({
-      kind: blocked ? 'block' : 'page',
+    EmailAntiScamPanel.showWarning({
       result,
-      onBack: leavePage,
-      onContinue: blocked ? null : () => {},
+      modal: false,
+      onBack: leave,
+      onReport: () => chrome.runtime.sendMessage({
+        type: 'REPORT_FALSE_ALARM',
+        report: { host: location.hostname, verdict: result.verdict, reasons: result.reasons.slice(0, 5).map(r => r.explanation), source: 'page-scan' },
+      }).catch(() => {}),
     });
   }
 
-  let pending = null;
-  const observer = new MutationObserver(() => {
-    if (pending || warned) return;
-    pending = setTimeout(() => {
-      pending = null;
-      if (++rechecks > MAX_RECHECKS) observer.disconnect();
-      else check();
-    }, RECHECK_DELAY);
+  function startChecking() {
+    if (scanner) return;
+    evidence = null;
+    scanner = PageScanner.start({
+      onEvidence(found) {
+        evidence = found.context.scan === 'initial' || !evidence ? found : PageScanner.merge(evidence, found);
+        evaluate();
+      },
+    });
+  }
+
+  function stopChecking() {
+    if (!scanner) return;
+    scanner.stop();
+    scanner = null;
+    EmailAntiScamPanel.close();
+  }
+
+  // Check this website only if the person's settings say so.
+  function apply() {
+    if (Settings.shouldCheckSite(Settings.current, location.hostname)) startChecking(); else stopChecking();
+  }
+  Settings.ready.then(apply);
+  Settings.onChange(apply);
+
+  // The popup asks whether this page is really being checked, and can ask for a fresh check.
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message.type === 'STATUS') respond({ checking: !!scanner, kind: 'webpage' });
+    if (message.type === 'RESCAN') {
+      if (scanner) { lastSignature = ''; dismissed.clear(); scanner.scanNow(); }
+      respond({ ok: !!scanner });
+    }
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  check();
 })();

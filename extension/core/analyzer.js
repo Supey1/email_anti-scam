@@ -77,15 +77,22 @@
       const host = parsed.ok && parsed.isWeb ? parsed.host : '';
       return { text: link.text || '', href: link.url, host, service: host ? domainRules.serviceKind(parsed.hostname) : '', findings: linkFindings };
     });
-    const wording = textRules.checkEmailText(`${ctx.subject || ''}\n${text}`);
-    findings.push(...wording);
-
     // Who it claims to be, judged by what KIND of message it is: a company name
     // on someone else's address matters in an account alert, much less in a newsletter.
     const kind = textRules.messageKind(ctx.subject, text);
     findings.push(...domainRules.checkSender(ctx.senderName, ctx.senderEmail, kind));
     const claimed = domainRules.brandNamedIn(ctx.senderName) || domainRules.brandNamedIn(ctx.subject);
     findings.push(...domainRules.checkMessageLinks(claimed, links, kind));
+
+    // The wording, in context (riskPolicy.keepText).
+    const all = `${ctx.subject || ''}\n${text}`;
+    const sender = domainRules.officialSender(ctx.senderEmail);
+    const readable = links.filter(l => l.host && !l.service);
+    const officialSource = !!sender && readable.length > 0 &&
+      readable.every(l => domainRules.isOfficialFor(normalizeUrl(l.href).hostname, sender));
+    const rawWording = textRules.checkEmailText(all);
+    const wording = keepText(rawWording, findings, 'email', textRules.looksLikeScamAdvice(all), { marketing: kind === 'marketing', officialSource });
+    findings.push(...wording);
     findings.push(...domainRules.checkAgencyEmail(ctx.senderName, ctx.subject, wording.some(f => ASKS.has(f.code))));
     return { findings, links, kind };
   }
@@ -95,7 +102,8 @@
     const link = (input.links || [])[0] || { text: '', url: '' };
     const page = parseUrl(input.pageUrl || '');
     const parsed = normalizeUrl(link.url, page.ok && page.isWeb ? page.href : undefined);
-    if (!parsed.ok || !parsed.isWeb) return { findings: [], host: '' };
+    // Nothing we can check (no link, or not a web address): "unknown", never "no warning signs".
+    if (!parsed.ok || !parsed.isWeb) return { findings: [], host: '', incomplete: true };
     const { hostname, host } = parsed;
 
     // Moving around inside the same website is the page check's job, not ours.
@@ -115,7 +123,14 @@
     let text = [];
     if (!domainRules.officialBrandFor(hostname)) {
       const offerText = `${link.text || ''}\n${ctx.nearbyText || ''}`;
-      text = keepText(textRules.checkWebText(offerText), other, 'link', textRules.looksLikeScamAdvice(offerText));
+      const raw = textRules.checkWebText(offerText);
+      const advice = textRules.looksLikeScamAdvice(offerText);
+      text = keepText(raw, other, 'link', advice);
+      // Inside something recognized as an ad (context.inAd), "you won, claim it" with a claim
+      // button to a website we can't tie to the company IS the two-part story: the prize, and
+      // the "claim it over there". (Real prize ads from a company go to its own website, which
+      // is trusted above and never gets here.)
+      if (!text.length && ctx.inAd && !advice && raw.some(f => f.code === 'PRIZE_CLAIM')) text = raw;
       if (text.length) {
         // A real ad's click usually goes through an ad network first: we can't
         // compare the company in the ad with an address we can't see.
@@ -123,7 +138,7 @@
         const mismatch = service ? [] : domainRules.checkNamedBrand(offerText, hostname, 'offer');
         if (mismatch.length) derived.push(...mismatch);
         else if (text.some(f => f.code === 'PRIZE_CLAIM' || f.code === 'PAY_TO_CLAIM')) {
-          derived.push({ code: 'UNVERIFIED_PRIZE_CLAIM', subject: 'link', data: { host, service: service ? registrableDomain(hostname) : '' }, evidence: { kind: 'url', value: parsed.href } });
+          derived.push({ code: 'UNVERIFIED_PRIZE_CLAIM', subject: 'link', data: { host, service: service ? registrableDomain(hostname) : '', inAd: !!ctx.inAd }, evidence: { kind: 'url', value: parsed.href } });
         }
       }
     }
@@ -133,7 +148,7 @@
   function evaluatePage(input) {
     const ctx = input.context || {};
     const page = parseUrl(input.pageUrl || '');
-    if (!page.ok || !page.isWeb) return { findings: [], host: '' };
+    if (!page.ok || !page.isWeb) return { findings: [], host: '', incomplete: true };
     const { hostname, host } = page;
     // The company's real website.
     if (domainRules.officialBrandFor(hostname) && !urlRules.knownThreat(page)) return { findings: [], host };
@@ -217,17 +232,59 @@
     };
   }
 
+  // Text from websites and emails is written by whoever made them, scammers
+  // included. Before any check:
+  //   - every field becomes text of a sensible length (a huge field must not
+  //     slow the checks down; page text keeps MAX_TEXT so late pop-ups are read)
+  //   - invisible characters are removed and look-alike letters made plain:
+  //     "Pay\u200bPal" (a hidden space) and "ＰａｙＰａｌ" (wide letters) both
+  //     become "PayPal", so they can't sneak a company name past the checks.
+  const LIMITS = { text: MAX_TEXT, short: 1000, url: 4096, links: 500, forms: 50, headings: 3 };
+  const INVISIBLE = /[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0]/g;
+  function cleanText(value, max) {
+    if (typeof value !== 'string') return '';
+    const cut = value.length > max * 2 ? value.slice(0, max * 2) : value;
+    return cut.normalize('NFKC').replace(INVISIBLE, '').slice(0, max);
+  }
+  function cleanInput(input) {
+    const ctx = input.context && typeof input.context === 'object' ? input.context : {};
+    const surrounding = ctx.surroundingResult && typeof ctx.surroundingResult === 'object' ? ctx.surroundingResult : null;
+    return {
+      source: input.source,
+      pageUrl: cleanText(input.pageUrl, LIMITS.url),
+      pageTitle: cleanText(input.pageTitle, LIMITS.short),
+      visibleText: cleanText(input.visibleText, LIMITS.text),
+      links: (Array.isArray(input.links) ? input.links.slice(0, LIMITS.links) : [])
+        .filter(l => l && typeof l === 'object')
+        .map(l => ({ text: cleanText(l.text, LIMITS.short), url: typeof l.url === 'string' ? l.url.slice(0, LIMITS.url) : '' })),
+      forms: (Array.isArray(input.forms) ? input.forms.slice(0, LIMITS.forms) : [])
+        .filter(f => f && typeof f === 'object')
+        .map(f => ({ action: typeof f.action === 'string' ? f.action.slice(0, LIMITS.url) : '', hasPassword: f.hasPassword === true, hasPaymentField: f.hasPaymentField === true || f.hasPayment === true })),
+      context: {
+        senderName: cleanText(ctx.senderName, LIMITS.short),
+        senderEmail: cleanText(ctx.senderEmail, LIMITS.short),
+        subject: cleanText(ctx.subject, LIMITS.short),
+        nearbyText: cleanText(ctx.nearbyText, LIMITS.short),
+        inAd: ctx.inAd === true,
+        mainHeadings: (Array.isArray(ctx.mainHeadings) ? ctx.mainHeadings.slice(0, LIMITS.headings) : []).map(h => cleanText(h, LIMITS.short)),
+        surroundingResult: surrounding ? { verdict: String(surrounding.verdict || ''), recommendedAction: String(surrounding.recommendedAction || '') } : undefined,
+      },
+    };
+  }
+
   // THE entry point. See docs/interfaces.md.
   //   options.lookup  a remote lookup's answer (see lookupFindings), if there is one
   function analyze(input, options = {}) {
     try {
       if (!input || typeof input !== 'object') return { ...UNKNOWN };
-      return toResult(evaluate(input, options || {}).decision);
+      const evaluation = evaluate(cleanInput(input), options || {});
+      if (evaluation.incomplete && !evaluation.findings.length) return { ...UNKNOWN };
+      return toResult(evaluation.decision);
     } catch (e) {
       return { ...UNKNOWN };
     }
   }
 
-  core.analyzer = { SCHEMA_VERSION, MAX_TEXT, analyze, evaluate, toResult, whenToLookUp };
+  core.analyzer = { SCHEMA_VERSION, MAX_TEXT, analyze, evaluate, cleanInput, toResult, whenToLookUp };
   if (typeof module !== 'undefined') module.exports = core.analyzer;
 })();

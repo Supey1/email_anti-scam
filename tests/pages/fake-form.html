@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Form practice</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: form destinations and credential-related warnings. All addresses are made-up ".example" names.
+       Forms are marked with ids. Expected results are in docs/testing.md. Typed values must never be collected. -->
+  <h1>Form practice</h1>
+  <form id="own-login" action="/login" method="post" onsubmit="return false"><h2>Members login</h2><input name="u"><input type="password" name="p"><button>Log in</button></form>
+  <form id="search" action="https://search.example/find" method="get" onsubmit="return false"><h2>Search</h2><input name="q"><button>Search</button></form>
+  <form id="card-elsewhere" action="https://pay-now.example/charge" method="post" onsubmit="return false"><h2>Pay for your order</h2><input name="cardnumber" autocomplete="cc-number"><button>Pay</button></form>
+  <div id="loose"><h2>Loose password box</h2><input id="loose-pw" type="password" placeholder="Password"></div>
+  <script>document.getElementById('loose-pw').value = 'LOOSE-SECRET';</script>
+</body></html>

@@ -1,0 +1,313 @@
+{
+  "category": "prize-and-payment",
+  "cases": [
+    {
+      "id": "lottery-processing-fee",
+      "kind": "scam",
+      "summary": "Lottery \"winnings\" released after a wire-transfer fee, kept secret",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "You have won $850,000 - Gmail",
+        "visibleText": "Congratulations, you've won! To release your winnings, pay a $250 processing fee by wire transfer. Keep this confidential.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "International Lottery Commission",
+          "senderEmail": "claims@intl-lottery.example",
+          "subject": "You have won $850,000"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "SECRECY_REQUEST",
+            "explanation": "It asks you to keep a secret. Real family and real companies don't ask that."
+          },
+          {
+            "code": "PRIZE_CLAIM",
+            "explanation": "It says you won something or are owed money. This is a very common scam."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          }
+        ]
+      },
+      "why": "A prize you never entered for, a fee to receive it, and a wire transfer."
+    },
+    {
+      "id": "ad-gift-card-before-midnight",
+      "kind": "scam",
+      "summary": "Ad: \"You have won a $2,000 gift card, claim before midnight\"",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Claim now",
+            "url": "https://claim-reward-now.example/claim"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Congratulations! You have won a $2,000 gift card. Claim your reward before midnight.",
+          "insideFrame": true
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PRIZE_CLAIM",
+            "explanation": "It promises you a prize or a reward."
+          },
+          {
+            "code": "PRIZE_WITH_PRESSURE",
+            "explanation": "It promises a prize AND rushes you. Together, these are a classic scam pattern."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you."
+          },
+          {
+            "code": "UNVERIFIED_PRIZE_CLAIM",
+            "explanation": "We could not confirm that claim-reward-now.example belongs to the company in this offer."
+          }
+        ]
+      },
+      "why": "A prize claim plus a deadline: a classic combination."
+    },
+    {
+      "id": "lucky-winner-pay-shipping",
+      "kind": "scam",
+      "summary": "Web page: \"You are our lucky winner, pay shipping to claim\"",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://lucky-winner-today.example/",
+        "pageTitle": "Congratulations!",
+        "visibleText": "You are our lucky winner! Pay just $4.99 shipping to claim your prize. Offer expires today.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": [
+            "You have won!"
+          ]
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PRIZE_CLAIM",
+            "explanation": "It promises you a prize or a reward."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          },
+          {
+            "code": "PRIZE_WITH_PRESSURE",
+            "explanation": "It promises a prize AND rushes you. Together, these are a classic scam pattern."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you."
+          }
+        ]
+      },
+      "why": "Prize plus a fee to receive it plus a deadline."
+    },
+    {
+      "id": "pastor-gift-cards",
+      "kind": "scam",
+      "summary": "\"Pastor\" asks for gift cards from a free email account, secretly",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Quick favor - Gmail",
+        "visibleText": "Are you available? I need you to buy 5 Apple gift cards for a member's birthday and send me the codes. Keep it between us.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Pastor James",
+          "senderEmail": "pastor.james.church@gmail.com",
+          "subject": "Quick favor"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "SECRECY_REQUEST",
+            "explanation": "It asks you to keep a secret. Real family and real companies don't ask that."
+          }
+        ]
+      },
+      "why": "Gift cards plus secrecy. Real pastors and bosses don't ask for gift card codes by email."
+    },
+    {
+      "id": "crypto-double-your-money",
+      "kind": "scam",
+      "summary": "Investment pitch: send bitcoin today to double it",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Double your savings - Gmail",
+        "visibleText": "Send $500 in bitcoin today and we'll double it in a week. Act now, this offer ends at midnight.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Crypto Growth Club",
+          "senderEmail": "advisor@fast-crypto-returns.example",
+          "subject": "Double your savings"
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PAYMENT_METHOD_REQUEST",
+            "explanation": "It mentions gift cards, wire transfers, or crypto. Scammers ask for these because the money can't be gotten back."
+          },
+          {
+            "code": "INVESTMENT_PROMISE",
+            "explanation": "It promises guaranteed, risk-free, or very large profits. Real investments never guarantee profits; promises like this are how investment scams pull people in."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "INVESTMENT_PITCH",
+            "explanation": "It sells an investment with big promises or a famous name AND asks you to put money in. Together, this is how investment scams work. Talk to someone you trust before investing."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you. Real companies give you time to think."
+          },
+          {
+            "code": "PAYMENT_DEMAND",
+            "explanation": "It asks you to pay or send money."
+          }
+        ]
+      },
+      "why": "Paying with crypto plus pressure."
+    },
+    {
+      "id": "sweepstakes-gift-card-fee",
+      "kind": "scam",
+      "summary": "Sweepstakes page asking for a gift card to release the prize",
+      "input": {
+        "source": "webpage",
+        "pageUrl": "https://sweepstakes-claims.example/",
+        "pageTitle": "Claim your prize",
+        "visibleText": "You have been selected! Buy a $100 gift card to release your prize. Only 10 minutes left.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "mainHeadings": []
+        }
+      },
+      "expected": {
+        "verdict": "warn",
+        "recommendedAction": "GO_BACK",
+        "reasons": [
+          {
+            "code": "PRIZE_CLAIM",
+            "explanation": "It promises you a prize or a reward."
+          },
+          {
+            "code": "PAY_TO_CLAIM",
+            "explanation": "It asks you to pay a fee before you get something (a prize or a package), or to pay with gift cards, crypto, or a wire transfer. Real companies don't work this way."
+          },
+          {
+            "code": "PRIZE_WITH_PRESSURE",
+            "explanation": "It promises a prize AND rushes you. Together, these are a classic scam pattern."
+          },
+          {
+            "code": "URGENT_PAYMENT_REQUEST",
+            "explanation": "It asks for money AND rushes or threatens you. Together, these are a classic scam pattern. Check with the company or agency using a number you already have."
+          },
+          {
+            "code": "PRESSURE_TACTICS",
+            "explanation": "It tries to rush you."
+          }
+        ]
+      },
+      "why": "Prize, payment by gift card, and a countdown."
+    },
+    {
+      "id": "real-giveaway-entry-confirmation",
+      "kind": "legitimate",
+      "summary": "Store confirms you entered its giveaway (no win, no payment)",
+      "input": {
+        "source": "email",
+        "pageUrl": "https://mail.google.com/mail/u/0/",
+        "pageTitle": "Thanks for entering our giveaway - Gmail",
+        "visibleText": "Thanks for entering our spring giveaway! Winners will be announced on May 1. Unsubscribe.",
+        "links": [],
+        "forms": [],
+        "context": {
+          "senderName": "Garden Store",
+          "senderEmail": "hello@garden-store.example",
+          "subject": "Thanks for entering our giveaway"
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "No claim that you won, no payment asked."
+    },
+    {
+      "id": "news-lottery-winner",
+      "kind": "legitimate",
+      "summary": "News story link about someone else winning the lottery",
+      "input": {
+        "source": "link",
+        "pageUrl": "https://news.example/today",
+        "pageTitle": "",
+        "visibleText": "",
+        "links": [
+          {
+            "text": "Local woman wins lottery jackpot",
+            "url": "https://other-news.example/lottery"
+          }
+        ],
+        "forms": [],
+        "context": {
+          "nearbyText": "Local woman wins lottery jackpot. Officials say the winner will collect next week.",
+          "insideFrame": false
+        }
+      },
+      "expected": {
+        "verdict": "no_warning_signs",
+        "recommendedAction": "NONE",
+        "reasons": []
+      },
+      "why": "Talks about a lottery but promises the reader nothing."
+    }
+  ]
+}

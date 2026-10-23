@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Garden club news</title></head>
+<body style="font-family:Arial;max-width:680px;margin:30px auto">
+  <!-- Test page: promotional text and suspicious destinations. All addresses are made-up ".example" names.
+       Expected: ONLY the prize advertisement (#ad-prize) is reported, and clicking it is stopped.
+       The sale ad and the book ad are ordinary and must stay untouched. Nothing is hidden or removed.
+       #ad-late appears after the page loads. #ad-tracked is an ordinary ad whose link goes through an
+       ad tracker (it is NOT stopped: we cannot see where a tracker leads, so that alone is no reason to warn). -->
+  <h1>Garden club news</h1>
+  <p>The spring plant sale is on Saturday at the community hall.</p>
+
+  <div id="ad-prize" class="ad-slot"><b>Congratulations! You have won a $2,000 gift card.</b> Claim your reward before midnight. <a id="ad-prize-link" href="https://claim-gift.example/prize">Claim reward</a></div>
+  <div id="ad-sale" class="ad-slot"><p>Spring sale: 40% off bulbs and seeds.</p><a id="ad-sale-link" href="https://garden-store.example/sale">Shop the sale</a></div>
+  <div id="ad-book" data-ad-slot="4"><p>New book: The Patient Gardener.</p><a id="ad-book-link" href="https://books.example/gardener">Learn more</a></div>
+  <div id="ad-tracked" class="ad-slot"><p>Comfortable gardening shoes.</p><a id="ad-tracked-link" href="https://ad.doubleclick.net/click?id=12">www.shoes.example</a></div>
+  <div id="ad-late-slot"></div>
+  <script>
+    setTimeout(() => {
+      document.getElementById('ad-late-slot').innerHTML =
+        '<div id="ad-late" class="advert"><p>You have won a free cruise! Claim your prize now. Act now!</p><a id="ad-late-link" href="https://claim-gift.example/cruise">Claim prize</a></div>';
+    }, 1500);
+  </script>
+</body></html>
