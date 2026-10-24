@@ -1,4 +1,4 @@
-# Email Anti-Scam
+# Granblock
 
 A Chrome extension that stands between an older adult and a risky click. It checks emails in Gmail, the websites you visit, and the links and ads on them. When something looks like a scam, it steps in **before** you go there: a big, plain-language warning explains *what* looks wrong and *what to do instead*, and can read itself out loud.
 
