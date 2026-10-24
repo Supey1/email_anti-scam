@@ -30,7 +30,7 @@
   // the shared warning interface, and the click guard (Person B).
   const BASE = [
     ...ENGINE,
-    'settings.js', 'panel-styles.js', 'ui/explain.js', 'ui/warning-view.js', 'panel.js',
+    'settings.js', 'speech.js', 'panel-styles.js', 'ui/explain.js', 'ui/warning-view.js', 'panel.js',
     'content/ad-signals.js', 'content/click-guard.js',
   ];
   // Ordinary websites, main page only: the page scanner and its glue.

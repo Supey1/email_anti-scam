@@ -39,6 +39,7 @@ importScripts(
   'background/threat-rules.js',
   'background/threat-lookup.js',
   'background/content-scripts.js',
+  'background/speech-relay.js',
   'background/messages.js',
 );
 
@@ -92,4 +93,9 @@ chrome.permissions.onRemoved.addListener(() => background.refreshRules());
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   background.handleMessage(message, sender).then(sendResponse);
   return true; // we'll answer later
+});
+
+// Warning cards inside web pages ask us to read aloud with Chrome's own speech (no click needed, speed honoured).
+chrome.runtime.onConnect.addListener(port => {
+  GranblockBackground.speechRelay.handlePort(port, chrome.tts, () => chrome.runtime.lastError);
 });

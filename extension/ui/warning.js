@@ -48,7 +48,7 @@
   }
 
   function leave() {
-    window.speechSynthesis.cancel();
+    GranblockSpeech.stop();
     if (history.length > 1) { history.back(); return; }
     // Opened in its own tab: close that tab.
     chrome.tabs.getCurrent(tab => { if (tab) chrome.tabs.remove(tab.id); else location.replace('about:blank'); });

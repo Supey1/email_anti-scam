@@ -564,7 +564,7 @@ test('the old reading settings (now in extension/settings.js) are refused here',
 test('the manifest asks only for what is used: no website access at install, no cookies or history', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'extension', 'manifest.json'), 'utf8'));
   assert.strictEqual(manifest.manifest_version, 3);
-  assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage']);
+  assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts']);
   assert.ok(!manifest.host_permissions, 'website access must be optional, asked for during onboarding');
   assert.ok(!manifest.content_scripts, 'page scripts are registered only after access is given');
   assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*']);

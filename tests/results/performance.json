@@ -1,13 +1,13 @@
 {
   "measures": {
-    "Analyzer: average per check (Node)": "0.398 ms",
-    "Analyzer: slowest 1% (Node)": "1.770 ms",
-    "Huge page (5000 links, 150 ads, ~40k words): longest main-thread block while loading": "97 ms",
+    "Analyzer: average per check (Node)": "0.434 ms",
+    "Analyzer: slowest 1% (Node)": "1.828 ms",
+    "Huge page (5000 links, 150 ads, ~40k words): longest main-thread block while loading": "101 ms",
     "Huge page: number of long tasks (over 50 ms) while loading": "3",
-    "Scanner: first scan of the huge page": "39 ms (kept 100 links, 20 ads, 20000 characters)",
-    "Analyzer: that page's evidence, in the browser": "12.6 ms",
-    "Click guard: work done on one click, on that page": "0.48 ms",
-    "Changing ads (1000 insertions in ~5 s): long tasks": "3, longest 140 ms"
+    "Scanner: first scan of the huge page": "34 ms (kept 100 links, 20 ads, 20000 characters)",
+    "Analyzer: that page's evidence, in the browser": "12.7 ms",
+    "Click guard: work done on one click, on that page": "0.30 ms",
+    "Changing ads (1000 insertions in ~5 s): long tasks": "2, longest 81 ms"
   },
   "budgets": {
     "scanMs": 500,

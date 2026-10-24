@@ -217,7 +217,7 @@ test('read aloud "auto" speaks the warning on its own at the chosen speed; "butt
   const spoken = await page.evaluate(() => window.__spoken);
   assert.strictEqual(spoken.length, 1, JSON.stringify(spoken));
   assert.match(spoken[0].text, /Stop and check this first/);
-  assert.ok(Math.abs(spoken[0].rate - 1.1) < 0.001, `rate was ${spoken[0].rate}`);
+  assert.ok(Math.abs(spoken[0].rate - 1.5) < 0.001, `rate was ${spoken[0].rate}`);
   await page.close();
 
   await setSettings(env, { readAloud: 'button' });
@@ -252,7 +252,8 @@ test('settings page: every choice is saved at once and survives a reload', async
   await page.waitForTimeout(300);
   assert.strictEqual(await page.getByLabel('Protection is on').isChecked(), false);
   assert.strictEqual(await page.getByLabel('Extra large').isChecked(), true);
-  assert.strictEqual(await page.evaluate(() => document.documentElement.style.fontSize), '28px');
+  assert.strictEqual(await page.evaluate(() => document.documentElement.style.fontSize), '24px', 'the settings page itself stays at the Large size');
+  assert.strictEqual(await page.evaluate(() => document.getElementById('size-sample').style.fontSize), '28px', 'only the sample shows the chosen size');
   assert.strictEqual(await page.locator('#speechSpeed').inputValue(), 'slow');
   await page.close();
 });

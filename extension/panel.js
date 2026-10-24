@@ -16,12 +16,65 @@ const EmailAntiScamPanel = (() => {
   }
 
   function close(settings = {}) {
-    window.speechSynthesis.cancel();
+    GranblockSpeech.stop();
     if (host) host.remove();
     host = null;
     if (previousFocus && previousFocus.isConnected) previousFocus.focus();
     previousFocus = null;
     if (settings.removeChip) { removeChip(); lastOptions = null; }
+  }
+
+  // Lets the person move the chip out of the way (it can sit on top of Gmail's own buttons): press on it, drag, let go.
+  // A drag of a few pixels is a move, not a click, so moving it never opens the panel. The place is remembered.
+  const inExtension = typeof chrome !== 'undefined' && !!chrome.storage && !!chrome.storage.local && !!chrome.runtime && !!chrome.runtime.id;
+
+  function placeChip(x, y) {
+    if (!chip) return;
+    const box = chip.getBoundingClientRect();
+    const left = Math.min(Math.max(0, x), Math.max(0, window.innerWidth - box.width));
+    const top = Math.min(Math.max(0, y), Math.max(0, window.innerHeight - box.height));
+    chip.style.left = `${left}px`;
+    chip.style.top = `${top}px`;
+    chip.style.right = 'auto';
+    return { x: left, y: top };
+  }
+
+  function makeChipMovable(handle) {
+    let start = null;
+    let moved = false;
+    handle.style.cursor = 'grab';
+    handle.style.touchAction = 'none';
+    handle.title = 'Click to open. Press and drag to move this button.';
+    handle.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      const box = chip.getBoundingClientRect();
+      start = { x: e.clientX, y: e.clientY, left: box.left, top: box.top };
+      moved = false;
+      handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', e => {
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (!moved && Math.hypot(dx, dy) < 5) return;
+      moved = true;
+      handle.style.cursor = 'grabbing';
+      placeChip(start.left + dx, start.top + dy);
+    });
+    handle.addEventListener('pointerup', e => {
+      if (!start) return;
+      start = null;
+      handle.style.cursor = 'grab';
+      try { handle.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
+      if (moved && inExtension) {
+        const box = chip.getBoundingClientRect();
+        chrome.storage.local.set({ chipPosition: { x: box.left, y: box.top } }).catch(() => {});
+      }
+    });
+    // Runs before the click that opens the panel, and cancels it if the press was really a move.
+    handle.addEventListener('click', e => {
+      if (moved) { e.stopImmediatePropagation(); e.preventDefault(); moved = false; }
+    }, true);
   }
 
   // A small button that brings a hidden card back (used by the Gmail panel).
@@ -40,6 +93,12 @@ const EmailAntiScamPanel = (() => {
     button.addEventListener('click', () => { removeChip(); showWarning(lastOptions); });
     shadow.append(button);
     document.documentElement.append(chip);
+    makeChipMovable(button);
+    if (inExtension) {
+      chrome.storage.local.get('chipPosition').then(({ chipPosition }) => {
+        if (chip && chipPosition && Number.isFinite(chipPosition.x) && Number.isFinite(chipPosition.y)) placeChip(chipPosition.x, chipPosition.y);
+      }).catch(() => {});
+    }
   }
 
   // options = {

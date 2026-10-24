@@ -1,7 +1,8 @@
 // page.js: runs on ordinary websites (not Gmail), in the main page only.
 // Connects the scanner (collects evidence) to the scam checks (checkWebpage in rules.js) and the panel (shows).
-// The card appears only when the result stops the person (block, or warn with GO_BACK /
-// DO_NOT_ENTER_INFO). Weaker signs ("check first") are not worth interrupting someone's reading.
+// A warning card appears for any warning (block, or warn). A strong one (GO_BACK / DO_NOT_ENTER_INFO) is the same
+// card with a stop-style headline; a weaker one ("Be careful: check this first") is the same card, gently worded.
+// Neither covers the page or takes focus, and only the strong ones ever stop a click (click-guard.js).
 // This file makes no decisions about scams itself. It only starts and stops checking
 // according to the person's settings.
 
@@ -19,7 +20,7 @@
 
   function evaluate() {
     const result = checkWebpage(evidence);
-    if (!stopsPerson(result)) return;
+    if (result.verdict !== 'warn' && result.verdict !== 'block') return; // nothing found, or could not check
     const signature = result.verdict + result.reasons.map(r => r.code).join('|');
     if (signature === lastSignature || dismissed.has(signature)) return;
     lastSignature = signature;

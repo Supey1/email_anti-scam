@@ -48,9 +48,12 @@ test('webpage: extraction keeps visible text and real link destinations, and ski
   await page.close();
 });
 
-test('webpage: a lone password form to another site is ambiguous (single sign-on looks the same): no page warning over https, a warning over plain http', async env => {
+test('webpage: a lone password form to another site is only a gentle "be careful" over https (single sign-on looks the same), and a stronger warning over plain http', async env => {
   const secure = await open(env, 'fake-webpage.html', 1800);
-  assert.strictEqual(await card(secure), null, 'by design, one cross-site password form alone is not enough');
+  const gentle = await card(secure);
+  assert.match(gentle, /BE CAREFUL/);
+  assert.match(gentle, /sent to a different website \(collect-login\.example\)/);
+  assert.doesNotMatch(gentle, /Stop/, 'a weak warning must not sound like a stop');
   await secure.close();
   const plain = await open(env, 'fake-webpage.html', 1800, true);
   const c = await card(plain);
@@ -151,8 +154,8 @@ test('forms: metadata is right, no typed value is collected, and a lone card for
   assert.ok(!search.hasPassword && !search.hasPayment, 'a search form is not sensitive');
   assert.ok(pay.hasPayment);
   assert.ok(loose && loose.hasPassword, 'a password box outside any form is still noticed');
-  // Design decision (docs/testing.md): one card form to another site is common (payment providers), so it alone is not a warning.
-  assert.strictEqual(await card(page), null);
+  // One card form to another site is common (payment providers), so it alone is only a gentle "be careful", never a stop.
+  assert.match(await card(page), /BE CAREFUL/);
   await page.close();
 });
 

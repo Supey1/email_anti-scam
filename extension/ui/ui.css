@@ -36,6 +36,7 @@ button {
 button.primary { background: #0b3d91; color: #ffffff; border-color: #062a66; }
 button:hover { background: #e8eefc; }
 button.primary:hover { background: #062a66; }
+button.selected { background: #e3f4e8; border: 4px solid #0d5c27; color: #0a3d1a; padding: calc(0.5rem - 2px) calc(0.8rem - 2px); }
 button.danger { border-color: #8a0018; color: #8a0018; }
 :focus-visible { outline: 4px solid #1a56db; outline-offset: 2px; }
 button:disabled { opacity: 0.6; cursor: default; }
