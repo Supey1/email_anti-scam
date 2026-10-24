@@ -1,5 +1,5 @@
 {
-  "name": "email-anti-scam",
+  "name": "granblock",
   "private": true,
   "description": "Chrome extension that helps older adults spot scam emails, fake websites, and risky links. Only the tests need Node.",
   "scripts": {

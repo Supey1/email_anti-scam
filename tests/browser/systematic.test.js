@@ -263,7 +263,7 @@ async function cutExtensionConnection(env, page) {
   const worlds = [];
   cdp.on('Runtime.executionContextCreated', e => worlds.push(e.context));
   await cdp.send('Runtime.enable');
-  const mine = worlds.find(w => w.auxData && w.auxData.type === 'isolated' && /Anti-Scam/i.test(w.name));
+  const mine = worlds.find(w => w.auxData && w.auxData.type === 'isolated' && /Granblock/i.test(w.name));
   assert.ok(mine, 'could not find the extension\'s script world');
   await cdp.send('Runtime.evaluate', {
     contextId: mine.id,

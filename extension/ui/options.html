@@ -3,26 +3,26 @@
 <head>
   <meta charset="utf-8">
   <link rel="icon" href="../icons/icon-32.png">
-  <title>Email Anti-Scam settings</title>
+  <title>Granblock settings</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="ui.css">
   <style>main { max-width: 46rem; margin: 0 auto; }</style>
 </head>
 <body>
   <main>
-    <h1><img src="../icons/icon-32.png" alt="" width="28" height="28" style="vertical-align:middle;margin-right:0.4rem">Email Anti-Scam settings</h1>
+    <h1><img src="../icons/icon-32.png" alt="" width="28" height="28" style="vertical-align:middle;margin-right:0.4rem">Granblock settings</h1>
     <p id="saved" class="saved" role="status" aria-live="polite"></p>
 
     <section id="welcome" aria-labelledby="h-welcome" hidden>
       <h2 id="h-welcome">Welcome! One step to finish</h2>
-      <p>Email Anti-Scam warns you <strong>before</strong> you open a scam link, fill in a fake sign-in page, or answer a scam email.</p>
+      <p>Granblock warns you <strong>before</strong> you open a scam link, fill in a fake sign-in page, or answer a scam email.</p>
       <p>To do that, it needs to look at the websites you visit. Chrome will ask you to allow this. Choose below.</p>
     </section>
 
     <section aria-labelledby="h-access">
       <h2 id="h-access">Website access</h2>
       <div id="access-status" class="status" role="status" aria-live="polite"><span class="icon" aria-hidden="true">…</span><span>Checking…</span></div>
-      <p>To stop a scam link before it opens, Email Anti-Scam looks at the page you're on, the link you click, and the email you open. It does this on this computer: nothing you read or type is sent anywhere.</p>
+      <p>To stop a scam link before it opens, Granblock looks at the page you're on, the link you click, and the email you open. It does this on this computer: nothing you read or type is sent anywhere.</p>
       <button id="access-all" aria-pressed="false">Check all websites and Gmail (recommended)</button>
       <p class="muted">Protects you from scam ads, fake sign-in pages, and scam emails. Chrome will say the extension can "read and change all your data on all websites."</p>
       <button id="access-gmail" aria-pressed="false">Check Gmail only</button>
@@ -30,7 +30,7 @@
       <button id="access-none" aria-pressed="false">Don't check websites</button>
       <p class="muted">Known dangerous websites are still blocked, but nothing else is checked.</p>
       <p id="access-error" class="error" role="alert"></p>
-      <p class="note">You can change this any time, here or in Chrome's extension settings. The choices below only matter for the websites Chrome lets Email Anti-Scam see.</p>
+      <p class="note">You can change this any time, here or in Chrome's extension settings. The choices below only matter for the websites Chrome lets Granblock see.</p>
     </section>
 
     <section aria-labelledby="h-protection">
@@ -53,7 +53,7 @@
       <input type="text" id="site-input" autocomplete="off" spellcheck="false">
       <button id="add-site">Add website</button>
       <p id="site-error" class="error" role="alert"></p>
-      <p class="note">You can also turn a website on or off from the Email Anti-Scam button in Chrome's toolbar.</p>
+      <p class="note">You can also turn a website on or off from the Granblock button in Chrome's toolbar.</p>
     </section>
 
     <section aria-labelledby="h-read">
@@ -86,7 +86,7 @@
     </section>
 
     <section aria-labelledby="h-checks">
-      <h2 id="h-checks">What Email Anti-Scam checks</h2>
+      <h2 id="h-checks">What Granblock checks</h2>
       <ul>
         <li>Where a link really goes, compared with what it says. Links made to look like a bank or store, number addresses, and shortened links.</li>
         <li>Words that scammers use: gift cards, wire transfers, "your account is locked," rushing you, keeping a secret, prizes, delivery fees, and "tech support."</li>
@@ -112,14 +112,14 @@
     </section>
 
     <section aria-labelledby="h-permissions">
-      <h2 id="h-permissions">What Chrome allows Email Anti-Scam to do, and why</h2>
+      <h2 id="h-permissions">What Chrome allows Granblock to do, and why</h2>
       <ul id="permissions">
         <li><strong>Read and change your data on websites</strong> (only if you allow it above): to look at the page you're on, the link you click, and the email you open, and show a warning in front of it. Nothing is sent anywhere.</li>
-        <li><strong>Block content on any page</strong>: to stop known dangerous websites before they load. Chrome does this matching itself; Email Anti-Scam doesn't see your browsing history.</li>
+        <li><strong>Block content on any page</strong>: to stop known dangerous websites before they load. Chrome does this matching itself; Granblock doesn't see your browsing history.</li>
         <li><strong>Storage</strong>: to remember these settings and the list of known dangerous websites, on this computer.</li>
         <li><strong>Scripting</strong>: to start or stop checking websites when you change the website access above.</li>
       </ul>
-      <p>Email Anti-Scam never asks for your cookies or your browsing history, and never keeps your emails, the pages you read, or anything you type.</p>
+      <p>Granblock never asks for your cookies or your browsing history, and never keeps your emails, the pages you read, or anything you type.</p>
     </section>
 
     <section aria-labelledby="h-privacy">

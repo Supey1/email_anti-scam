@@ -287,7 +287,7 @@ test('settings page: websites are added in plain words, bad entries are explaine
 test('settings page: explains what is and is not checked, in plain words', async env => {
   const page = await openOptions(env);
   const text = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
-  assert.match(text, /What Email Anti-Scam checks/);
+  assert.match(text, /What Granblock checks/);
   assert.match(text, /What it cannot check/);
   assert.match(text, /text messages, phone calls/);
   assert.match(text, /does not mean something is safe/);

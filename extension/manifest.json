@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Email Anti-Scam",
+  "name": "Granblock",
   "version": "0.6.0",
   "description": "Protects older adults from scam emails, fake websites, and risky links with a big, plain-language warning.",
   "permissions": [
@@ -17,7 +17,7 @@
     "service_worker": "service-worker.js"
   },
   "action": {
-    "default_title": "Email Anti-Scam",
+    "default_title": "Granblock",
     "default_popup": "ui/popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
