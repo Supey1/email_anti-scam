@@ -136,8 +136,14 @@
       if (choice === 'all') {
         if (!await chrome.permissions.request({ origins: ALL_SITES })) $('access-error').textContent = 'Chrome did not allow it, so websites won\'t be checked. You can try again any time.';
       } else if (choice === 'gmail') {
-        if (await chrome.permissions.request({ origins: GMAIL })) await chrome.permissions.remove({ origins: ALL_SITES }).catch(() => {});
-        else $('access-error').textContent = 'Chrome did not allow it, so Gmail won\'t be checked.';
+        // When all websites are already allowed, Chrome says yes to Gmail without recording it on its own,
+        // so taking "all websites" away would leave nothing. Take it away first, then make sure Gmail is really held.
+        let ok = await chrome.permissions.request({ origins: GMAIL });
+        if (ok) {
+          await chrome.permissions.remove({ origins: ALL_SITES }).catch(() => {});
+          ok = await chrome.permissions.contains({ origins: GMAIL }) || await chrome.permissions.request({ origins: GMAIL });
+        }
+        if (!ok) $('access-error').textContent = 'Chrome did not allow it, so Gmail won\'t be checked.';
       } else {
         await chrome.permissions.remove({ origins: [...ALL_SITES, ...GMAIL] });
       }
