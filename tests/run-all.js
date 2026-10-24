@@ -6,9 +6,9 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 
 // The scam checks (Person A), then the screens and settings (Person B).
-const node = ['contract', 'rules', 'regression', 'robustness', 'service-worker', 'screens', 'explain', 'scanner-merge', 'settings', 'usability-score']
+const node = ['contract', 'rules', 'regression', 'robustness', 'service-worker', 'screens', 'explain', 'scanner-merge', 'settings', 'speech', 'usability-score']
   .map(n => `tests/${n}.test.js`).concat('tests/metrics.js');
-const browser = ['blocking', 'scanner', 'click-guard', 'ads', 'gmail-adapter', 'settings', 'systematic', 'click-matrix', 'performance'].map(n => `tests/browser/${n}.test.js`);
+const browser = ['blocking', 'scanner', 'click-guard', 'ads', 'gmail-adapter', 'settings', 'systematic', 'testing-report', 'click-matrix', 'performance'].map(n => `tests/browser/${n}.test.js`);
 
 const files = process.argv.includes('--no-browser') ? node : node.concat(browser);
 const summary = [];

@@ -68,10 +68,7 @@
   });
 
   $('read-help').addEventListener('click', () => {
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance($('help-text').textContent);
-    speech.rate = Settings.SPEECH_RATE[Settings.current.speechSpeed];
-    window.speechSynthesis.speak(speech);
+    GranblockSpeech.speak($('help-text').textContent, { rate: Settings.SPEECH_RATE[Settings.current.speechSpeed] });
   });
 
   $('recheck').addEventListener('click', async () => {

@@ -24,7 +24,8 @@ const Settings = (() => {
     textSize: ['normal', 'large', 'xlarge'],
   };
   const TEXT_PX = { normal: 20, large: 24, xlarge: 28 };
-  const SPEECH_RATE = { slow: 0.75, normal: 0.9, fast: 1.1 };
+  // Far enough apart to hear the difference: slower is clearly slow, faster is clearly quick.
+  const SPEECH_RATE = { slow: 0.55, normal: 0.9, fast: 1.5 };
   const MAX_SITES = 200;
 
   // "https://www.Example.com/path?x" -> "example.com". Returns '' if it isn't a usable website name.

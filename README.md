@@ -44,7 +44,7 @@ It protects at three levels. The stronger the evidence, the stronger the respons
 **Everywhere:**
 - **🔊 Read to me** on every warning, at the speed you choose, or reading each warning out loud on its own
 - **The toolbar button** answers three questions in plain words: Is protection on? Is this page being checked (and if not, why)? What can I do when I need help? It turns protection, or one website, on or off; the button says OFF when protection is off.
-- **The settings page** (also the welcome page after installing): website access, protection on or off, Gmail on or off, which websites are checked (all except ones you turn off, or only ones you choose), reading aloud, text size, what is and isn't checked, every permission explained, and your saved "This is a false alarm" reports
+- **The settings page** (also the welcome page after installing): website access, protection on or off, Gmail on or off, which websites are checked (all except ones you turn off, or only ones you choose), reading aloud (with slow, normal, and fast speeds you can test), text size (only the sample line changes size), what is and isn't checked, every permission explained, and your saved "This is a false alarm" reports
 - Every warning lists the actual evidence that triggered it, and "No warning signs found" never says "safe"
 - Runs entirely on your computer; nothing you read or click is sent anywhere
 
@@ -204,7 +204,7 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 
 **What it saves, on your computer only:** your settings, updates to the known-dangerous list, and the "This is a false alarm" reports you choose to send during testing (the website's name, the verdict, up to five reasons shown, where, and the time; the last 100). You can save or delete the reports in Settings. No browsing history.
 
-**Permissions it asks for, and why.** At install, only the three without website access. Website access is asked for on the welcome page, can be all websites or Gmail only, and can be taken back at any time; without it, known dangerous websites are still blocked.
+**Permissions it asks for, and why.** At install, only the four without website access. Website access is asked for on the welcome page, can be all websites or Gmail only, and can be taken back at any time; without it, known dangerous websites are still blocked.
 
 | Permission | When | Why |
 |---|---|---|
@@ -212,10 +212,13 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 | `declarativeNetRequest` | At install | To have Chrome block known dangerous websites before they load. Chrome does this matching itself; the extension doesn't see your browsing history. Chrome shows this as "block content on any page." |
 | `storage` | At install | To keep your settings, the known-dangerous list, and false-alarm reports on this computer. |
 | `scripting` | At install | To start or stop checking pages when you give or take back website access, or turn protection off. |
+| `tts` | At install | To read a warning out loud with your computer's own voices, at the speed you choose, including when "Read warnings out loud on their own" is on. Nothing is recorded or sent anywhere. |
 
 It never asks for cookies, browsing history, or anything else.
 
 If a threat-lookup service or AI is added later, this section must say exactly what is sent, to whom, and when, *before* that version ships. Don't promise that nothing leaves the browser once anything does. The Chrome Web Store also requires this disclosure, even for data that never leaves your computer.
+
+**Also in this version.** Weak warning signs on ordinary websites now show a gentle "Be careful" card with the reasons (it never blocks a click); strong ones still stop you. The "Safety check" button in Gmail can be moved: press, hold, and drag it. The settings page marks the chosen website-access option with a check mark.
 
 ## Working together
 

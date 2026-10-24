@@ -19,14 +19,6 @@ const WarningView = (() => {
     return node;
   }
 
-  function speak(text, onEnd, rate = 0.9) {
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(text);
-    speech.rate = rate;
-    speech.onend = speech.onerror = onEnd;
-    window.speechSynthesis.speak(speech);
-  }
-
   // Keeps Tab and Shift+Tab inside `root`. Works inside a shadow root too.
   function trapFocus(root) {
     root.addEventListener('keydown', event => {
@@ -67,16 +59,22 @@ const WarningView = (() => {
     const primary = el('button', { class: 'primary', text: options.primaryLabel || 'Go back to safety', onclick: () => options.onBack && options.onBack() });
     const read = el('button', { text: '🔊 Read to me', 'aria-pressed': 'false' });
     let reading = false;
+    const resetRead = () => { read.setAttribute('aria-pressed', 'false'); read.textContent = '🔊 Read to me'; };
     const toggleReading = () => {
-      if (reading) { window.speechSynthesis.cancel(); return; }
+      if (reading) { GranblockSpeech.stop(); return; }
       reading = true;
       read.setAttribute('aria-pressed', 'true');
       read.textContent = '⏹ Stop reading';
-      speak(Explain.spokenText(model), () => {
-        reading = false;
-        read.setAttribute('aria-pressed', 'false');
-        read.textContent = '🔊 Read to me';
-      }, options.speechRate);
+      GranblockSpeech.speak(Explain.spokenText(model), {
+        rate: options.speechRate,
+        onEnd: ok => {
+          reading = false;
+          if (ok) { resetRead(); return; }
+          // No voice on this computer, or no sound: the warning is still written on screen.
+          read.textContent = '🔇 Couldn\'t read aloud. The warning is written on screen.';
+          setTimeout(resetRead, 5000);
+        },
+      });
     };
     read.addEventListener('click', toggleReading);
 
@@ -128,5 +126,5 @@ const WarningView = (() => {
     return { card, primary, startReading: toggleReading };
   }
 
-  return { render, el, speak };
+  return { render, el };
 })();

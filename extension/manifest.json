@@ -3,8 +3,16 @@
   "name": "Email Anti-Scam",
   "version": "0.6.0",
   "description": "Protects older adults from scam emails, fake websites, and risky links with a big, plain-language warning.",
-  "permissions": ["declarativeNetRequest", "storage", "scripting"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "scripting",
+    "tts"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -18,8 +26,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["ui/warning.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "ui/warning.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

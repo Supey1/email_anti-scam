@@ -22,7 +22,8 @@
 
   function render() {
     const s = Settings.current;
-    document.documentElement.style.fontSize = `${Settings.TEXT_PX[s.textSize]}px`;
+    // The settings page itself always stays at the Large size; only the sample below shows the chosen size.
+    document.documentElement.style.fontSize = `${Settings.TEXT_PX.large}px`;
     $('enabled').checked = s.enabled;
     $('checkEmail').checked = s.checkEmail;
     $('checkEmail').disabled = !s.enabled;
@@ -69,10 +70,7 @@
   $('site-input').addEventListener('keydown', e => { if (e.key === 'Enter') addSite(); });
 
   $('test-voice').addEventListener('click', () => {
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance('This is how a warning will sound. Stop and check this first.');
-    speech.rate = Settings.SPEECH_RATE[Settings.current.speechSpeed];
-    window.speechSynthesis.speak(speech);
+    GranblockSpeech.speak('This is how a warning will sound. Stop and check this first.', { rate: Settings.SPEECH_RATE[Settings.current.speechSpeed] });
   });
 
   $('export-reports').addEventListener('click', async () => {
@@ -121,8 +119,15 @@
     box.className = `status ${state}`;
     box.replaceChildren(Object.assign(document.createElement('span'), { className: 'icon', textContent: icon }), Object.assign(document.createElement('span'), { textContent: text }));
     box.firstChild.setAttribute('aria-hidden', 'true');
-    for (const choice of ['all', 'gmail', 'none']) $(`access-${choice}`).setAttribute('aria-pressed', String(access === choice));
-    $('access-all').classList.toggle('primary', access !== 'all');
+    // The chosen one is marked with a check mark and a heavy green border, so it's clear which is selected.
+    for (const choice of ['all', 'gmail', 'none']) {
+      const button = $(`access-${choice}`);
+      if (!button.dataset.label) button.dataset.label = button.textContent;
+      const chosen = access === choice;
+      button.setAttribute('aria-pressed', String(chosen));
+      button.classList.toggle('selected', chosen);
+      button.textContent = `${chosen ? '✓ ' : ''}${button.dataset.label}`;
+    }
   }
 
   async function setAccess(choice) {
