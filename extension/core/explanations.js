@@ -119,6 +119,10 @@
       title: 'Fake sign-in page',
       explain: d => `This page looks like a sign-in or payment page for ${d.brand}, but it is on ${d.host}, not ${d.brand}'s real website.`,
     },
+    IMPERSONATED_SITE: {
+      title: 'Pretending to be a company',
+      explain: d => `This page calls itself ${d.brand}, but it is on ${d.host}, not ${d.brand}'s real website. Fake shops copy real ones to take your money or details.`,
+    },
     SIGN_IN_ON_FREE_HOSTING: {
       title: 'Sign-in on a free website',
       explain: (d, s) => onPage(s)

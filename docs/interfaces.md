@@ -216,6 +216,7 @@ Which actions go with which verdicts:
 | `SHORTENED_LINK` | weak | email, link | A shortened link hides where it really goes. |
 | `RISKY_DOMAIN_ENDING` | weak | all | A website ending often used by scam sites. |
 | `FAKE_SIGN_IN_PAGE` | strong | webpage | A company's sign-in page that isn't on the company's website. |
+| `IMPERSONATED_SITE` | moderate | webpage | A page whose title is a company's name ("Magalu - Offers") but that isn't on the company's website: a copied shop. Title only, and only when the name is nearly all of the title's first part. Shown as "check this first"; stops the person with 1+ other point. |
 | `SIGN_IN_ON_FREE_HOSTING` | moderate | link, webpage | A sign-in or payment page (or a sign-in link) on a free hosting website anyone can make. |
 | `INSECURE_FORM` | weak | webpage | A password or card form on a page without a secure connection, or one that sends what you type without encryption (`http:`). Your own computer (`localhost`) counts as secure, as in Chrome. |
 | `CREDENTIALS_SENT_ELSEWHERE` | moderate | webpage | A password or card form sends what you type to a different website. |

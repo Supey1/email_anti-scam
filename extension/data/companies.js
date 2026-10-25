@@ -27,6 +27,17 @@
     { label: 'the Post Office (USPS)', nameRe: /\busps\b|postal service/i, keys: ['usps'], domains: ['usps.com'] },
     { label: 'FedEx', nameRe: /fedex/i, keys: ['fedex'], domains: ['fedex.com'] },
     { label: 'UPS', nameRe: /\bups\b/i, keys: ['ups'], domains: ['ups.com'] },
+    // Shops and apps that fake store pages copy (the first two are the most copied in Brazil).
+    { label: 'Magalu', nameRe: /magalu|magazine ?luiza/i, keys: ['magalu', 'magazineluiza'], domains: ['magazineluiza.com.br', 'magalu.com', 'magalu.com.br'] },
+    { label: 'Mercado Livre', nameRe: /mercado ?(livre|libre)/i, keys: ['mercadolivre', 'mercadolibre'], domains: ['mercadolivre.com.br', 'mercadolivre.com', 'mercadolibre.com', 'mercadolibre.com.ar', 'mercadolibre.com.mx', 'mercadolibre.com.co', 'mercadolibre.cl', 'mercadolibre.com.pe'] },
+    { label: 'Americanas', nameRe: /americanas/i, keys: ['americanas'], domains: ['americanas.com.br', 'americanas.com'] },
+    { label: 'Shopee', nameRe: /shopee/i, keys: ['shopee'], domains: ['shopee.com', 'shopee.com.br', 'shopee.sg', 'shopee.ph', 'shopee.co.id', 'shopee.vn', 'shopee.tw', 'shopee.co.th', 'shopee.com.my'] },
+    { label: 'AliExpress', nameRe: /ali ?express/i, keys: ['aliexpress'], domains: ['aliexpress.com', 'aliexpress.us'] },
+    { label: 'Walmart', nameRe: /walmart/i, keys: ['walmart'], domains: ['walmart.com', 'walmart.ca', 'walmart.com.mx'] },
+    { label: 'eBay', nameRe: /\bebay\b/i, keys: ['ebay'], domains: ['ebay.com', 'ebay.co.uk', 'ebay.de', 'ebay.ca', 'ebay.com.au'] },
+    { label: 'DHL', nameRe: /\bdhl\b/i, keys: ['dhl'], domains: ['dhl.com', 'dhl.de'] },
+    { label: 'Coinbase', nameRe: /coinbase/i, keys: ['coinbase'], domains: ['coinbase.com'] },
+    { label: 'Venmo', nameRe: /venmo/i, keys: ['venmo'], domains: ['venmo.com'] },
   ];
 
 
