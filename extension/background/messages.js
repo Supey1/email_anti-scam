@@ -2,6 +2,8 @@
 // The message formats are in docs/interfaces.md ("Service worker messages").
 //
 //   LOOKUP_URL           is this address on a known-dangerous list?  -> LOOKUP_RESULT
+//   FEED_STATUS          is the downloaded phishing list ready, and how new is it?   -> FEED_STATUS
+//   FEED_REFRESH         download the phishing list now (extension pages only)       -> FEED_STATUS
 //   UPDATE_THREAT_RULES  add or remove entries, mark false positives -> THREAT_RULES_UPDATED
 //   GET_SETTINGS         read the protection settings                -> SETTINGS
 //   SET_SETTINGS         change them                                 -> SETTINGS
@@ -31,6 +33,7 @@
   const bg = globalThis.GranblockBackground = globalThis.GranblockBackground || {};
   if (typeof require !== 'undefined' && !bg.threatRules) require('./threat-rules.js');
   if (typeof require !== 'undefined' && !bg.threatLookup) require('./threat-lookup.js');
+  if (typeof require !== 'undefined' && !bg.domainFeed) require('./domain-feed.js');
   if (typeof require !== 'undefined' && !bg.contentScripts) require('./content-scripts.js');
 
   const SCHEMA_VERSION = 1;
@@ -38,6 +41,7 @@
   const DEFAULT_SETTINGS = Object.freeze({
     protectionEnabled: true,  // the person's on/off switch; false: no blocking rules, no page scripts
     remoteLookups: false,     // true sends addresses to a lookup service: see docs/threat-intelligence.md
+    providers: [],            // online sources turned on (all asked together): 'safe-browsing' | 'phishing-database'
     provider: 'none',         // 'none' | 'safe-browsing' (Google, hash prefixes only) | 'mock' (development only)
     providerOptions: {},      // safe-browsing: { apiKey } (the person's own, never returned to pages); mock: { entries, delayMs, fail, trusted }
     lookupTimeoutMs: 1500,
@@ -55,6 +59,9 @@
         case 'protectionEnabled':
         case 'remoteLookups':
           if (typeof value !== 'boolean') return { error: `${key} must be true or false` };
+          break;
+        case 'providers':
+          if (!Array.isArray(value) || value.length > 5 || value.some(v => typeof v !== 'string' || !bg.threatLookup.PROVIDERS[v])) return { error: 'providers must be a list of known sources' };
           break;
         case 'provider':
           if (value !== 'none' && !bg.threatLookup.PROVIDERS[value]) return { error: `unknown provider: ${value}` };
@@ -83,6 +90,7 @@
   //   tabs           { update(tabId, { url }), create({ url, active, index, openerTabId }) }
   //   permissions    { contains({ origins }) }  (chrome.permissions). Left out in tests: full access.
   //   scripting      { getRegisteredContentScripts, registerContentScripts, unregisterContentScripts }. Optional.
+  //   fetch          for downloading the phishing list (the service worker's own fetch)
   //   bundled()      the bundled list (data/threat-list.js) as raw entries
   //   warningPage    address of ui/warning.html
   //   checkLink({ url, text, entries })  the scam checks for one link (rules.js checkLinkClick),
@@ -108,7 +116,8 @@
       return { ...s, providerOptions: { ...options, apiKeySet: !!apiKey } };
     };
     const fail = error => reply('ERROR', { error });
-    const lookup = bg.threatLookup.createLookup({ getEntries: () => bg.threatRules.forEngine(active.entries), getSettings: () => settings, now });
+    const feeds = { 'phishing-database': bg.domainFeed.createFeed({ id: 'phishing-database', storage: deps.storage, fetch: deps.fetch, now }) };
+    const lookup = bg.threatLookup.createLookup({ getEntries: () => bg.threatRules.forEngine(active.entries), getSettings: () => settings, now, feeds });
 
     const asObject = value => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
     async function load() {
@@ -117,6 +126,8 @@
       const known = Object.fromEntries(Object.entries(engine).filter(([key]) => key in DEFAULT_SETTINGS && key !== 'protectionEnabled'));
       // The first version asked PhishTank about each address. It was replaced by Google Safe Browsing: switch it off.
       if (known.provider === 'phishtank') Object.assign(known, { provider: 'none', remoteLookups: false });
+      // The first online source was saved as a single "provider"; sources are now a list.
+      if (known.provider === 'safe-browsing' && !(known.providers || []).length) Object.assign(known, { providers: ['safe-browsing'], provider: 'none' });
       settings = { ...DEFAULT_SETTINGS, ...known, protectionEnabled: user.enabled !== false };
     }
     async function store(next) {
@@ -181,6 +192,15 @@
         if (typeof message.url !== 'string' || !message.url) return fail('LOOKUP_URL needs a url');
         await ensureActive();
         return reply('LOOKUP_RESULT', await lookup.lookup(message.url));
+      },
+
+      async FEED_STATUS() {
+        return reply('FEED_STATUS', { status: await feeds['phishing-database'].status() });
+      },
+
+      async FEED_REFRESH(message, sender) {
+        if (!isPrivileged(sender)) return fail('only the extension\'s own pages can download the list');
+        return reply('FEED_STATUS', { status: await feeds['phishing-database'].refreshNow() });
       },
 
       async UPDATE_THREAT_RULES(message, sender) {

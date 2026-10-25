@@ -564,10 +564,10 @@ test('the old reading settings (now in extension/settings.js) are refused here',
 test('the manifest asks only for what is used: no website access at install, no cookies or history', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'extension', 'manifest.json'), 'utf8'));
   assert.strictEqual(manifest.manifest_version, 3);
-  assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts']);
+  assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts', 'unlimitedStorage']);
   assert.ok(!manifest.host_permissions, 'website access must be optional, asked for during onboarding');
   assert.ok(!manifest.content_scripts, 'page scripts are registered only after access is given');
-  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://safebrowsing.googleapis.com/*']); // Safe Browsing: only asked for when someone turns it on
+  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://safebrowsing.googleapis.com/*', 'https://raw.githubusercontent.com/*']); // Safe Browsing: only asked for when someone turns it on
   // The warning page must be reachable by Chrome's redirect of a known dangerous website.
   assert.deepStrictEqual(manifest.web_accessible_resources.flatMap(r => r.resources), ['ui/warning.html']);
   for (const page of [manifest.action.default_popup, manifest.options_ui.page]) {
@@ -695,7 +695,7 @@ test('Safe Browsing: no key, a refused key, the limit, server errors, and unread
   const odd = { fetch: async () => ({ ok: true, status: 200, arrayBuffer: async () => Uint8Array.from([0x0a, 0x7f, 1, 2]).buffer }) };
   assert.strictEqual((await sbLookup(odd, 'https://other-news.example/a')).status, 'error');
   const refused = await sbLookup(fakeSafeBrowsing({}, { status: 403 }), 'https://other-news.example/a');
-  assert.match(refused.reason, /could not be reached/);
+  assert.match(refused.reason, /did not accept the key/);
 });
 
 test('Safe Browsing: reads a real answer from Google (bytes captured from the live service for Google\'s own test page)', () => {
@@ -730,6 +730,102 @@ test('Safe Browsing is off until turned on, and the first (PhishTank) version\'s
   await old.storage.set({ engineSettings: { remoteLookups: true, provider: 'phishtank' } });
   const got = (await send(old, { type: 'GET_SETTINGS' })).settings;
   assert.deepStrictEqual([got.remoteLookups, got.provider], [false, 'none']);
+});
+
+// --- the free downloaded list (Phishing.Database) and several sources together ---
+
+const domainFeed = require(path.join(__dirname, '..', 'extension', 'background', 'domain-feed.js'));
+const LIST = '# comment\nphish-test.example\nWWW.www-listed.example\nhttps://with-path.example/login?x=1\npaypal.com\ngithub.io\nlocalhost\n192.0.2.7\nbad name.example\n';
+function fakeListDownload({ status = 200, text = LIST, calls = [] } = {}) {
+  return { calls, fetch: async (url, init) => { calls.push({ url, init }); return { ok: status === 200, status, text: async () => text }; } };
+}
+function listLookup(feed, url, extra = {}) {
+  const lookup = require(path.join(__dirname, '..', 'extension', 'background', 'threat-lookup.js')).createLookup({
+    getEntries: () => [], feeds: { 'phishing-database': feed },
+    getSettings: () => ({ remoteLookups: true, providers: ['phishing-database'], providerOptions: {}, allowlist: [], lookupTimeoutMs: 4000, ...extra }),
+  });
+  return lookup.lookup(url);
+}
+
+test('free list: names are cleaned (official companies, whole endings, numbers and junk are dropped)', () => {
+  assert.deepStrictEqual(domainFeed.cleanList(LIST).split('\n'), ['phish-test.example', 'www-listed.example', 'with-path.example', '192.0.2.7']);
+});
+
+test('free list: exact website names match (www or not); subdomains and look-alikes do not; untrusted so the person may continue', async () => {
+  const feed = domainFeed.createFeed({ id: 'phishing-database', storage: fakeStorage(), fetch: fakeListDownload().fetch });
+  for (const url of ['https://phish-test.example/', 'http://www.phish-test.example/a?b=1', 'https://www-listed.example/', 'https://with-path.example/anything']) {
+    const r = await listLookup(feed, url);
+    assert.deepStrictEqual([r.status, r.source && r.source.trusted], ['match', false], url);
+  }
+  for (const url of ['https://login.phish-test.example/', 'https://notphish-test.example/', 'https://phish-test.example.other.example/', 'https://other-news.example/']) {
+    assert.strictEqual((await listLookup(feed, url)).status, 'no_match', url);
+  }
+  const hit = await listLookup(feed, 'https://phish-test.example/');
+  const input = { source: 'webpage', pageUrl: hit.url, pageTitle: '', visibleText: '', links: [], forms: [], context: {} };
+  assert.deepStrictEqual([analyze(input, { lookup: hit }).verdict, analyze(input, { lookup: hit }).recommendedAction], ['warn', 'GO_BACK']);
+});
+
+test('free list: one download, nothing about the checked addresses is sent, kept after a restart, refreshed daily', async () => {
+  const storage = fakeStorage();
+  const dl = fakeListDownload();
+  let time = 1_000_000;
+  const make = () => domainFeed.createFeed({ id: 'phishing-database', storage, fetch: dl.fetch, now: () => time });
+  for (const url of ['https://a-news.example/x?token=SECRET', 'https://phish-test.example/']) await listLookup(make(), url);
+  assert.strictEqual(dl.calls.length, 1);
+  assert.match(dl.calls[0].url, /^https:\/\/raw\.githubusercontent\.com\/mitchellkrogza\/Phishing\.Database\//);
+  assert.ok(!dl.calls[0].url.includes('SECRET'));
+  assert.deepStrictEqual([dl.calls[0].init.credentials, dl.calls[0].init.referrerPolicy], ['omit', 'no-referrer']);
+  time += 60_000;
+  assert.strictEqual((await listLookup(make(), 'https://phish-test.example/')).status, 'match', 'a restarted service worker uses the saved list');
+  assert.strictEqual(dl.calls.length, 1);
+  time += domainFeed.REFRESH_MS + 1;
+  await listLookup(make(), 'https://phish-test.example/');
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(dl.calls.length, 2);
+});
+
+test('free list: a failed download -> error with the reason (never no_match); the old copy stays; retries are spaced out', async () => {
+  const bad = fakeListDownload({ status: 503 });
+  const feed = domainFeed.createFeed({ id: 'phishing-database', storage: fakeStorage(), fetch: bad.fetch });
+  const r = await listLookup(feed, 'https://phish-test.example/');
+  assert.strictEqual(r.status, 'error');
+  assert.match(r.reason, /answered 503/);
+  await listLookup(feed, 'https://phish-test.example/');
+  assert.strictEqual(bad.calls.length, 1, 'must not hammer the server');
+});
+
+test('several sources at once: any match wins, a failing one is reported but does not hide the others, no_match needs every answer to be remembered', async () => {
+  const feed = domainFeed.createFeed({ id: 'phishing-database', storage: fakeStorage(), fetch: fakeListDownload().fetch });
+  const both = (url, providerOptions) => {
+    const lookup = require(path.join(__dirname, '..', 'extension', 'background', 'threat-lookup.js')).createLookup({
+      getEntries: () => [], feeds: { 'phishing-database': feed },
+      getSettings: () => ({ remoteLookups: true, providers: ['safe-browsing', 'phishing-database'], providerOptions, allowlist: [], lookupTimeoutMs: 4000 }),
+    });
+    return lookup.lookup(url);
+  };
+  const noKey = await both('https://phish-test.example/', {});
+  assert.strictEqual(noKey.status, 'match', 'the list still answers when the key is missing');
+  assert.deepStrictEqual(noKey.details.map(d => [d.name, d.outcome]), [['Google Safe Browsing', 'error'], ['Phishing.Database list', 'match']]);
+  const partial = await both('https://other-news.example/', {});
+  assert.strictEqual(partial.status, 'no_match');
+  assert.match(partial.details[0].reason, /no key saved/);
+  assert.deepStrictEqual(partial.checked, ['local list', 'Phishing.Database list']);
+  const sbFake = fakeSafeBrowsing({ 'sb-only.example/': 'SOCIAL_ENGINEERING' });
+  const viaSb = await both('https://sb-only.example/', { apiKey: KEY, fetch: sbFake.fetch });
+  assert.deepStrictEqual([viaSb.status, viaSb.source.name, viaSb.source.trusted], ['match', 'Google Safe Browsing', true]);
+});
+
+test('sources: settings take a list of known sources; the single "provider" of the first version moves into it', async () => {
+  const env = setup();
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { providers: ['safe-browsing', 'phishing-database'], remoteLookups: true } }, EXTENSION_PAGE)).type, 'SETTINGS');
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { providers: ['nonsense'] } }, EXTENSION_PAGE)).type, 'ERROR');
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { providers: ['phishing-database'] } })).type, 'ERROR', 'a website must not change this');
+  assert.strictEqual((await send(env, { type: 'FEED_REFRESH' })).type, 'ERROR', 'a website must not start a download');
+  assert.strictEqual((await send(env, { type: 'FEED_STATUS' })).type, 'FEED_STATUS');
+  const old = setup();
+  await old.storage.set({ engineSettings: { remoteLookups: true, provider: 'safe-browsing' } });
+  const got = (await send(old, { type: 'GET_SETTINGS' })).settings;
+  assert.deepStrictEqual([got.providers, got.provider], [['safe-browsing'], 'none']);
 });
 
 test('every script an extension page or the service worker loads exists', () => {

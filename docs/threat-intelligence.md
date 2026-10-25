@@ -48,11 +48,30 @@ Errors are never cached; the next click asks again. A slow or failed lookup
 never lets a held link open by itself (see "Remote lookups" in
 `docs/interfaces.md`).
 
+## Free downloaded list: Phishing.Database (built, opt-in)
+
+`provider: "phishing-database"` (`background/domain-feed.js`), turned on from the settings page. Needs no key.
+
+- **Source:** `phishing-domains-ACTIVE.txt` from github.com/mitchellkrogza/Phishing.Database (MIT licence),
+  about 390,000 website names, about 10 MB. Downloaded when older than 24 hours (at most once an hour
+  after a failure); a failed download keeps the old copy and shows the reason in Settings and in the popup.
+- **Matching:** exact website name, with or without `www.`. Not parents, so one listed page on a big
+  host never condemns the host. Official company websites, whole website endings and junk lines are dropped.
+- **Untrusted:** we cannot vouch for it, so a match is a strong warning the person may continue past
+  (never a hard block). Safe Browsing matches are trusted and block.
+- **Privacy:** nothing about visited addresses is sent; only the list is downloaded.
+- **Several sources at once:** `settings.providers` is a list; all are asked together and any match wins.
+  A source that fails is reported (`details`) but does not hide the others' answers; "no match" is only
+  remembered when every source answered. The popup shows the answer for the current page and, if a
+  source failed, why.
+- **Tested for real:** in Chromium with the real extension, downloading the real list (391,653 names in
+  about 9 s) and warning on a listed name.
+
 ## Google Safe Browsing (built, opt-in)
 
 `provider: "safe-browsing"` in `background/safe-browsing.js`, turned on from the settings page.
 It replaced a first, short-lived PhishTank check (per-address, sent addresses away); saved settings
-from that version are switched off on load.
+from that version are switched off on load. Several sources can be on together (see above).
 
 - **API:** Safe Browsing **v5** `hashes:search` (`GET https://safebrowsing.googleapis.com/v5/hashes:search?key=...&hashPrefixes=...`).
   The answer is **protocol buffers** (`application/x-protobuf`); `alt=json` is refused. We read only
