@@ -57,6 +57,7 @@
     SEXTORTION_THREAT: { tier: 'strong', points: 5, group: 'pressure', story: true },
 
     LOOKALIKE_DOMAIN: { tier: 'moderate', points: 4, group: 'destination' },
+    IMPERSONATED_SITE: { tier: 'moderate', points: 4, group: 'identity' },
     HIDDEN_DESTINATION: { tier: 'moderate', points: 3, group: 'destination' },
     MISLEADING_URL: { tier: 'moderate', points: 3, group: 'destination' },
     NUMBER_ADDRESS: { tier: 'moderate', points: 3, group: 'destination' },

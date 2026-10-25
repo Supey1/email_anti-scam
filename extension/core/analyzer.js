@@ -162,6 +162,7 @@
     // "hasPayment" is the name the page scanner on the other branch uses (integration checklist).
     const secretForms = (input.forms || []).filter(f => f.hasPassword || f.hasPaymentField || f.hasPayment);
     other.push(...domainRules.checkSignInPage(claim, hostname, secretForms.length > 0));
+    if (!other.some(f => f.code === 'FAKE_SIGN_IN_PAGE')) other.push(...domainRules.checkImpersonatedPage(input.pageTitle, hostname));
     // Where the password or card number would be sent.
     other.push(...urlRules.checkSecretForms(page, secretForms));
 

@@ -250,9 +250,29 @@
     }];
   }
 
+  // A page that is dressed as a company's own website (its title is the company's name) but is
+  // on someone else's address: a copied shop or home page. No password box is needed, because
+  // the cheat is the sale ("pay for it here") or the later sign-in. Judged by the TITLE only,
+  // and only when the company's name is nearly all of the title's first part ("Magalu | Offers",
+  // "Amazon.com: Online Shopping"), so a news story about a company ("Amazon Prime Day deals
+  // | CNET") or a shop that merely sells its products does not count.
+  const TITLE_SPLIT = /\s*(?:\||[-\u2013\u2014:\u00b7\u2022])\s*/;
+  function checkImpersonatedPage(title, hostname) {
+    const first = String(title || '').split(TITLE_SPLIT)[0].trim();
+    if (!first || first.split(/\s+/).length > 2) return [];
+    const brand = brandNamedIn(first);
+    if (!brand || isOfficialFor(hostname, brand)) return [];
+    return [{
+      code: 'IMPERSONATED_SITE',
+      subject: 'page',
+      data: { brand: brand.label, host: hostname.replace(/^www\./, '') },
+      evidence: { kind: 'domain', value: hostname },
+    }];
+  }
+
   core.domainRules = {
     BRANDS, FREE_MAIL, EMAIL_SERVICES, AD_NETWORKS, normalizeLookalikes, officialBrandFor, brandNamedIn, lookalikeOf,
-    serviceKind, officialSender, isOfficialFor, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage,
+    serviceKind, officialSender, isOfficialFor, checkAddress, checkNamedBrand, checkSender, checkAgencyEmail, checkMessageLinks, checkSignInPage, checkImpersonatedPage,
   };
   if (typeof module !== 'undefined') module.exports = core.domainRules;
 })();
