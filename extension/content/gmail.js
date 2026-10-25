@@ -55,9 +55,9 @@ const EmailAntiScamGmail = { currentResult: null };
 
   let watcher = null;
 
-  // Online check of the links in the open email (PhishTank, only if the person turned it on).
+  // Online check of the links in the open email (Google Safe Browsing, only if the person turned it on).
   // At most a few different websites per email; only a match changes the result.
-  const MAX_LOOKUPS = 5;
+  const MAX_LOOKUPS = 10;
   async function lookUpLinks(evidence) {
     if (!inExtension) return null;
     const urls = [];

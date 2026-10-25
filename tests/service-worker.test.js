@@ -377,9 +377,9 @@ test('websites can\'t change the rules or the settings (only the extension\'s ow
 test('GET_SETTINGS works from a page; SET_SETTINGS checks every value', async () => {
   const env = setup();
   const got = await send(env, { type: 'GET_SETTINGS' });
-  assert.deepStrictEqual(got.settings, { ...DEFAULT_SETTINGS });
+  assert.deepStrictEqual(got.settings, { ...DEFAULT_SETTINGS, providerOptions: { apiKeySet: false } });
   assert.strictEqual(got.settings.remoteLookups, false, 'remote lookups must be off unless someone turns them on');
-  for (const bad of [{ protectionEnabled: 'no' }, { provider: 'safe-browsing-with-my-key' }, { lookupTimeoutMs: 5 }, { allowlist: 'x' }, { surprise: 1 }]) {
+  for (const bad of [{ protectionEnabled: 'no' }, { provider: 'some-other-service' }, { lookupTimeoutMs: 5 }, { allowlist: 'x' }, { surprise: 1 }]) {
     assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: bad }, EXTENSION_PAGE)).type, 'ERROR', JSON.stringify(bad));
   }
 });
@@ -567,7 +567,7 @@ test('the manifest asks only for what is used: no website access at install, no 
   assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts']);
   assert.ok(!manifest.host_permissions, 'website access must be optional, asked for during onboarding');
   assert.ok(!manifest.content_scripts, 'page scripts are registered only after access is given');
-  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://checkurl.phishtank.com/*']); // PhishTank: only asked for when someone turns the online check on
+  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://safebrowsing.googleapis.com/*']); // Safe Browsing: only asked for when someone turns it on
   // The warning page must be reachable by Chrome's redirect of a known dangerous website.
   assert.deepStrictEqual(manifest.web_accessible_resources.flatMap(r => r.resources), ['ui/warning.html']);
   for (const page of [manifest.action.default_popup, manifest.options_ui.page]) {
@@ -582,76 +582,154 @@ test('every page script the service worker registers exists', () => {
   }
 });
 
-// --- PhishTank provider: a pretend fetch, made-up .example addresses, nothing leaves this computer ---
+// --- Google Safe Browsing: a pretend server that knows made-up .example addresses ---
 
-function fakePhishtank(results, { status = 200, calls = [] } = {}) {
+const crypto = require('crypto');
+const sb = require(path.join(__dirname, '..', 'extension', 'background', 'safe-browsing.js'));
+const sha = text => crypto.createHash('sha256').update(text, 'latin1').digest();
+const KEY = 'AIzaSyFAKEFAKEFAKEFAKEFAKEFAKEFAKE12345';
+
+// The answer in protocol buffers, as Google sends it (checked against a real answer's bytes below).
+const varint = n => { const out = []; while (n > 127) { out.push((n & 127) | 128); n = Math.floor(n / 128); } out.push(n); return Buffer.from(out); };
+const field = (number, wire, payload) => Buffer.concat([varint(number * 8 + wire), ...(wire === 2 ? [varint(payload.length)] : []), payload]);
+const TYPE_NUMBERS = { MALWARE: 1, SOCIAL_ENGINEERING: 2, UNWANTED_SOFTWARE: 3, POTENTIALLY_HARMFUL_APPLICATION: 4 };
+function encodeAnswer(fullHashes) {
+  return Buffer.concat(fullHashes.map(f => field(1, 2, Buffer.concat([
+    field(1, 2, f.fullHash),
+    ...f.details.map(d => field(2, 2, Buffer.concat([field(1, 0, varint(TYPE_NUMBERS[d.threatType])), ...(d.attributes || []).map(a => field(2, 0, varint(a)))]))),
+  ]))));
+}
+// listed: expression -> threat type, e.g. { 'bad-site.example/login': 'SOCIAL_ENGINEERING' }
+function fakeSafeBrowsing(listed, { status = 200, attributes = [], extraSamePrefix = true } = {}) {
+  const calls = [];
   const fetch = async (url, init) => {
-    calls.push({ url, body: Object.fromEntries(init.body), init });
-    return { ok: status === 200, status, json: async () => ({ results }) };
+    calls.push({ url, init });
+    const u = new URL(url);
+    const prefixes = u.searchParams.getAll('hashPrefixes').map(p => Buffer.from(p, 'base64'));
+    const fullHashes = [];
+    for (const [expression, threatType] of Object.entries(listed)) {
+      const full = sha(expression);
+      if (prefixes.some(p => full.subarray(0, 4).equals(p))) fullHashes.push({ fullHash: full, details: [{ threatType, attributes }] });
+    }
+    // a different address whose hash starts with the same 4 bytes must never count
+    if (extraSamePrefix && prefixes[0]) fullHashes.push({ fullHash: Buffer.concat([prefixes[0], Buffer.alloc(28, 7)]), details: [{ threatType: 'MALWARE' }] });
+    const body = encodeAnswer(fullHashes);
+    return { ok: status === 200, status, arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.length) };
   };
   return { fetch, calls };
 }
-const phishLookup = async (fake, url, options = {}) => {
+const sbLookup = async (fake, url, apiKey = KEY) => {
   const lookup = require(path.join(__dirname, '..', 'extension', 'background', 'threat-lookup.js')).createLookup({
     getEntries: () => [],
-    getSettings: () => ({ remoteLookups: true, provider: 'phishtank', providerOptions: { fetch: fake.fetch, ...options }, allowlist: [] }),
+    getSettings: () => ({ remoteLookups: true, provider: 'safe-browsing', providerOptions: { apiKey, fetch: fake.fetch }, allowlist: [], lookupTimeoutMs: 4000 }),
   });
   return lookup.lookup(url);
 };
 
-test('PhishTank: verified and valid -> match from a trusted source, which the engine blocks', async () => {
-  const fake = fakePhishtank({ in_database: true, verified: true, valid: true });
-  const r = await phishLookup(fake, 'https://phish-test.example/login');
-  assert.deepStrictEqual([r.status, r.source.name, r.source.trusted], ['match', 'PhishTank', true]);
-  const input = { source: 'webpage', pageUrl: r.url, pageTitle: '', visibleText: '', links: [], forms: [], context: {} };
-  assert.strictEqual(analyze(input, { lookup: r }).verdict, 'block');
+test('Safe Browsing: the address is turned into the documented expressions (the Google documentation\'s own example)', () => {
+  const exprs = sb.expressions(sb.canonicalize('http://a.b.c.d.e.f.g/1/2.html?param=1'));
+  assert.deepStrictEqual(exprs.slice().sort(), [
+    'a.b.c.d.e.f.g/1/2.html?param=1', 'a.b.c.d.e.f.g/1/2.html', 'a.b.c.d.e.f.g/', 'a.b.c.d.e.f.g/1/',
+    'c.d.e.f.g/1/2.html?param=1', 'c.d.e.f.g/1/2.html', 'c.d.e.f.g/', 'c.d.e.f.g/1/',
+    'd.e.f.g/1/2.html?param=1', 'd.e.f.g/1/2.html', 'd.e.f.g/', 'd.e.f.g/1/',
+    'e.f.g/1/2.html?param=1', 'e.f.g/1/2.html', 'e.f.g/', 'e.f.g/1/',
+    'f.g/1/2.html?param=1', 'f.g/1/2.html', 'f.g/', 'f.g/1/',
+  ].sort());
 });
 
-test('PhishTank: not in the database, or not verified, or no longer valid -> no_match (never "safe")', async () => {
-  for (const results of [{ in_database: false }, { in_database: true, verified: false, valid: true }, { in_database: true, verified: true, valid: false }]) {
-    const r = await phishLookup(fakePhishtank(results), 'https://other-news.example/a');
-    assert.strictEqual(r.status, 'no_match');
-    assert.ok(!/safe/i.test(JSON.stringify(r)));
+test('Safe Browsing: canonical form follows the documented examples', () => {
+  const c = u => { const x = sb.canonicalize(u); return x && `${x.host}${x.path}${x.query === null ? '' : '?' + x.query}`; };
+  assert.strictEqual(c('http://host/%25%32%35'), 'host/%25');
+  assert.strictEqual(c('http://host/%25%32%35%25%32%35'), 'host/%25%25');
+  assert.strictEqual(c('http://%31%36%38%2e%31%38%38%2e%39%39%2e%32%36/%2E%73%65%63%75%72%65/%77%77%77%2E%65%62%61%79%2E%63%6F%6D/'), '168.188.99.26/.secure/www.ebay.com/');
+  assert.strictEqual(c('http://3279880203/blah'), '195.127.0.11/blah');
+  assert.strictEqual(c('http://www.google.com/blah/..'), 'www.google.com/');
+  assert.strictEqual(c('www.google.com/'), null, 'no scheme: not a web address');
+  assert.strictEqual(c('http://www.GOOgle.com/'), 'www.google.com/');
+  assert.strictEqual(c('http://www.google.com.../'), 'www.google.com/');
+  assert.strictEqual(c('http://www.evil.com/blah#frag'), 'www.evil.com/blah');
+  assert.strictEqual(c('http://notrailingslash.com'), 'notrailingslash.com/');
+  assert.strictEqual(c('http://host.com//twoslashes?more//slashes'), 'host.com/twoslashes?more//slashes');
+});
+
+test('Safe Browsing: a listed address matches (trusted: the engine blocks it); look-alikes and same-prefix strangers do not', async () => {
+  const fake = fakeSafeBrowsing({ 'bad-site.example/login': 'SOCIAL_ENGINEERING', 'malware-site.example/': 'MALWARE' });
+  const hit = await sbLookup(fake, 'https://www.bad-site.example/login?next=1#x');
+  const exact = await sbLookup(fake, 'https://bad-site.example/login?next=1#x');
+  assert.deepStrictEqual([exact.status, exact.source.name, exact.source.trusted, exact.threatType], ['match', 'Google Safe Browsing', true, 'SOCIAL_ENGINEERING']);
+  assert.strictEqual(hit.status, 'match', 'a listed website covers its subdomains too');
+  assert.strictEqual((await sbLookup(fake, 'https://sub.malware-site.example/anything/deep')).status, 'match', 'whole website entries cover everything below');
+  for (const url of ['https://other-news.example/lottery', 'https://notbad-site.example/login', 'https://bad-site.example/other']) {
+    const r = await sbLookup(fake, url);
+    assert.strictEqual(r.status, 'no_match', url);
+    assert.ok(!/safe/i.test(r.reason || ''));
   }
+  const input = { source: 'webpage', pageUrl: exact.url, pageTitle: '', visibleText: '', links: [], forms: [], context: {} };
+  assert.strictEqual(analyze(input, { lookup: exact }).verdict, 'block');
 });
 
-test('PhishTank: only the website and path are sent (no ?query or #fragment), over HTTPS, without cookies', async () => {
-  const fake = fakePhishtank({ in_database: false });
-  await phishLookup(fake, 'https://other-news.example/path/page?token=SECRET&id=7#section');
+test('Safe Browsing: the address never leaves this computer: only 4-byte hash prefixes (and the key) are sent', async () => {
+  const fake = fakeSafeBrowsing({});
+  await sbLookup(fake, 'https://other-news.example/path/page?token=SECRET&id=7#section');
   assert.strictEqual(fake.calls.length, 1);
-  const [{ url, body, init }] = fake.calls;
-  assert.strictEqual(url, 'https://checkurl.phishtank.com/checkurl/');
-  assert.strictEqual(Buffer.from(body.url, 'base64').toString(), 'https://other-news.example/path/page');
-  assert.ok(!JSON.stringify(body).includes('SECRET'));
-  assert.deepStrictEqual([init.credentials, init.referrerPolicy, body.format, 'app_key' in body], ['omit', 'no-referrer', 'json', false]);
+  const { url, init } = fake.calls[0];
+  const u = new URL(url);
+  assert.strictEqual(u.origin + u.pathname, 'https://safebrowsing.googleapis.com/v5/hashes:search');
+  assert.ok(!/other-news|SECRET|token|section/.test(url), 'the address leaked into the request: ' + url);
+  const prefixes = u.searchParams.getAll('hashPrefixes');
+  assert.ok(prefixes.length >= 1 && prefixes.length <= 30);
+  assert.ok(prefixes.every(p => Buffer.from(p, 'base64').length === 4));
+  assert.deepStrictEqual([init.credentials, init.referrerPolicy, u.searchParams.get('key')], ['omit', 'no-referrer', KEY]);
 });
 
-test('PhishTank: official company websites, number addresses, and local names are never sent', async () => {
-  const fake = fakePhishtank({ in_database: false });
-  for (const url of ['https://www.paypal.com/signin', 'http://192.168.1.5/router', 'http://localhost:3000/', 'https://intranet/page']) await phishLookup(fake, url);
-  assert.strictEqual(fake.calls.length, 0, 'sent: ' + fake.calls.map(c => Buffer.from(c.body.url, 'base64')).join(', '));
-});
-
-test('PhishTank: an app key is only sent when the person saved one', async () => {
-  const fake = fakePhishtank({ in_database: false });
-  await phishLookup(fake, 'https://other-news.example/a', { appKey: 'saved-by-the-person' });
-  assert.strictEqual(fake.calls[0].body.app_key, 'saved-by-the-person');
-});
-
-test('PhishTank: rate limit (509), server errors, and unreadable answers -> error, never no_match', async () => {
-  for (const fake of [fakePhishtank({}, { status: 509 }), fakePhishtank({}, { status: 500 }), fakePhishtank(null)]) {
-    const r = await phishLookup(fake, 'https://other-news.example/a');
-    assert.strictEqual(r.status, 'error');
+test('Safe Browsing: test-only entries (CANARY) and frame-only entries never warn on a page', async () => {
+  for (const attributes of [[1], [2]]) { // 1 CANARY, 2 FRAME_ONLY
+    const r = await sbLookup(fakeSafeBrowsing({ 'bad-site.example/login': 'SOCIAL_ENGINEERING' }, { attributes }), 'https://bad-site.example/login');
+    assert.strictEqual(r.status, 'no_match', attributes.join());
   }
 });
 
-test('PhishTank is a known provider, and stays off until someone turns it on', async () => {
+test('Safe Browsing: no key, a refused key, the limit, server errors, and unreadable answers -> error, never no_match', async () => {
+  assert.strictEqual((await sbLookup(fakeSafeBrowsing({}), 'https://other-news.example/a', '')).status, 'error');
+  for (const status of [400, 403, 429, 500]) assert.strictEqual((await sbLookup(fakeSafeBrowsing({}, { status }), 'https://other-news.example/a')).status, 'error', String(status));
+  const odd = { fetch: async () => ({ ok: true, status: 200, arrayBuffer: async () => Uint8Array.from([0x0a, 0x7f, 1, 2]).buffer }) };
+  assert.strictEqual((await sbLookup(odd, 'https://other-news.example/a')).status, 'error');
+  const refused = await sbLookup(fakeSafeBrowsing({}, { status: 403 }), 'https://other-news.example/a');
+  assert.match(refused.reason, /could not be reached/);
+});
+
+test('Safe Browsing: reads a real answer from Google (bytes captured from the live service for Google\'s own test page)', () => {
+  const real = Buffer.from('0a260a20efbd4c3ab44f327eb13ca942ad7c7f0ab47ec260a4d0b8051684a01b2ef35220' + '12020802' + '120308ac02', 'hex');
+  const parsed = sb.parseResponse(new Uint8Array(real));
+  assert.deepStrictEqual(parsed, [{ fullHash: Buffer.from('efbd4c3ab44f327eb13ca942ad7c7f0ab47ec260a4d0b8051684a01b2ef35220', 'hex').toString('base64'), details: [{ threatType: 'SOCIAL_ENGINEERING', attributes: [] }] }]);
+});
+
+test('Safe Browsing: number addresses and every other kind of address are looked up exactly', async () => {
+  const fake = fakeSafeBrowsing({ '195.127.0.11/blah': 'MALWARE' });
+  assert.strictEqual((await sbLookup(fake, 'http://3279880203/blah')).status, 'match');
+  assert.strictEqual((await sbLookup(fake, 'ftp://example.com/')).status, 'error');
+});
+
+test('the Safe Browsing key is a secret: never returned to anyone, only whether one is saved', async () => {
+  const env = setup();
+  const set = await send(env, { type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'safe-browsing', providerOptions: { apiKey: KEY } } }, EXTENSION_PAGE);
+  assert.strictEqual(set.type, 'SETTINGS');
+  for (const reply of [set, await send(env, { type: 'GET_SETTINGS' }), await send(env, { type: 'GET_SETTINGS' }, EXTENSION_PAGE), await send(env, { type: 'GET_STATUS' })]) {
+    assert.ok(!JSON.stringify(reply).includes(KEY), 'the key was in a reply');
+    assert.strictEqual(reply.settings.providerOptions.apiKeySet, true);
+  }
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { providerOptions: { apiKey: 'not a key!' } } }, EXTENSION_PAGE)).type, 'ERROR');
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { provider: 'safe-browsing' } })).type, 'ERROR', 'a website must not be able to change this');
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { providerOptions: {} } }, EXTENSION_PAGE)).settings.providerOptions.apiKeySet, false, 'the person can remove the key');
+});
+
+test('Safe Browsing is off until turned on, and the first (PhishTank) version\'s saved setting is switched off', async () => {
   const env = setup();
   assert.strictEqual((await send(env, { type: 'GET_SETTINGS' })).settings.remoteLookups, false);
-  const r = await send(env, { type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'phishtank', lookupTimeoutMs: 4000 } }, EXTENSION_PAGE);
-  assert.strictEqual(r.type, 'SETTINGS');
-  const fromPage = await send(env, { type: 'SET_SETTINGS', settings: { provider: 'phishtank' } });
-  assert.strictEqual(fromPage.type, 'ERROR', 'a website must not be able to change this');
+  const old = setup();
+  await old.storage.set({ engineSettings: { remoteLookups: true, provider: 'phishtank' } });
+  const got = (await send(old, { type: 'GET_SETTINGS' })).settings;
+  assert.deepStrictEqual([got.remoteLookups, got.provider], [false, 'none']);
 });
 
 test('every script an extension page or the service worker loads exists', () => {

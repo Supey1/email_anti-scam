@@ -31,7 +31,7 @@ they can't read what an ad says. That's still the analyzer's job.
   `localhost`, and official company websites from `domainRules.BRANDS` (a feed
   listing `paypal.com` is almost certainly wrong, and blocking it would hurt).
 - **Remote lookups are off by default.** Nothing leaves the computer until the person
-  turns on "Online check with PhishTank" in Settings (see below). The other "remote"
+  turns on "Google Safe Browsing" in Settings (see below). The other "remote"
   provider is a development mock (`provider: "mock"`) that answers from
   made-up `.example` addresses, so the slow path (waiting, timeouts, errors)
   can be tested without sending anything anywhere.
@@ -48,36 +48,36 @@ Errors are never cached; the next click asks again. A slow or failed lookup
 never lets a held link open by itself (see "Remote lookups" in
 `docs/interfaces.md`).
 
-## PhishTank (built, opt-in)
+## Google Safe Browsing (built, opt-in)
 
-`provider: "phishtank"` in `background/threat-lookup.js`, turned on from the settings page.
+`provider: "safe-browsing"` in `background/safe-browsing.js`, turned on from the settings page.
+It replaced a first, short-lived PhishTank check (per-address, sent addresses away); saved settings
+from that version are switched off on load.
 
-- **What it is:** a community list of reported phishing addresses, verified by people. It
-  asks PhishTank's *check URL* service (`https://checkurl.phishtank.com/checkurl/`, POST,
-  base64 address, `format=json`) about one address. A match needs `in_database`, `verified`
-  and `valid` all true. Matches are treated as **trusted**, so the engine blocks them.
-- **Where it runs:** `page.js` asks once per page the person opens (main page, only on
-  websites being checked); `content/gmail.js` asks about up to five different websites
-  linked in the open email. Both go through `LOOKUP_URL`, which also checks the local
-  list first, caches answers (10 min no match, 1 h match), and times out at 4 s.
-  A held-click ("Checking this link...") flow for links on ordinary pages is **not**
-  wired: a linked page is checked when it opens.
-- **Privacy:** only website + path is sent (query and fragment removed); never official
-  company websites, IP addresses, or names without a dot. No cookies, no referrer.
-  Disclosed in the README Privacy section and the settings page.
-- **No secret in the extension.** The check URL works without an app key but with a lower
-  rate limit; over it, PhishTank answers HTTP 509, which becomes a lookup `error`
-  (never `no_match`). An optional key can only be saved by the person
-  (`providerOptions.appKey`); there is no screen for it, and it is never in the code.
-- **Why not the downloadable database?** `data.phishtank.com/data/online-valid.json` keeps
-  addresses on the computer (best for privacy), but it is very large for an extension,
-  updates hourly, and without an application key downloads are limited to a few per day.
-  PhishTank's developer page asks for a key, but new registrations have been reported as
-  closed (Wikipedia, as of June 2026), so the key may be impossible to get. If one is
-  obtained, the database could be filtered and loaded through `UPDATE_THREAT_RULES`.
-- **Not verified from the build environment:** it had no access to phishtank.org, so
-  the request/response shape follows PhishTank's published docs but has only been tested
-  with a pretend `fetch`. Try it once in real Chrome before relying on it.
+- **API:** Safe Browsing **v5** `hashes:search` (`GET https://safebrowsing.googleapis.com/v5/hashes:search?key=...&hashPrefixes=...`).
+  The answer is **protocol buffers** (`application/x-protobuf`); `alt=json` is refused. We read only
+  `full_hashes[].full_hash` and `.full_hash_details[].threat_type / attributes`.
+- **Privacy:** the address is canonicalized, turned into at most 30 "host/path" expressions, SHA-256
+  hashed, and only the first **4 bytes** of each hash are sent. Google returns every listed full hash with
+  those prefixes; the match is decided here. Many unrelated addresses share a prefix, so Google is not told
+  which address was visited. It still sees this computer's address and the key.
+- **What counts:** `SOCIAL_ENGINEERING` (phishing), `MALWARE`, `UNWANTED_SOFTWARE`. Entries marked
+  `CANARY` (test) or `FRAME_ONLY`, and potentially-harmful-app entries, are ignored. A match is
+  **trusted**, so the engine blocks it. Google's own test pages
+  (`testsafebrowsing.appspot.com/s/phishing.html`, `/malware.html`) match.
+- **The key:** the person's own (free, Google Cloud). It is typed on the settings page, kept only in
+  `chrome.storage.local`, and **never returned by the service worker** (replies carry `apiKeySet`
+  only). It must never be committed or pasted in an issue. Advice for the key: restrict it to the
+  "Safe Browsing API" in Google Cloud so a leaked copy can do nothing else. Anyone can unpack an
+  installed extension, so a key built into one is public: that is why it is not built in.
+- **Where it runs:** `page.js` asks once per page the person opens (main page); `content/gmail.js` asks about
+  up to 10 different websites linked in the open email. Both use `LOOKUP_URL`, which checks the local list
+  first, caches answers (10 min no match, 1 h match) and times out at 4 s. A held-click ("Checking this
+  link...") flow for links on ordinary pages is **not** wired: a linked page is checked when it opens.
+- **Errors:** no key, a refused key (400/403), the limit (429), a server error, or an unreadable answer are
+  `error`, never `no_match`.
+- **Terms:** Google's Safe Browsing API is for **non-commercial** use (see its terms); Web Risk is the
+  commercial version.
 
 ## Choosing another provider
 
@@ -86,7 +86,7 @@ changes the README's promise that nothing leaves the computer.
 
 | Option | Notes (check the current terms and quotas before deciding) |
 |---|---|
-| Google Safe Browsing API (v5) | The current docs describe v5 and say the API is for **non-commercial** use. Its newer designs check hashed address prefixes rather than full addresses, which helps privacy, but read exactly what v5 sends before relying on that. |
+| Google Safe Browsing API (v5) | **Built, see below.** The current docs describe v5 and say the API is for **non-commercial** use. Its newer designs check hashed address prefixes rather than full addresses, which helps privacy, but read exactly what v5 sends before relying on that. |
 | Google Web Risk | Google's **commercial** version, for products that charge or are run by a business. Needs a Google Cloud project and credentials, so it needs our own server (below). |
 | Open phishing feeds | Downloadable lists. Check each one's licence, how often it updates, and how it confirms entries (how many false positives). Fits the existing `UPDATE_THREAT_RULES` path. |
 

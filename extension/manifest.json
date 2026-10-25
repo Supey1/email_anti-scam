@@ -12,7 +12,7 @@
   "optional_host_permissions": [
     "http://*/*",
     "https://*/*",
-    "https://checkurl.phishtank.com/*"
+    "https://safebrowsing.googleapis.com/*"
   ],
   "background": {
     "service_worker": "service-worker.js"
