@@ -564,10 +564,10 @@ test('the old reading settings (now in extension/settings.js) are refused here',
 test('the manifest asks only for what is used: no website access at install, no cookies or history', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'extension', 'manifest.json'), 'utf8'));
   assert.strictEqual(manifest.manifest_version, 3);
-  assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts']);
+  assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts', 'unlimitedStorage']);
   assert.ok(!manifest.host_permissions, 'website access must be optional, asked for during onboarding');
   assert.ok(!manifest.content_scripts, 'page scripts are registered only after access is given');
-  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://checkurl.phishtank.com/*']); // PhishTank: only asked for when someone turns the online check on
+  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://data.phishtank.com/*']); // PhishTank: only asked for when someone turns the list on
   // The warning page must be reachable by Chrome's redirect of a known dangerous website.
   assert.deepStrictEqual(manifest.web_accessible_resources.flatMap(r => r.resources), ['ui/warning.html']);
   for (const page of [manifest.action.default_popup, manifest.options_ui.page]) {
@@ -582,76 +582,110 @@ test('every page script the service worker registers exists', () => {
   }
 });
 
-// --- PhishTank provider: a pretend fetch, made-up .example addresses, nothing leaves this computer ---
+// --- PhishTank list: a pretend download of the CSV feed, made-up .example addresses ---
 
-function fakePhishtank(results, { status = 200, calls = [] } = {}) {
+const feedMod = require(path.join(__dirname, '..', 'extension', 'background', 'phishtank-feed.js'));
+const zlib = require('zlib');
+const CSV = [
+  'phish_id,url,phish_detail_url,submission_time,verified,verification_time,online,target',
+  '1,https://phish-test.example/,https://www.phishtank.com/phish_detail.php?phish_id=1,2026-01-01T00:00:00+00:00,yes,2026-01-01T00:10:00+00:00,yes,Other',
+  '2,"https://hacked-shop.example/wp-content/uploads/login.php?id=7,8",https://www.phishtank.com/phish_detail.php?phish_id=2,2026-01-01T00:00:00+00:00,yes,2026-01-01T00:10:00+00:00,yes,Other',
+  '3,http://www.fake-bank.example/secure/signin/,https://www.phishtank.com/phish_detail.php?phish_id=3,2026-01-01T00:00:00+00:00,yes,2026-01-01T00:10:00+00:00,yes,Bank',
+  '4,https://www.paypal.com/,https://www.phishtank.com/phish_detail.php?phish_id=4,2026-01-01T00:00:00+00:00,yes,2026-01-01T00:10:00+00:00,yes,PayPal',
+  '5,https://offline.example/,https://www.phishtank.com/phish_detail.php?phish_id=5,2026-01-01T00:00:00+00:00,yes,2026-01-01T00:10:00+00:00,no,Other',
+  '6,https://github.io/,https://www.phishtank.com/phish_detail.php?phish_id=6,2026-01-01T00:00:00+00:00,yes,2026-01-01T00:10:00+00:00,yes,Other',
+].join('\n');
+
+function fakeDownload({ status = 200, body = zlib.gzipSync(CSV), calls = [] } = {}) {
   const fetch = async (url, init) => {
-    calls.push({ url, body: Object.fromEntries(init.body), init });
-    return { ok: status === 200, status, json: async () => ({ results }) };
+    calls.push({ url, init });
+    return { ok: status === 200, status, arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.length) };
   };
   return { fetch, calls };
 }
-const phishLookup = async (fake, url, options = {}) => {
+const parsedUrl = u => require(path.join(__dirname, '..', 'extension', 'core', 'url-normalizer.js')).normalizeUrl(u);
+const phishLookup = async (feed, url) => {
   const lookup = require(path.join(__dirname, '..', 'extension', 'background', 'threat-lookup.js')).createLookup({
-    getEntries: () => [],
-    getSettings: () => ({ remoteLookups: true, provider: 'phishtank', providerOptions: { fetch: fake.fetch, ...options }, allowlist: [] }),
+    getEntries: () => [], feed,
+    getSettings: () => ({ remoteLookups: true, provider: 'phishtank-feed', providerOptions: {}, allowlist: [], lookupTimeoutMs: 4000 }),
   });
   return lookup.lookup(url);
 };
 
-test('PhishTank: verified and valid -> match from a trusted source, which the engine blocks', async () => {
-  const fake = fakePhishtank({ in_database: true, verified: true, valid: true });
-  const r = await phishLookup(fake, 'https://phish-test.example/login');
-  assert.deepStrictEqual([r.status, r.source.name, r.source.trusted], ['match', 'PhishTank', true]);
-  const input = { source: 'webpage', pageUrl: r.url, pageTitle: '', visibleText: '', links: [], forms: [], context: {} };
-  assert.strictEqual(analyze(input, { lookup: r }).verdict, 'block');
+test('PhishTank list: CSV with quoted commas is read; offline, unverified, brand and whole-ending entries are dropped', () => {
+  const index = feedMod.buildIndex(feedMod.parseCsv(CSV));
+  assert.deepStrictEqual(index.hosts.sort(), ['phish-test.example']);
+  assert.deepStrictEqual(index.urls.sort(), ['fake-bank.example/secure/signin', 'hacked-shop.example/wp-content/uploads/login.php?id=7,8']);
 });
 
-test('PhishTank: not in the database, or not verified, or no longer valid -> no_match (never "safe")', async () => {
-  for (const results of [{ in_database: false }, { in_database: true, verified: false, valid: true }, { in_database: true, verified: true, valid: false }]) {
-    const r = await phishLookup(fakePhishtank(results), 'https://other-news.example/a');
-    assert.strictEqual(r.status, 'no_match');
+test('PhishTank list: matches the website (and its subdomains), the exact address, and ignores look-alikes', async () => {
+  const feed = feedMod.createFeed({ storage: fakeStorage(), fetch: fakeDownload().fetch });
+  for (const url of ['https://phish-test.example/', 'https://www.phish-test.example/login', 'https://login.phish-test.example/a?x=1',
+    'http://fake-bank.example/secure/signin', 'https://fake-bank.example/secure/signin/?utm=1', 'https://hacked-shop.example/wp-content/uploads/login.php?id=7,8']) {
+    const r = await phishLookup(feed, url);
+    assert.deepStrictEqual([r.status, r.source && r.source.name, r.source && r.source.trusted], ['match', 'PhishTank list', true], url);
+  }
+  for (const url of ['https://phish-test.example.other.example/', 'https://notphish-test.example/', 'https://fake-bank.example/', 'https://fake-bank.example/secure/other',
+    'https://hacked-shop.example/wp-content/uploads/login.php?id=9', 'https://www.paypal.com/', 'https://offline.example/', 'https://other-news.example/lottery']) {
+    const r = await phishLookup(feed, url);
+    assert.strictEqual(r.status, 'no_match', url);
     assert.ok(!/safe/i.test(JSON.stringify(r)));
   }
 });
 
-test('PhishTank: only the website and path are sent (no ?query or #fragment), over HTTPS, without cookies', async () => {
-  const fake = fakePhishtank({ in_database: false });
-  await phishLookup(fake, 'https://other-news.example/path/page?token=SECRET&id=7#section');
-  assert.strictEqual(fake.calls.length, 1);
-  const [{ url, body, init }] = fake.calls;
-  assert.strictEqual(url, 'https://checkurl.phishtank.com/checkurl/');
-  assert.strictEqual(Buffer.from(body.url, 'base64').toString(), 'https://other-news.example/path/page');
-  assert.ok(!JSON.stringify(body).includes('SECRET'));
-  assert.deepStrictEqual([init.credentials, init.referrerPolicy, body.format, 'app_key' in body], ['omit', 'no-referrer', 'json', false]);
+test('PhishTank list: nothing about the checked addresses is sent: one download, whatever is looked up', async () => {
+  const dl = fakeDownload();
+  const feed = feedMod.createFeed({ storage: fakeStorage(), fetch: dl.fetch });
+  for (const url of ['https://a-news.example/x?token=SECRET', 'https://b-news.example/', 'https://phish-test.example/']) await phishLookup(feed, url);
+  assert.strictEqual(dl.calls.length, 1);
+  assert.strictEqual(dl.calls[0].url, feedMod.FEED_URL);
+  assert.deepStrictEqual([dl.calls[0].init.credentials, dl.calls[0].init.referrerPolicy], ['omit', 'no-referrer']);
 });
 
-test('PhishTank: official company websites, number addresses, and local names are never sent', async () => {
-  const fake = fakePhishtank({ in_database: false });
-  for (const url of ['https://www.paypal.com/signin', 'http://192.168.1.5/router', 'http://localhost:3000/', 'https://intranet/page']) await phishLookup(fake, url);
-  assert.strictEqual(fake.calls.length, 0, 'sent: ' + fake.calls.map(c => Buffer.from(c.body.url, 'base64')).join(', '));
+test('PhishTank list: kept on this computer, reused after a restart, refreshed only when old', async () => {
+  const storage = fakeStorage();
+  let time = 1_000_000;
+  const dl = fakeDownload();
+  const make = () => feedMod.createFeed({ storage, fetch: dl.fetch, now: () => time });
+  await phishLookup(make(), 'https://phish-test.example/');
+  time += 60_000;
+  assert.strictEqual((await phishLookup(make(), 'https://phish-test.example/')).status, 'match', 'a restarted service worker uses the saved list');
+  assert.strictEqual(dl.calls.length, 1);
+  time += feedMod.REFRESH_MS + 1;
+  await phishLookup(make(), 'https://phish-test.example/');
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(dl.calls.length, 2);
 });
 
-test('PhishTank: an app key is only sent when the person saved one', async () => {
-  const fake = fakePhishtank({ in_database: false });
-  await phishLookup(fake, 'https://other-news.example/a', { appKey: 'saved-by-the-person' });
-  assert.strictEqual(fake.calls[0].body.app_key, 'saved-by-the-person');
+test('PhishTank list: a failed download -> error, never no_match; the old list stays in use; retries are spaced out', async () => {
+  const none = fakeDownload({ status: 509 });
+  const feed = feedMod.createFeed({ storage: fakeStorage(), fetch: none.fetch });
+  const r = await phishLookup(feed, 'https://phish-test.example/');
+  assert.strictEqual(r.status, 'error');
+  assert.match((await feed.status()).lastError, /few downloads a day/);
+  await phishLookup(feed, 'https://phish-test.example/');
+  assert.strictEqual(none.calls.length, 1, 'must not hammer PhishTank');
+
+  let time = 1_000_000;
+  let dl = fakeDownload();
+  const storage = fakeStorage();
+  const f2 = feedMod.createFeed({ storage, fetch: (...a) => dl.fetch(...a), now: () => time });
+  await phishLookup(f2, 'https://phish-test.example/');
+  dl = fakeDownload({ status: 500 });
+  time += feedMod.REFRESH_MS + 1;
+  assert.strictEqual((await phishLookup(f2, 'https://phish-test.example/')).status, 'match', 'old list still used');
 });
 
-test('PhishTank: rate limit (509), server errors, and unreadable answers -> error, never no_match', async () => {
-  for (const fake of [fakePhishtank({}, { status: 509 }), fakePhishtank({}, { status: 500 }), fakePhishtank(null)]) {
-    const r = await phishLookup(fake, 'https://other-news.example/a');
-    assert.strictEqual(r.status, 'error');
-  }
-});
-
-test('PhishTank is a known provider, and stays off until someone turns it on', async () => {
+test('PhishTank list is a known provider, off until turned on, and the first version migrates to it', async () => {
   const env = setup();
   assert.strictEqual((await send(env, { type: 'GET_SETTINGS' })).settings.remoteLookups, false);
-  const r = await send(env, { type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'phishtank', lookupTimeoutMs: 4000 } }, EXTENSION_PAGE);
-  assert.strictEqual(r.type, 'SETTINGS');
-  const fromPage = await send(env, { type: 'SET_SETTINGS', settings: { provider: 'phishtank' } });
-  assert.strictEqual(fromPage.type, 'ERROR', 'a website must not be able to change this');
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'phishtank-feed', lookupTimeoutMs: 4000 } }, EXTENSION_PAGE)).type, 'SETTINGS');
+  assert.strictEqual((await send(env, { type: 'SET_SETTINGS', settings: { provider: 'phishtank-feed' } })).type, 'ERROR', 'a website must not be able to change this');
+  assert.strictEqual((await send(env, { type: 'PHISHTANK_REFRESH' })).type, 'ERROR', 'a website must not start a download');
+  assert.strictEqual((await send(env, { type: 'PHISHTANK_STATUS' })).type, 'PHISHTANK_STATUS');
+  const old = setup({ storage: Object.assign(fakeStorage(), {}) });
+  await old.storage.set({ engineSettings: { remoteLookups: true, provider: 'phishtank' } });
+  assert.strictEqual((await send(old, { type: 'GET_SETTINGS' })).settings.provider, 'phishtank-feed');
 });
 
 test('every script an extension page or the service worker loads exists', () => {

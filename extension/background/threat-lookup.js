@@ -13,9 +13,9 @@
 //      turning it on sends addresses away from this computer (docs/threat-intelligence.md).
 //
 // A provider is an adapter: { name, trusted, lookup(parsedUrl, { signal }) -> Promise<{ matched, threatType? }> }
-// Two exist: PhishTank (real, opt-in) and a development mock. No secret key is
-// ever written into the extension; an optional PhishTank app key could only be
-// something the person saved on their own computer.
+// Two exist: the PhishTank list (real, opt-in, checked on this computer: nothing about the
+// addresses is sent anywhere) and a development mock. No secret key is ever written into the
+// extension; an optional PhishTank application key could only be something the person saved.
 //
 // No chrome.* calls here, so tests can run it directly.
 
@@ -25,7 +25,6 @@
   const bg = globalThis.GranblockBackground = globalThis.GranblockBackground || {};
   if (typeof require !== 'undefined' && !core.urlNormalizer) require('../core/url-normalizer.js');
   if (typeof require !== 'undefined' && !core.urlRules) require('../core/url-rules.js');
-  if (typeof require !== 'undefined' && !core.domainRules) require('../core/domain-rules.js');
   if (typeof require !== 'undefined' && !bg.threatRules) require('./threat-rules.js');
   const { normalizeUrl } = core.urlNormalizer;
 
@@ -58,62 +57,29 @@
     };
   }
 
-  // PhishTank (phishtank.org): a community list of web addresses people reported
-  // as phishing and others verified. Its "check URL" service answers for ONE
-  // address, so using it sends addresses away from this computer:
-  //   - only the website and path are sent (never ?query or #fragment, which can hold
-  //     login tokens or private ids), as a base64 form field over HTTPS
-  //   - never sent: official company websites, number addresses, local or one-word names
-  //   - only entries that are BOTH verified and still valid count as a match
-  // Needs permission to talk to checkurl.phishtank.com (asked for on the settings page).
-  const PHISHTANK_URL = 'https://checkurl.phishtank.com/checkurl/';
-  const yes = v => v === true || v === 'true' || v === 'y' || v === 'yes';
-
-  // The address as it is sent, or null when it must not be sent at all.
-  function phishtankQuery(parsed) {
-    const host = parsed.hostname || '';
-    if (!parsed.isWeb || parsed.isIp || !host.includes('.') || host.includes(':') || host.endsWith('.localhost')) return null;
-    if (core.domainRules && core.domainRules.officialBrandFor(host)) return null;
-    return `${parsed.protocol}//${host}${encodeURI(parsed.pathname)}`;
-  }
-
-  // options: { appKey, fetch } (fetch is replaced in tests)
-  function phishtankProvider({ appKey = '', fetch: fetchFn } = {}) {
+  // PhishTank's downloadable list, checked on this computer: no address is ever sent anywhere
+  // (background/phishtank-feed.js). This is the one the settings page turns on.
+  function phishtankFeedProvider({ appKey = '' } = {}, { feed } = {}) {
     return {
-      name: 'PhishTank',
-      trusted: true, // a match is verified by people, so it may stop the person (the analyzer blocks it)
-      async lookup(parsed, { signal } = {}) {
-        const send = phishtankQuery(parsed);
-        if (!send) return { matched: false };
-        const body = new URLSearchParams({ url: btoa(send), format: 'json' });
-        if (appKey) body.set('app_key', String(appKey));
-        const response = await (fetchFn || globalThis.fetch)(PHISHTANK_URL, {
-          method: 'POST',
-          body,
-          signal,
-          credentials: 'omit',
-          cache: 'no-store',
-          referrerPolicy: 'no-referrer',
-        });
-        if (response.status === 509) throw new Error('PhishTank rate limit reached'); // over its free allowance
-        if (!response.ok) throw new Error(`PhishTank answered ${response.status}`);
-        const data = await response.json();
-        const r = data && data.results;
-        if (!r || typeof r !== 'object') throw new Error('unreadable answer');
-        return { matched: yes(r.in_database) && yes(r.verified) && yes(r.valid), threatType: 'PHISHING' };
+      name: 'PhishTank list',
+      trusted: true,
+      async lookup(parsed) {
+        if (!feed) throw new Error('no PhishTank list');
+        return { matched: await feed.match(parsed, { appKey }), threatType: 'PHISHING' };
       },
     };
   }
 
-  const PROVIDERS = { mock: mockProvider, phishtank: phishtankProvider };
+  const PROVIDERS = { mock: mockProvider, 'phishtank-feed': phishtankFeedProvider };
 
   // ---------- lookups ----------
 
   // Creates a lookup service.
+  //   feed           the downloaded PhishTank list (phishtank-feed.js), for the 'phishtank-feed' provider
   //   getEntries()   the active local list (engine shape)
   //   getSettings()  { remoteLookups, provider, providerOptions, lookupTimeoutMs, allowlist }
   //   now()          current time (ms)
-  function createLookup({ getEntries, getSettings, now = () => Date.now() }) {
+  function createLookup({ getEntries, getSettings, now = () => Date.now(), feed = null }) {
     const cache = new Map();
 
     function cached(key) {
@@ -152,7 +118,7 @@
       const makeProvider = settings.remoteLookups && PROVIDERS[settings.provider];
       if (!makeProvider) return answer('no_match', { checked: ['local list'] });
 
-      const provider = makeProvider(settings.providerOptions || {});
+      const provider = makeProvider(settings.providerOptions || {}, { feed });
       const key = `${settings.provider}|${parsed.href}`;
       const hit = cached(key);
       if (hit) return { ...hit, fromCache: true };
@@ -183,6 +149,6 @@
     return { lookup, clearCache: () => cache.clear() };
   }
 
-  bg.threatLookup = { DEFAULT_TIMEOUT_MS, CACHE_MS, PROVIDERS, mockProvider, phishtankProvider, phishtankQuery, createLookup };
+  bg.threatLookup = { DEFAULT_TIMEOUT_MS, CACHE_MS, PROVIDERS, mockProvider, phishtankFeedProvider, createLookup };
   if (typeof module !== 'undefined') module.exports = bg.threatLookup;
 })();

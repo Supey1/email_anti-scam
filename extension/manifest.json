@@ -6,13 +6,14 @@
   "permissions": [
     "declarativeNetRequest",
     "storage",
+    "unlimitedStorage",
     "scripting",
     "tts"
   ],
   "optional_host_permissions": [
     "http://*/*",
     "https://*/*",
-    "https://checkurl.phishtank.com/*"
+    "https://data.phishtank.com/*"
   ],
   "background": {
     "service_worker": "service-worker.js"

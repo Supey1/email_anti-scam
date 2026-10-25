@@ -31,7 +31,7 @@ they can't read what an ad says. That's still the analyzer's job.
   `localhost`, and official company websites from `domainRules.BRANDS` (a feed
   listing `paypal.com` is almost certainly wrong, and blocking it would hurt).
 - **Remote lookups are off by default.** Nothing leaves the computer until the person
-  turns on "Online check with PhishTank" in Settings (see below). The other "remote"
+  turns on "PhishTank list of fake websites" in Settings (see below). The other "remote"
   provider is a development mock (`provider: "mock"`) that answers from
   made-up `.example` addresses, so the slow path (waiting, timeouts, errors)
   can be tested without sending anything anywhere.
@@ -50,34 +50,33 @@ never lets a held link open by itself (see "Remote lookups" in
 
 ## PhishTank (built, opt-in)
 
-`provider: "phishtank"` in `background/threat-lookup.js`, turned on from the settings page.
+`provider: "phishtank-feed"` (`background/phishtank-feed.js` + `threat-lookup.js`), turned on from the settings page.
 
-- **What it is:** a community list of reported phishing addresses, verified by people. It
-  asks PhishTank's *check URL* service (`https://checkurl.phishtank.com/checkurl/`, POST,
-  base64 address, `format=json`) about one address. A match needs `in_database`, `verified`
-  and `valid` all true. Matches are treated as **trusted**, so the engine blocks them.
-- **Where it runs:** `page.js` asks once per page the person opens (main page, only on
-  websites being checked); `content/gmail.js` asks about up to five different websites
-  linked in the open email. Both go through `LOOKUP_URL`, which also checks the local
-  list first, caches answers (10 min no match, 1 h match), and times out at 4 s.
-  A held-click ("Checking this link...") flow for links on ordinary pages is **not**
-  wired: a linked page is checked when it opens.
-- **Privacy:** only website + path is sent (query and fragment removed); never official
-  company websites, IP addresses, or names without a dot. No cookies, no referrer.
-  Disclosed in the README Privacy section and the settings page.
-- **No secret in the extension.** The check URL works without an app key but with a lower
-  rate limit; over it, PhishTank answers HTTP 509, which becomes a lookup `error`
-  (never `no_match`). An optional key can only be saved by the person
-  (`providerOptions.appKey`); there is no screen for it, and it is never in the code.
-- **Why not the downloadable database?** `data.phishtank.com/data/online-valid.json` keeps
-  addresses on the computer (best for privacy), but it is very large for an extension,
-  updates hourly, and without an application key downloads are limited to a few per day.
-  PhishTank's developer page asks for a key, but new registrations have been reported as
-  closed (Wikipedia, as of June 2026), so the key may be impossible to get. If one is
-  obtained, the database could be filtered and loaded through `UPDATE_THREAT_RULES`.
-- **Not verified from the build environment:** it had no access to phishtank.org, so
-  the request/response shape follows PhishTank's published docs but has only been tested
-  with a pretend `fetch`. Try it once in real Chrome before relying on it.
+- **What it is:** PhishTank's downloadable list of verified, online phishing addresses
+  (`https://data.phishtank.com/data/online-valid.csv.gz`, updated hourly by PhishTank). The
+  extension downloads it, keeps a compact index in `chrome.storage.local`, and checks addresses
+  **on this computer**. Looking an address up sends nothing anywhere.
+- **Matching:** an entry with no path blocks the whole website and its subdomains (never an
+  official company website or a whole website ending); an entry with a path matches that
+  address (any `?query` on a path entry without one); an entry with a `?query` matches only
+  that query. Matches are **trusted**, so the engine blocks them.
+- **Refreshing:** when the saved copy is older than 6 hours, checked at the next lookup, at most
+  once an hour. A failed download keeps the old copy and records the error (shown in Settings).
+  Lookups with no list yet answer `error`, never `no_match`.
+- **Where it runs:** `page.js` asks once per page opened (main page); `content/gmail.js` asks about
+  up to 25 different websites linked in the open email. Both go through `LOOKUP_URL`.
+  A held-click flow for links on ordinary pages is **not** wired: a linked page is checked when it opens.
+- **Why the list and not the per-address "check URL" service:** the first version used the check-URL
+  service, which sends each address to PhishTank, and it only ever answered for the one address asked
+  about. The list sees every listed site and sends nothing. That version was removed; saved settings
+  from it move to the list.
+- **Application key:** PhishTank limits unkeyed downloads to a few a day (we try about 4). A key
+  would lift that (`https://data.phishtank.com/data/<key>/online-valid.csv.gz`); one can be saved as
+  `providerOptions.appKey` by the person (no screen for it yet), and it is never in the code.
+- **Not verified from the build environment:** it cannot reach PhishTank (its network policy blocks
+  the connection), so downloading has only been tested with a pretend `fetch` and a made-up CSV in the
+  documented format (`phish_id,url,phish_detail_url,submission_time,verified,verification_time,online,target`).
+  Try it once in real Chrome. A browser cannot set PhishTank's requested `User-Agent`.
 
 ## Choosing another provider
 

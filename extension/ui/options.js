@@ -99,33 +99,52 @@
     saved('Everything is back the way it was.');
   });
 
-  // ---- online check with PhishTank (off unless chosen; sends website addresses, see the page text) ----
-  const PHISHTANK = ['https://checkurl.phishtank.com/*'];
-  async function engine(change) {
-    const reply = await chrome.runtime.sendMessage({ schemaVersion: 1, type: change ? 'SET_SETTINGS' : 'GET_SETTINGS', ...(change ? { settings: change } : {}) });
-    if (!reply || reply.type !== 'SETTINGS') throw new Error((reply && reply.error) || 'no answer');
-    return reply.settings;
+  // ---- PhishTank's list (off unless chosen; downloaded and checked on this computer) ----
+  const PHISHTANK = ['https://data.phishtank.com/*'];
+  async function ask(message) {
+    const reply = await chrome.runtime.sendMessage({ schemaVersion: 1, ...message });
+    if (!reply || reply.type === 'ERROR') throw new Error((reply && reply.error) || 'no answer');
+    return reply;
   }
   async function renderOnline() {
     try {
-      const s = await engine();
-      $('onlineCheck').checked = s.remoteLookups && s.provider === 'phishtank';
-    } catch (e) { $('onlineCheck').checked = false; }
+      const s = (await ask({ type: 'GET_SETTINGS' })).settings;
+      const on = s.remoteLookups && s.provider === 'phishtank-feed';
+      $('onlineCheck').checked = on;
+      $('online-refresh').hidden = !on;
+      const st = on ? (await ask({ type: 'PHISHTANK_STATUS' })).status : null;
+      $('online-status').textContent = !st ? '' : st.ready
+        ? `List ready: ${st.entries.toLocaleString()} fake websites, downloaded ${new Date(st.updatedAt).toLocaleString()}.`
+        : (st.downloading ? 'Downloading the list…' : `The list has not been downloaded yet.${st.lastError ? ` (${st.lastError})` : ''}`);
+    } catch (e) { $('onlineCheck').checked = false; $('online-refresh').hidden = true; }
+  }
+  async function downloadNow() {
+    $('online-status').textContent = 'Downloading the list…';
+    const { status } = await ask({ type: 'PHISHTANK_REFRESH' });
+    if (!status.ready && status.lastError) throw new Error(status.lastError);
   }
   $('onlineCheck').addEventListener('change', async e => {
     $('online-error').textContent = '';
     try {
       if (e.target.checked) {
-        if (!await chrome.permissions.request({ origins: PHISHTANK })) throw new Error('Chrome did not allow it, so the online check stays off.');
-        await engine({ remoteLookups: true, provider: 'phishtank', lookupTimeoutMs: 4000 });
+        if (!await chrome.permissions.request({ origins: PHISHTANK })) throw new Error('Chrome did not allow it, so this stays off.');
+        await ask({ type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'phishtank-feed', lookupTimeoutMs: 4000 } });
+        saved();
+        await renderOnline();
+        await downloadNow();
       } else {
-        await engine({ remoteLookups: false });
+        await ask({ type: 'SET_SETTINGS', settings: { remoteLookups: false } });
         await chrome.permissions.remove({ origins: PHISHTANK }).catch(() => {});
+        saved();
       }
-      saved();
     } catch (err) {
       $('online-error').textContent = err.message;
     }
+    await renderOnline();
+  });
+  $('online-refresh').addEventListener('click', async () => {
+    $('online-error').textContent = '';
+    try { await downloadNow(); } catch (err) { $('online-error').textContent = err.message; }
     await renderOnline();
   });
 
