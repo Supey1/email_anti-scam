@@ -200,7 +200,7 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 
 **What it reads:** in Gmail, the email you have open (sender, subject, text, links). On other websites, the page's address, title, visible words, links, ads, whether it has a password or card box and where that box sends what you type, and the link you click plus the ad around it. Never anything you type.
 
-**What it sends:** nothing. Every check happens inside your own browser, and the extension has no server. Looking addresses up with an online threat service is built but **off**, and only a pretend (development) service exists; see [`docs/threat-intelligence.md`](docs/threat-intelligence.md). Turning a real one on would send the addresses you check to that service, and this section must say so first.
+**What it sends:** nothing by default. Every check happens inside your own browser, and the extension has no server. There is one optional exception, **off until you turn it on** in Settings ("Online check with PhishTank"): the address of each website you open, and of up to five websites linked in an open Gmail email, is sent to [PhishTank](https://phishtank.org) (`checkurl.phishtank.com`) to see whether people have reported it as phishing. Only the website name and path are sent (never anything after a `?` or `#`), never your name, email, page contents, or anything you type, and never the addresses of well-known company websites, number addresses, or one-word local names. PhishTank can see your IP address, as any website can. Details: [`docs/threat-intelligence.md`](docs/threat-intelligence.md).
 
 **What it saves, on your computer only:** your settings, updates to the known-dangerous list, and the "This is a false alarm" reports you choose to send during testing (the website's name, the verdict, up to five reasons shown, where, and the time; the last 100). You can save or delete the reports in Settings. No browsing history.
 
@@ -209,6 +209,7 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 | Permission | When | Why |
 |---|---|---|
 | Access to `http`/`https` websites (optional) | Only when you choose it on the welcome or settings page | To check pages and links, ads, and Gmail. Chrome shows this as "read and change all your data on all websites." Choose "Gmail only" to allow just `mail.google.com`. |
+| Access to `checkurl.phishtank.com` (optional) | Only when you turn on the online check with PhishTank | To ask PhishTank whether an address has been reported as phishing. Taken back when you turn the check off. |
 | `declarativeNetRequest` | At install | To have Chrome block known dangerous websites before they load. Chrome does this matching itself; the extension doesn't see your browsing history. Chrome shows this as "block content on any page." |
 | `storage` | At install | To keep your settings, the known-dangerous list, and false-alarm reports on this computer. |
 | `scripting` | At install | To start or stop checking pages when you give or take back website access, or turn protection off. |

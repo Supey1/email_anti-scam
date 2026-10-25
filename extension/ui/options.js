@@ -99,6 +99,36 @@
     saved('Everything is back the way it was.');
   });
 
+  // ---- online check with PhishTank (off unless chosen; sends website addresses, see the page text) ----
+  const PHISHTANK = ['https://checkurl.phishtank.com/*'];
+  async function engine(change) {
+    const reply = await chrome.runtime.sendMessage({ schemaVersion: 1, type: change ? 'SET_SETTINGS' : 'GET_SETTINGS', ...(change ? { settings: change } : {}) });
+    if (!reply || reply.type !== 'SETTINGS') throw new Error((reply && reply.error) || 'no answer');
+    return reply.settings;
+  }
+  async function renderOnline() {
+    try {
+      const s = await engine();
+      $('onlineCheck').checked = s.remoteLookups && s.provider === 'phishtank';
+    } catch (e) { $('onlineCheck').checked = false; }
+  }
+  $('onlineCheck').addEventListener('change', async e => {
+    $('online-error').textContent = '';
+    try {
+      if (e.target.checked) {
+        if (!await chrome.permissions.request({ origins: PHISHTANK })) throw new Error('Chrome did not allow it, so the online check stays off.');
+        await engine({ remoteLookups: true, provider: 'phishtank', lookupTimeoutMs: 4000 });
+      } else {
+        await engine({ remoteLookups: false });
+        await chrome.permissions.remove({ origins: PHISHTANK }).catch(() => {});
+      }
+      saved();
+    } catch (err) {
+      $('online-error').textContent = err.message;
+    }
+    await renderOnline();
+  });
+
   // ---- website access (Chrome's permission prompt; the service worker starts the page scripts) ----
   const ALL_SITES = ['http://*/*', 'https://*/*'];
   const GMAIL = ['https://mail.google.com/*'];
@@ -164,4 +194,5 @@
   render();
   renderReports();
   renderAccess();
+  renderOnline();
 })();

@@ -55,6 +55,29 @@ const EmailAntiScamGmail = { currentResult: null };
 
   let watcher = null;
 
+  // Online check of the links in the open email (PhishTank, only if the person turned it on).
+  // At most a few different websites per email; only a match changes the result.
+  const MAX_LOOKUPS = 5;
+  async function lookUpLinks(evidence) {
+    if (!inExtension) return null;
+    const urls = [];
+    const hosts = new Set();
+    for (const link of evidence.links || []) {
+      let u;
+      try { u = new URL(link.url || link.href); } catch (e) { continue; }
+      if (!/^https?:$/.test(u.protocol) || u.hostname === 'mail.google.com' || hosts.has(u.hostname) || urls.length >= MAX_LOOKUPS) continue;
+      hosts.add(u.hostname);
+      urls.push(u.href);
+    }
+    for (const url of urls) {
+      try {
+        const answer = await chrome.runtime.sendMessage({ schemaVersion: 1, type: 'LOOKUP_URL', url });
+        if (answer && answer.type === 'LOOKUP_RESULT' && answer.status === 'match') return answer;
+      } catch (e) { /* the other checks still ran */ }
+    }
+    return null;
+  }
+
   function apply() {
     if (Settings.shouldCheckEmail(Settings.current)) {
       if (watcher) return;
@@ -63,6 +86,12 @@ const EmailAntiScamGmail = { currentResult: null };
           const result = checkEmail(evidence);
           EmailAntiScamGmail.currentResult = result;
           show(evidence, result);
+          lookUpLinks(evidence).then(lookup => {
+            if (!lookup || !watcher || EmailAntiScamGmail.currentResult !== result) return; // another email was opened meanwhile
+            const better = checkEmail(evidence, { lookup });
+            EmailAntiScamGmail.currentResult = better;
+            show(evidence, better);
+          });
         },
         onClear() { EmailAntiScamGmail.currentResult = null; EmailAntiScamPanel.close({ removeChip: true }); },
       });

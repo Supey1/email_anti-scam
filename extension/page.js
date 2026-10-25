@@ -13,13 +13,14 @@
   let evidence = null; // everything the scanner has seen on this page, within limits
   let lastSignature = '';
   const dismissed = new Set();
+  let lookup = null; // an online lookup's answer for THIS page, only kept when it found a match
 
   function leave() {
     if (history.length > 1) history.back(); else location.replace('about:blank');
   }
 
   function evaluate() {
-    const result = checkWebpage(evidence);
+    const result = checkWebpage(evidence, lookup ? { lookup } : undefined);
     if (result.verdict !== 'warn' && result.verdict !== 'block') return; // nothing found, or could not check
     const signature = result.verdict + result.reasons.map(r => r.code).join('|');
     if (signature === lastSignature || dismissed.has(signature)) return;
@@ -37,9 +38,24 @@
     });
   }
 
+  // Asks the service worker whether this page's address is on a known-dangerous list.
+  // It checks the local list, and PhishTank only if the person turned online checks on
+  // (settings page). Only a match changes anything: no answer, an error, or "not found"
+  // leave the other checks exactly as they were.
+  async function lookUpPage() {
+    try {
+      const answer = await chrome.runtime.sendMessage({ schemaVersion: 1, type: 'LOOKUP_URL', url: location.href });
+      if (!scanner || !answer || answer.type !== 'LOOKUP_RESULT' || answer.status !== 'match') return;
+      lookup = answer;
+      evaluate();
+    } catch (e) { /* the extension was reloaded or is busy: the other checks still ran */ }
+  }
+
   function startChecking() {
     if (scanner) return;
     evidence = null;
+    lookup = null;
+    lookUpPage();
     scanner = PageScanner.start({
       onEvidence(found) {
         evidence = found.context.scan === 'initial' || !evidence ? found : PageScanner.merge(evidence, found);
@@ -66,7 +82,7 @@
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (message.type === 'STATUS') respond({ checking: !!scanner, kind: 'webpage' });
     if (message.type === 'RESCAN') {
-      if (scanner) { lastSignature = ''; dismissed.clear(); scanner.scanNow(); }
+      if (scanner) { lastSignature = ''; dismissed.clear(); lookup = null; scanner.scanNow(); lookUpPage(); }
       respond({ ok: !!scanner });
     }
   });
