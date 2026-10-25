@@ -6,13 +6,15 @@
   "permissions": [
     "declarativeNetRequest",
     "storage",
+    "unlimitedStorage",
     "scripting",
     "tts"
   ],
   "optional_host_permissions": [
     "http://*/*",
     "https://*/*",
-    "https://safebrowsing.googleapis.com/*"
+    "https://safebrowsing.googleapis.com/*",
+    "https://raw.githubusercontent.com/*"
   ],
   "background": {
     "service_worker": "service-worker.js"

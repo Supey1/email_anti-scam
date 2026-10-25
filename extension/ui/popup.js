@@ -54,6 +54,24 @@
     toggle.hidden = !info.toggle;
     if (info.toggle) { toggle.textContent = info.toggle.label; toggle.dataset.on = String(info.toggle.on); }
     $('recheck').hidden = info.state !== 'yes';
+    await renderLookup();
+  }
+
+  // Asks the extension about this tab's address, so the answer (or the reason it could not check) is visible.
+  async function renderLookup() {
+    const web = tab && /^https?:/.test(tab.url || '');
+    $('lookup-status').parentElement.hidden = !web || !Settings.current.enabled;
+    if (!web) return;
+    let engine = null;
+    let lookup;
+    try {
+      const got = await chrome.runtime.sendMessage({ schemaVersion: 1, type: 'GET_SETTINGS' });
+      engine = got && got.settings;
+      if (engine && engine.remoteLookups) lookup = await chrome.runtime.sendMessage({ schemaVersion: 1, type: 'LOOKUP_URL', url: tab.url });
+    } catch (e) { /* shown as "could not check" */ }
+    const info = PopupStatus.describeLookup({ engine, lookup });
+    showStatus($('lookup-status'), info);
+    $('lookup-detail').textContent = info.detail;
   }
 
   function say(text) { $('action-result').textContent = text; }

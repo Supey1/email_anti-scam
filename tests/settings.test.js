@@ -73,4 +73,17 @@ assert.match(withAccess('gmail', 'https://news.example/').detail, /Settings/);
 assert.strictEqual(withAccess('gmail', 'https://mail.google.com/mail/u/0/').state, 'yes');
 assert.strictEqual(withAccess('none', 'https://mail.google.com/mail/u/0/').state, 'no');
 
+// "Is this website on a list?": says what was checked, why it could not, and never "safe".
+const on = { remoteLookups: true, providers: ['phishing-database'] };
+const lk = (engine, lookup) => PopupStatus.describeLookup({ engine, lookup });
+assert.match(lk({ remoteLookups: false, providers: [] }).text, /off/);
+assert.match(lk(on, { type: 'LOOKUP_RESULT', status: 'match', source: { name: 'Phishing.Database list' } }).text, /on a list of dangerous/);
+assert.strictEqual(lk(on, { type: 'LOOKUP_RESULT', status: 'match', source: { name: 'x' } }).state, 'no');
+const missed = lk(on, { type: 'LOOKUP_RESULT', status: 'no_match', checked: ['local list', 'Phishing.Database list'] });
+assert.match(missed.text, /Not on Phishing\.Database list/);
+assert.match(missed.detail, /does not mean a website is safe/);
+const broke = lk(on, { type: 'LOOKUP_RESULT', status: 'error', reason: 'x', details: [{ name: 'Google Safe Browsing', outcome: 'error', reason: 'Google Safe Browsing: no key saved yet' }] });
+assert.deepStrictEqual([broke.state, /Could not check/.test(broke.text), /no key saved/.test(broke.detail)], ['unknown', true, true]);
+assert.strictEqual(lk(on, undefined).state, 'unknown');
+
 console.log('PASS  settings normalize, site matching, popup status\n\nAll tests passed');

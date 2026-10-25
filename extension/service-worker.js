@@ -38,6 +38,7 @@ importScripts(
   // The background itself
   'background/threat-rules.js',
   'background/safe-browsing.js',
+  'background/domain-feed.js',
   'background/threat-lookup.js',
   'background/content-scripts.js',
   'background/speech-relay.js',
@@ -52,6 +53,7 @@ const storageArea = area => ({
 
 const background = GranblockBackground.createBackground({
   storage: storageArea(chrome.storage.local),
+  fetch: (...args) => fetch(...args),
   dnr: chrome.declarativeNetRequest,
   tabs: chrome.tabs,
   permissions: chrome.permissions,

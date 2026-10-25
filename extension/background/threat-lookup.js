@@ -13,8 +13,9 @@
 //      turning it on sends addresses away from this computer (docs/threat-intelligence.md).
 //
 // A provider is an adapter: { name, trusted, lookup(parsedUrl, { signal }) -> Promise<{ matched, threatType? }> }
-// Two exist: Google Safe Browsing (real, opt-in; background/safe-browsing.js) and a development
-// mock. No secret key is ever written into the extension: the Safe Browsing key is the person's
+// Three exist: Google Safe Browsing (real, opt-in; background/safe-browsing.js), a free downloaded
+// list of phishing websites (background/domain-feed.js), and a development mock. Every source that is
+// turned on is asked at the same time; any match wins. No secret key is ever written into the extension: the Safe Browsing key is the person's
 // own, saved on the settings page on this computer only.
 //
 // No chrome.* calls here, so tests can run it directly.
@@ -26,6 +27,7 @@
   if (typeof require !== 'undefined' && !core.urlNormalizer) require('../core/url-normalizer.js');
   if (typeof require !== 'undefined' && !core.urlRules) require('../core/url-rules.js');
   if (typeof require !== 'undefined' && !bg.safeBrowsing) require('./safe-browsing.js');
+  if (typeof require !== 'undefined' && !bg.domainFeed) require('./domain-feed.js');
   if (typeof require !== 'undefined' && !bg.threatRules) require('./threat-rules.js');
   const { normalizeUrl } = core.urlNormalizer;
 
@@ -58,15 +60,34 @@
     };
   }
 
-  const PROVIDERS = { mock: mockProvider, 'safe-browsing': bg.safeBrowsing.safeBrowsingProvider };
+  // The free downloaded list (domain-feed.js). Untrusted: warns strongly, the person may continue.
+  function feedProvider(id) {
+    return (options, { feeds } = {}) => ({
+      name: (feeds && feeds[id] && feeds[id].label) || id,
+      trusted: false,
+      async lookup(parsed) {
+        if (!feeds || !feeds[id]) throw new Error('no list');
+        return { matched: await feeds[id].match(parsed), threatType: 'PHISHING' };
+      },
+    });
+  }
+
+  const PROVIDERS = { mock: mockProvider, 'safe-browsing': bg.safeBrowsing.safeBrowsingProvider, 'phishing-database': feedProvider('phishing-database') };
 
   // ---------- lookups ----------
 
+  // The online sources that are turned on: settings.providers (a list), or the older single settings.provider.
+  function providerNames(settings) {
+    const list = Array.isArray(settings.providers) && settings.providers.length ? settings.providers : [settings.provider];
+    return [...new Set(list)].filter(name => PROVIDERS[name]);
+  }
+
   // Creates a lookup service.
+  //   feeds          the downloaded lists (domain-feed.js), by provider name
   //   getEntries()   the active local list (engine shape)
-  //   getSettings()  { remoteLookups, provider, providerOptions, lookupTimeoutMs, allowlist }
+  //   getSettings()  { remoteLookups, providers, provider, providerOptions, lookupTimeoutMs, allowlist }
   //   now()          current time (ms)
-  function createLookup({ getEntries, getSettings, now = () => Date.now() }) {
+  function createLookup({ getEntries, getSettings, now = () => Date.now(), feeds = {} }) {
     const cache = new Map();
 
     function cached(key) {
@@ -101,41 +122,53 @@
         return answer('no_match', { checked: ['local list'], reason: 'removed as a false positive (allowlist)' });
       }
 
-      // 2. A remote provider, only if one is turned on.
-      const makeProvider = settings.remoteLookups && PROVIDERS[settings.provider];
-      if (!makeProvider) return answer('no_match', { checked: ['local list'] });
+      // 2. The online sources the person turned on (all of them, at the same time).
+      const names = settings.remoteLookups ? providerNames(settings) : [];
+      if (!names.length) return answer('no_match', { checked: ['local list'] });
 
-      const provider = makeProvider(settings.providerOptions || {});
-      const key = `${settings.provider}|${parsed.href}`;
+      const key = `${names.join('+')}|${parsed.href}`;
       const hit = cached(key);
       if (hit) return { ...hit, fromCache: true };
 
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const timeoutMs = settings.lookupTimeoutMs || DEFAULT_TIMEOUT_MS;
-      let timer;
-      const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs); });
-      try {
-        const reply = await Promise.race([provider.lookup(parsed, { signal: controller && controller.signal }), timeout]);
-        if (!reply || typeof reply.matched !== 'boolean') throw new Error('unreadable answer');
-        const result = answer(reply.matched ? 'match' : 'no_match', {
-          source: reply.matched ? { name: provider.name, trusted: !!provider.trusted } : null,
-          checked: ['local list', provider.name],
-          threatType: reply.threatType,
-        });
+      const outcomes = await Promise.all(names.map(async name => {
+        const provider = PROVIDERS[name](settings.providerOptions || {}, { feeds });
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        let timer;
+        const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs); });
+        try {
+          const reply = await Promise.race([provider.lookup(parsed, { signal: controller && controller.signal }), timeout]);
+          if (!reply || typeof reply.matched !== 'boolean') throw new Error('unreadable answer');
+          return { provider, matched: reply.matched, threatType: reply.threatType };
+        } catch (err) {
+          if (controller) controller.abort();
+          // Messages we wrote ourselves for the person (a refused key, a list still downloading) are passed on.
+          const reason = err && err.message === 'timeout' ? `no answer within ${timeoutMs} ms`
+            : (err && err.userFacing ? err.message : 'the lookup service could not be reached');
+          return { provider, error: reason };
+        } finally {
+          clearTimeout(timer);
+        }
+      }));
+
+      const details = outcomes.map(o => ({ name: o.provider.name, outcome: o.error ? 'error' : o.matched ? 'match' : 'no_match', ...(o.error ? { reason: o.error } : {}) }));
+      const matches = outcomes.filter(o => o.matched);
+      const found = matches.find(o => o.provider.trusted) || matches[0];
+      if (found) {
+        const result = answer('match', { source: { name: found.provider.name, trusted: !!found.provider.trusted }, checked: ['local list', ...outcomes.filter(o => !o.error).map(o => o.provider.name)], threatType: found.threatType, details });
         remember(key, result);
         return result;
-      } catch (err) {
-        if (controller) controller.abort();
-        const reason = err && err.message === 'timeout' ? `no answer within ${timeoutMs} ms` : 'the lookup service could not be reached';
-        return answer('error', { reason, checked: ['local list'] });
-      } finally {
-        clearTimeout(timer);
       }
+      const worked = outcomes.filter(o => !o.error);
+      if (!worked.length) return answer('error', { reason: outcomes[0].error, checked: ['local list'], details });
+      const result = answer('no_match', { checked: ['local list', ...worked.map(o => o.provider.name)], details });
+      if (worked.length === outcomes.length) remember(key, result); // never remember an answer that is missing a source
+      return result;
     }
 
     return { lookup, clearCache: () => cache.clear() };
   }
 
-  bg.threatLookup = { DEFAULT_TIMEOUT_MS, CACHE_MS, PROVIDERS, mockProvider, createLookup };
+  bg.threatLookup = { DEFAULT_TIMEOUT_MS, CACHE_MS, PROVIDERS, providerNames, mockProvider, createLookup };
   if (typeof module !== 'undefined') module.exports = bg.threatLookup;
 })();

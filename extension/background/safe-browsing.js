@@ -28,6 +28,7 @@
   // Attributes that mean "do not enforce on a whole page": 1 CANARY (a test entry), 2 FRAME_ONLY, 0 unknown.
   const SKIP_ATTRIBUTES = new Set([0, 1, 2]);
 
+  const userFacing = message => Object.assign(new Error(message), { userFacing: true }); // message is shown to the person
   const latin1ToBytes = text => Uint8Array.from(text, c => c.charCodeAt(0));
   const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
   const hex = n => n.toString(16).toUpperCase().padStart(2, '0');
@@ -146,7 +147,7 @@
       name: 'Google Safe Browsing',
       trusted: true, // Google's own list: a match may stop the person
       async lookup(parsed, { signal } = {}) {
-        if (!apiKey) throw new Error('no Safe Browsing key saved');
+        if (!apiKey) throw userFacing('Google Safe Browsing: no key saved yet');
         const canonical = canonicalize(parsed.href);
         if (!canonical) return { matched: false };
         const hashes = await Promise.all(expressions(canonical).map(sha256));
@@ -155,9 +156,9 @@
         const response = await (fetchFn || globalThis.fetch)(`${ENDPOINT}?${query}`, {
           method: 'GET', signal, credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer',
         });
-        if (response.status === 400 || response.status === 403) throw new Error('Google did not accept the Safe Browsing key');
-        if (response.status === 429) throw new Error('Safe Browsing limit reached');
-        if (!response.ok) throw new Error(`Safe Browsing answered ${response.status}`);
+        if (response.status === 400 || response.status === 403) throw userFacing('Google Safe Browsing: Google did not accept the key (is the Safe Browsing API turned on for it?)');
+        if (response.status === 429) throw userFacing('Google Safe Browsing: the free limit was reached, try again later');
+        if (!response.ok) throw userFacing(`Google Safe Browsing: Google answered ${response.status}`);
         for (const found of parseResponse(new Uint8Array(await response.arrayBuffer()))) {
           if (!ours.has(found.fullHash)) continue; // same first 4 bytes, a different address
           const detail = found.details.find(d => THREAT_TYPES.has(d.threatType) && !d.attributes.some(a => SKIP_ATTRIBUTES.has(a)));

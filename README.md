@@ -200,7 +200,11 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 
 **What it reads:** in Gmail, the email you have open (sender, subject, text, links). On other websites, the page's address, title, visible words, links, ads, whether it has a password or card box and where that box sends what you type, and the link you click plus the ad around it. Never anything you type.
 
-**What it sends:** nothing by default. Every check happens inside your own browser, and the extension has no server. There is one optional exception, **off until you turn it on** in Settings ("Google Safe Browsing", with your own free key from Google). For each website you open, and the links in an open Gmail email, Granblock scrambles the address into fingerprints (SHA-256 hashes) and sends Google only the **first 4 bytes** of each, which many unrelated addresses share; Google answers with the listed addresses that start the same way and Granblock compares the rest on your computer. The address itself, page contents, and anything you type are never sent. Google can still see your computer's address and your key, as any website can. Your key is saved only on this computer and is never in the code. Details: [`docs/threat-intelligence.md`](docs/threat-intelligence.md).
+**What it sends:** nothing about what you read or visit, by default. Every check happens inside your own browser, and the extension has no server. There are two optional online lists, both **off until you turn them on** in Settings, and you can use either or both:
+- **Free list (Phishing.Database):** Granblock downloads a public list of phishing website names (about 10 MB, once a day, from GitHub) and checks it **on your computer**. The websites you visit are never sent. GitHub only sees that your computer downloaded the list.
+- **Google Safe Browsing**, with your own free key from Google: for each website you open, and the links in an open Gmail email, Granblock scrambles the address into fingerprints (SHA-256 hashes) and sends Google only the **first 4 bytes** of each, which many unrelated addresses share; Google answers with the listed addresses that start the same way and Granblock compares the rest on your computer. The address itself, page contents, and anything you type are never sent. Google can still see your computer's address and your key. Your key is saved only on this computer and is never in the code.
+
+Details: [`docs/threat-intelligence.md`](docs/threat-intelligence.md).
 
 **What it saves, on your computer only:** your settings, updates to the known-dangerous list, and the "This is a false alarm" reports you choose to send during testing (the website's name, the verdict, up to five reasons shown, where, and the time; the last 100). You can save or delete the reports in Settings. No browsing history.
 
@@ -210,6 +214,8 @@ Be honest about what these mean: we wrote these examples ourselves, alongside th
 |---|---|---|
 | Access to `http`/`https` websites (optional) | Only when you choose it on the welcome or settings page | To check pages and links, ads, and Gmail. Chrome shows this as "read and change all your data on all websites." Choose "Gmail only" to allow just `mail.google.com`. |
 | Access to `safebrowsing.googleapis.com` (optional) | Only when you turn on Google Safe Browsing | To ask Google whether an address is on its list of dangerous websites. Taken back when you turn it off. |
+| Access to `raw.githubusercontent.com` (optional) | Only when you turn on the free list | To download the Phishing.Database list. Taken back when you turn it off. |
+| `unlimitedStorage` | At install | The free list has about 400,000 website names, more than Chrome's default storage allowance. Kept on this computer only. |
 | `declarativeNetRequest` | At install | To have Chrome block known dangerous websites before they load. Chrome does this matching itself; the extension doesn't see your browsing history. Chrome shows this as "block content on any page." |
 | `storage` | At install | To keep your settings, the known-dangerous list, and false-alarm reports on this computer. |
 | `scripting` | At install | To start or stop checking pages when you give or take back website access, or turn protection off. |

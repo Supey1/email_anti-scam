@@ -99,19 +99,39 @@
     saved('Everything is back the way it was.');
   });
 
-  // ---- Google Safe Browsing (off unless chosen; sends only short hash fingerprints, see the page text) ----
-  const SAFE_BROWSING = ['https://safebrowsing.googleapis.com/*'];
+  // ---- online lists of fake websites (off unless chosen; see the page text for what each one sends) ----
+  const ORIGINS = { 'safe-browsing': ['https://safebrowsing.googleapis.com/*'], 'phishing-database': ['https://raw.githubusercontent.com/*'] };
   async function engine(change) {
     const reply = await chrome.runtime.sendMessage({ schemaVersion: 1, type: change ? 'SET_SETTINGS' : 'GET_SETTINGS', ...(change ? { settings: change } : {}) });
     if (!reply || reply.type !== 'SETTINGS') throw new Error((reply && reply.error) || 'no answer');
     return reply.settings; // never contains the key itself, only providerOptions.apiKeySet
   }
+  async function feedStatus(refresh) {
+    const reply = await chrome.runtime.sendMessage({ schemaVersion: 1, type: refresh ? 'FEED_REFRESH' : 'FEED_STATUS' });
+    if (!reply || reply.type !== 'FEED_STATUS') throw new Error((reply && reply.error) || 'no answer');
+    return reply.status;
+  }
+  const sources = s => (Array.isArray(s.providers) ? s.providers : []);
   async function renderOnline() {
     try {
       const s = await engine();
-      $('onlineCheck').checked = s.remoteLookups && s.provider === 'safe-browsing';
+      const on = sources(s).includes('safe-browsing');
+      const feedOn = sources(s).includes('phishing-database');
+      $('onlineCheck').checked = on;
+      $('feedCheck').checked = feedOn;
+      $('feed-refresh').hidden = !feedOn;
       $('sb-key-status').textContent = s.providerOptions.apiKeySet ? 'A key is saved on this computer.' : 'No key saved yet.';
-    } catch (e) { $('onlineCheck').checked = false; }
+      const st = feedOn ? await feedStatus(false) : null;
+      $('feed-status').textContent = !st ? '' : st.ready
+        ? `List ready: ${st.entries.toLocaleString()} fake websites, downloaded ${new Date(st.updatedAt).toLocaleString()}.`
+        : (st.downloading ? 'Downloading the list…' : `The list has not been downloaded yet.${st.lastError ? ` (${st.lastError})` : ''}`);
+    } catch (e) { $('onlineCheck').checked = false; $('feedCheck').checked = false; }
+  }
+  // Turns one source on or off, keeping the others as they were.
+  async function setSource(name, on) {
+    const providers = sources(await engine()).filter(p => p !== name).concat(on ? [name] : []);
+    await engine({ providers, provider: 'none', remoteLookups: providers.length > 0, lookupTimeoutMs: 4000 });
+    if (!on) await chrome.permissions.remove({ origins: ORIGINS[name] }).catch(() => {});
   }
   $('sb-save').addEventListener('click', async () => {
     $('online-error').textContent = '';
@@ -119,7 +139,7 @@
       const key = $('sb-key').value.trim();
       await engine({ providerOptions: { apiKey: key } });
       $('sb-key').value = '';
-      if (!key) await engine({ remoteLookups: false });
+      if (!key) await setSource('safe-browsing', false);
       saved(key ? 'Key saved.' : 'Key removed.');
     } catch (err) {
       $('online-error').textContent = err.message;
@@ -131,16 +151,35 @@
     try {
       if (e.target.checked) {
         if (!(await engine()).providerOptions.apiKeySet) throw new Error('Paste your Safe Browsing key above and press "Save key" first.');
-        if (!await chrome.permissions.request({ origins: SAFE_BROWSING })) throw new Error('Chrome did not allow it, so this stays off.');
-        await engine({ remoteLookups: true, provider: 'safe-browsing', lookupTimeoutMs: 4000 });
-      } else {
-        await engine({ remoteLookups: false });
-        await chrome.permissions.remove({ origins: SAFE_BROWSING }).catch(() => {});
+        if (!await chrome.permissions.request({ origins: ORIGINS['safe-browsing'] })) throw new Error('Chrome did not allow it, so this stays off.');
       }
+      await setSource('safe-browsing', e.target.checked);
       saved();
     } catch (err) {
       $('online-error').textContent = err.message;
     }
+    await renderOnline();
+  });
+  async function downloadFeed() {
+    $('feed-status').textContent = 'Downloading the list…';
+    const st = await feedStatus(true);
+    if (!st.ready && st.lastError) throw new Error(st.lastError);
+  }
+  $('feedCheck').addEventListener('change', async e => {
+    $('online-error').textContent = '';
+    try {
+      if (e.target.checked && !await chrome.permissions.request({ origins: ORIGINS['phishing-database'] })) throw new Error('Chrome did not allow it, so this stays off.');
+      await setSource('phishing-database', e.target.checked);
+      saved();
+      if (e.target.checked) { await renderOnline(); await downloadFeed(); }
+    } catch (err) {
+      $('online-error').textContent = err.message;
+    }
+    await renderOnline();
+  });
+  $('feed-refresh').addEventListener('click', async () => {
+    $('online-error').textContent = '';
+    try { await downloadFeed(); } catch (err) { $('online-error').textContent = err.message; }
     await renderOnline();
   });
 

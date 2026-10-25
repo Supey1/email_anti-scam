@@ -46,7 +46,7 @@ const PopupStatus = (() => {
       };
     }
     return reply && reply.checking
-      ? { state: 'yes', icon: '✅', text: 'Yes, this page is being checked.', detail: 'We look at its words, links, and forms on this computer. Nothing is sent anywhere.', toggle: { label: 'Turn off for this website', on: false } }
+      ? { state: 'yes', icon: '✅', text: 'Yes, this page is being checked.', detail: 'We look at its words, links, and forms on this computer.', toggle: { label: 'Turn off for this website', on: false } }
       : { ...notSure(), toggle: { label: 'Turn off for this website', on: false } };
   }
 
@@ -54,7 +54,24 @@ const PopupStatus = (() => {
     return { state: 'unknown', icon: '❔', text: 'Not sure yet.', detail: 'Reload this page to start checking it.', toggle: null };
   }
 
-  return { describePage };
+  // The popup's answer to "is this website on a list of dangerous websites?".
+  //   engine  the service worker's settings (remoteLookups, providers)
+  //   lookup  the LOOKUP_RESULT for this page's address (or undefined if it didn't answer)
+  function describeLookup({ engine, lookup }) {
+    const on = engine && engine.remoteLookups && Array.isArray(engine.providers) && engine.providers.length;
+    if (!on) return { state: 'unknown', icon: '❔', text: 'The online lists are off.', detail: 'Turn them on in Settings to also check this website against lists of known fake websites.' };
+    if (!lookup || lookup.type !== 'LOOKUP_RESULT') return { state: 'unknown', icon: '❔', text: 'Could not check the lists.', detail: 'The extension did not answer. Try reloading it.' };
+    const names = (lookup.checked || []).filter(n => n !== 'local list').join(' and ');
+    if (lookup.status === 'match') return { state: 'no', icon: '⛔', text: 'This website is on a list of dangerous websites.', detail: `Listed by ${lookup.source ? lookup.source.name : 'a list'}. Do not enter anything here.` };
+    const problems = (lookup.details || []).filter(d => d.outcome === 'error').map(d => `${d.name}: ${d.reason}`);
+    if (lookup.status === 'error') return { state: 'unknown', icon: '⚠️', text: 'Could not check the lists.', detail: problems.join(' ') || lookup.reason || 'Something went wrong.' };
+    return {
+      state: 'yes', icon: '✅', text: `Not on ${names || 'the lists'}.`,
+      detail: `${problems.length ? `${problems.join(' ')} ` : ''}Not being on a list does not mean a website is safe: new fake websites are not listed yet.`,
+    };
+  }
+
+  return { describePage, describeLookup };
 })();
 
 // Lets tests load this file with Node. Chrome ignores this.
