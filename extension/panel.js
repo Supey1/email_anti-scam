@@ -68,7 +68,9 @@ const EmailAntiScamPanel = (() => {
       try { handle.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
       if (moved && inExtension) {
         const box = chip.getBoundingClientRect();
-        chrome.storage.local.set({ chipPosition: { x: box.left, y: box.top } }).catch(() => {});
+        // After the extension is reloaded or updated, an open tab's old copy of this script throws
+        // "Extension context invalidated" here, so guard the call as well as the promise.
+        try { chrome.storage.local.set({ chipPosition: { x: box.left, y: box.top } }).catch(() => {}); } catch { /* extension was reloaded */ }
       }
     });
     // Runs before the click that opens the panel, and cancels it if the press was really a move.
@@ -95,9 +97,11 @@ const EmailAntiScamPanel = (() => {
     document.documentElement.append(chip);
     makeChipMovable(button);
     if (inExtension) {
-      chrome.storage.local.get('chipPosition').then(({ chipPosition }) => {
-        if (chip && chipPosition && Number.isFinite(chipPosition.x) && Number.isFinite(chipPosition.y)) placeChip(chipPosition.x, chipPosition.y);
-      }).catch(() => {});
+      try {
+        chrome.storage.local.get('chipPosition').then(({ chipPosition }) => {
+          if (chip && chipPosition && Number.isFinite(chipPosition.x) && Number.isFinite(chipPosition.y)) placeChip(chipPosition.x, chipPosition.y);
+        }).catch(() => {});
+      } catch { /* extension was reloaded; the chip just stays in its default spot */ }
     }
   }
 
