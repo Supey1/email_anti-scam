@@ -156,8 +156,8 @@ function strength(result) {
 // PAGE "known dangerous": the click on the ad is what gets blocked.
 const MAX_ADS = 20;
 const asAdOnPage = r => (r.verdict === 'block' ? { ...r, verdict: 'warn', recommendedAction: 'GO_BACK' } : r);
-function checkWebpage(evidence) {
-  const page = analyze(evidence);
+function checkWebpage(evidence, options) {
+  const page = analyze(evidence, options);
   if (!evidence || typeof evidence !== 'object') return page;
   const ctx = evidence.context && typeof evidence.context === 'object' ? evidence.context : {};
   const ads = (Array.isArray(ctx.ads) ? ctx.ads : []).filter(ad => ad && ad.link && ad.link.url).slice(0, MAX_ADS)
@@ -198,11 +198,11 @@ function checkLinkClick(click) {
   return { ...result, host: parsed.ok && parsed.isWeb ? parsed.host : '' };
 }
 
-function checkEmail(evidence) {
-  const result = analyze(evidence);
+function checkEmail(evidence, options) {
+  const result = analyze(evidence, options);
   let links = [];
   try {
-    const evaluation = GranblockCore.analyzer.evaluate(GranblockCore.analyzer.cleanInput(evidence));
+    const evaluation = GranblockCore.analyzer.evaluate(GranblockCore.analyzer.cleanInput(evidence), options);
     links = (evaluation.links || []).map(l => ({ text: l.text, host: l.host, flags: legacyLinkReport(l.findings).flags }));
   } catch (e) { /* the result already says "unknown" */ }
   return { ...result, links };

@@ -13,8 +13,9 @@
 //      turning it on sends addresses away from this computer (docs/threat-intelligence.md).
 //
 // A provider is an adapter: { name, trusted, lookup(parsedUrl, { signal }) -> Promise<{ matched, threatType? }> }
-// Only the development mock exists. A real provider is added only after the
-// privacy model is chosen, and never with a secret key in the extension.
+// Two exist: PhishTank (real, opt-in) and a development mock. No secret key is
+// ever written into the extension; an optional PhishTank app key could only be
+// something the person saved on their own computer.
 //
 // No chrome.* calls here, so tests can run it directly.
 
@@ -24,6 +25,7 @@
   const bg = globalThis.GranblockBackground = globalThis.GranblockBackground || {};
   if (typeof require !== 'undefined' && !core.urlNormalizer) require('../core/url-normalizer.js');
   if (typeof require !== 'undefined' && !core.urlRules) require('../core/url-rules.js');
+  if (typeof require !== 'undefined' && !core.domainRules) require('../core/domain-rules.js');
   if (typeof require !== 'undefined' && !bg.threatRules) require('./threat-rules.js');
   const { normalizeUrl } = core.urlNormalizer;
 
@@ -56,7 +58,54 @@
     };
   }
 
-  const PROVIDERS = { mock: mockProvider };
+  // PhishTank (phishtank.org): a community list of web addresses people reported
+  // as phishing and others verified. Its "check URL" service answers for ONE
+  // address, so using it sends addresses away from this computer:
+  //   - only the website and path are sent (never ?query or #fragment, which can hold
+  //     login tokens or private ids), as a base64 form field over HTTPS
+  //   - never sent: official company websites, number addresses, local or one-word names
+  //   - only entries that are BOTH verified and still valid count as a match
+  // Needs permission to talk to checkurl.phishtank.com (asked for on the settings page).
+  const PHISHTANK_URL = 'https://checkurl.phishtank.com/checkurl/';
+  const yes = v => v === true || v === 'true' || v === 'y' || v === 'yes';
+
+  // The address as it is sent, or null when it must not be sent at all.
+  function phishtankQuery(parsed) {
+    const host = parsed.hostname || '';
+    if (!parsed.isWeb || parsed.isIp || !host.includes('.') || host.includes(':') || host.endsWith('.localhost')) return null;
+    if (core.domainRules && core.domainRules.officialBrandFor(host)) return null;
+    return `${parsed.protocol}//${host}${encodeURI(parsed.pathname)}`;
+  }
+
+  // options: { appKey, fetch } (fetch is replaced in tests)
+  function phishtankProvider({ appKey = '', fetch: fetchFn } = {}) {
+    return {
+      name: 'PhishTank',
+      trusted: true, // a match is verified by people, so it may stop the person (the analyzer blocks it)
+      async lookup(parsed, { signal } = {}) {
+        const send = phishtankQuery(parsed);
+        if (!send) return { matched: false };
+        const body = new URLSearchParams({ url: btoa(send), format: 'json' });
+        if (appKey) body.set('app_key', String(appKey));
+        const response = await (fetchFn || globalThis.fetch)(PHISHTANK_URL, {
+          method: 'POST',
+          body,
+          signal,
+          credentials: 'omit',
+          cache: 'no-store',
+          referrerPolicy: 'no-referrer',
+        });
+        if (response.status === 509) throw new Error('PhishTank rate limit reached'); // over its free allowance
+        if (!response.ok) throw new Error(`PhishTank answered ${response.status}`);
+        const data = await response.json();
+        const r = data && data.results;
+        if (!r || typeof r !== 'object') throw new Error('unreadable answer');
+        return { matched: yes(r.in_database) && yes(r.verified) && yes(r.valid), threatType: 'PHISHING' };
+      },
+    };
+  }
+
+  const PROVIDERS = { mock: mockProvider, phishtank: phishtankProvider };
 
   // ---------- lookups ----------
 
@@ -134,6 +183,6 @@
     return { lookup, clearCache: () => cache.clear() };
   }
 
-  bg.threatLookup = { DEFAULT_TIMEOUT_MS, CACHE_MS, PROVIDERS, mockProvider, createLookup };
+  bg.threatLookup = { DEFAULT_TIMEOUT_MS, CACHE_MS, PROVIDERS, mockProvider, phishtankProvider, phishtankQuery, createLookup };
   if (typeof module !== 'undefined') module.exports = bg.threatLookup;
 })();

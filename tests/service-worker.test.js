@@ -567,7 +567,7 @@ test('the manifest asks only for what is used: no website access at install, no 
   assert.deepStrictEqual(manifest.permissions.slice().sort(), ['declarativeNetRequest', 'scripting', 'storage', 'tts']);
   assert.ok(!manifest.host_permissions, 'website access must be optional, asked for during onboarding');
   assert.ok(!manifest.content_scripts, 'page scripts are registered only after access is given');
-  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*']);
+  assert.deepStrictEqual(manifest.optional_host_permissions, ['http://*/*', 'https://*/*', 'https://checkurl.phishtank.com/*']); // PhishTank: only asked for when someone turns the online check on
   // The warning page must be reachable by Chrome's redirect of a known dangerous website.
   assert.deepStrictEqual(manifest.web_accessible_resources.flatMap(r => r.resources), ['ui/warning.html']);
   for (const page of [manifest.action.default_popup, manifest.options_ui.page]) {
@@ -580,6 +580,78 @@ test('every page script the service worker registers exists', () => {
   for (const script of desiredScripts('all', true)) {
     for (const file of script.js) assert.ok(fs.existsSync(path.join(__dirname, '..', 'extension', file)), `${script.id}: missing ${file}`);
   }
+});
+
+// --- PhishTank provider: a pretend fetch, made-up .example addresses, nothing leaves this computer ---
+
+function fakePhishtank(results, { status = 200, calls = [] } = {}) {
+  const fetch = async (url, init) => {
+    calls.push({ url, body: Object.fromEntries(init.body), init });
+    return { ok: status === 200, status, json: async () => ({ results }) };
+  };
+  return { fetch, calls };
+}
+const phishLookup = async (fake, url, options = {}) => {
+  const lookup = require(path.join(__dirname, '..', 'extension', 'background', 'threat-lookup.js')).createLookup({
+    getEntries: () => [],
+    getSettings: () => ({ remoteLookups: true, provider: 'phishtank', providerOptions: { fetch: fake.fetch, ...options }, allowlist: [] }),
+  });
+  return lookup.lookup(url);
+};
+
+test('PhishTank: verified and valid -> match from a trusted source, which the engine blocks', async () => {
+  const fake = fakePhishtank({ in_database: true, verified: true, valid: true });
+  const r = await phishLookup(fake, 'https://phish-test.example/login');
+  assert.deepStrictEqual([r.status, r.source.name, r.source.trusted], ['match', 'PhishTank', true]);
+  const input = { source: 'webpage', pageUrl: r.url, pageTitle: '', visibleText: '', links: [], forms: [], context: {} };
+  assert.strictEqual(analyze(input, { lookup: r }).verdict, 'block');
+});
+
+test('PhishTank: not in the database, or not verified, or no longer valid -> no_match (never "safe")', async () => {
+  for (const results of [{ in_database: false }, { in_database: true, verified: false, valid: true }, { in_database: true, verified: true, valid: false }]) {
+    const r = await phishLookup(fakePhishtank(results), 'https://other-news.example/a');
+    assert.strictEqual(r.status, 'no_match');
+    assert.ok(!/safe/i.test(JSON.stringify(r)));
+  }
+});
+
+test('PhishTank: only the website and path are sent (no ?query or #fragment), over HTTPS, without cookies', async () => {
+  const fake = fakePhishtank({ in_database: false });
+  await phishLookup(fake, 'https://other-news.example/path/page?token=SECRET&id=7#section');
+  assert.strictEqual(fake.calls.length, 1);
+  const [{ url, body, init }] = fake.calls;
+  assert.strictEqual(url, 'https://checkurl.phishtank.com/checkurl/');
+  assert.strictEqual(Buffer.from(body.url, 'base64').toString(), 'https://other-news.example/path/page');
+  assert.ok(!JSON.stringify(body).includes('SECRET'));
+  assert.deepStrictEqual([init.credentials, init.referrerPolicy, body.format, 'app_key' in body], ['omit', 'no-referrer', 'json', false]);
+});
+
+test('PhishTank: official company websites, number addresses, and local names are never sent', async () => {
+  const fake = fakePhishtank({ in_database: false });
+  for (const url of ['https://www.paypal.com/signin', 'http://192.168.1.5/router', 'http://localhost:3000/', 'https://intranet/page']) await phishLookup(fake, url);
+  assert.strictEqual(fake.calls.length, 0, 'sent: ' + fake.calls.map(c => Buffer.from(c.body.url, 'base64')).join(', '));
+});
+
+test('PhishTank: an app key is only sent when the person saved one', async () => {
+  const fake = fakePhishtank({ in_database: false });
+  await phishLookup(fake, 'https://other-news.example/a', { appKey: 'saved-by-the-person' });
+  assert.strictEqual(fake.calls[0].body.app_key, 'saved-by-the-person');
+});
+
+test('PhishTank: rate limit (509), server errors, and unreadable answers -> error, never no_match', async () => {
+  for (const fake of [fakePhishtank({}, { status: 509 }), fakePhishtank({}, { status: 500 }), fakePhishtank(null)]) {
+    const r = await phishLookup(fake, 'https://other-news.example/a');
+    assert.strictEqual(r.status, 'error');
+  }
+});
+
+test('PhishTank is a known provider, and stays off until someone turns it on', async () => {
+  const env = setup();
+  assert.strictEqual((await send(env, { type: 'GET_SETTINGS' })).settings.remoteLookups, false);
+  const r = await send(env, { type: 'SET_SETTINGS', settings: { remoteLookups: true, provider: 'phishtank', lookupTimeoutMs: 4000 } }, EXTENSION_PAGE);
+  assert.strictEqual(r.type, 'SETTINGS');
+  const fromPage = await send(env, { type: 'SET_SETTINGS', settings: { provider: 'phishtank' } });
+  assert.strictEqual(fromPage.type, 'ERROR', 'a website must not be able to change this');
 });
 
 test('every script an extension page or the service worker loads exists', () => {
