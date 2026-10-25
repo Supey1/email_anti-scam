@@ -86,10 +86,14 @@
     </section>
 
     <section aria-labelledby="h-online">
-      <h2 id="h-online">Online check with PhishTank</h2>
-      <p>PhishTank is a free list of fake websites that people reported and others confirmed. Turn this on to also check the websites you visit, and the links in Gmail emails, against it.</p>
-      <p class="note"><strong>This is off unless you turn it on, because it sends information away.</strong> Each website address is sent to PhishTank (checkurl.phishtank.com): the site name and page path only, never what follows a "?" or "#", and never your name, email, or anything you type. Addresses of well-known company websites and number addresses are not sent. PhishTank can see your computer's address, as any website can.</p>
-      <label><input type="checkbox" id="onlineCheck"> Check addresses with PhishTank</label>
+      <h2 id="h-online">Google Safe Browsing</h2>
+      <p>Safe Browsing is Google's list of fake, harmful and dangerous websites. Turn this on to check the websites you visit, and the links in Gmail emails, against it. It needs your own free Safe Browsing key from Google.</p>
+      <p class="note"><strong>Off unless you turn it on.</strong> Website addresses are <strong>not</strong> sent. For each page, Granblock sends Google only the first few bytes of scrambled fingerprints of the address, which many unrelated websites share, so Google gets answers without being told which website you opened. Google can still see your computer's address and your key, as any website can. Your key is saved only on this computer.</p>
+      <label for="sb-key">Your Safe Browsing key</label>
+      <input type="password" id="sb-key" autocomplete="off" spellcheck="false" placeholder="Paste your key here">
+      <button id="sb-save" type="button">Save key</button>
+      <p id="sb-key-status" role="status"></p>
+      <label><input type="checkbox" id="onlineCheck"> Check websites with Google Safe Browsing</label>
       <p id="online-error" class="error" role="alert"></p>
     </section>
 
@@ -104,7 +108,7 @@
         <li>Advertisements that are clearly marked as ads, when they promise a prize or lead somewhere they should not. Ordinary ads are left alone, and no ad is ever hidden.</li>
         <li>Websites on a small built-in list of known dangerous addresses. These are stopped before they open.</li>
       </ul>
-      <p>Everything is checked on this computer. <strong>Nothing you read is sent anywhere</strong>, unless you turn on the online check with PhishTank above (then only website addresses are sent, as described there).</p>
+      <p>Everything is checked on this computer. <strong>Nothing you read is sent anywhere</strong>, unless you turn on Google Safe Browsing above (then only short fingerprints of addresses are sent, as described there).</p>
     </section>
 
     <section aria-labelledby="h-cannot">
@@ -122,7 +126,7 @@
     <section aria-labelledby="h-permissions">
       <h2 id="h-permissions">What Chrome allows Granblock to do, and why</h2>
       <ul id="permissions">
-        <li><strong>Read and change your data on websites</strong> (only if you allow it above): to look at the page you're on, the link you click, and the email you open, and show a warning in front of it. Nothing is sent anywhere unless you turn on the PhishTank check.</li>
+        <li><strong>Read and change your data on websites</strong> (only if you allow it above): to look at the page you're on, the link you click, and the email you open, and show a warning in front of it. Nothing is sent anywhere unless you turn on Google Safe Browsing.</li>
         <li><strong>Block content on any page</strong>: to stop known dangerous websites before they load. Chrome does this matching itself; Granblock doesn't see your browsing history.</li>
         <li><strong>Storage</strong>: to remember these settings and the list of known dangerous websites, on this computer.</li>
         <li><strong>Scripting</strong>: to start or stop checking websites when you change the website access above.</li>

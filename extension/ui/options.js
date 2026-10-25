@@ -99,28 +99,43 @@
     saved('Everything is back the way it was.');
   });
 
-  // ---- online check with PhishTank (off unless chosen; sends website addresses, see the page text) ----
-  const PHISHTANK = ['https://checkurl.phishtank.com/*'];
+  // ---- Google Safe Browsing (off unless chosen; sends only short hash fingerprints, see the page text) ----
+  const SAFE_BROWSING = ['https://safebrowsing.googleapis.com/*'];
   async function engine(change) {
     const reply = await chrome.runtime.sendMessage({ schemaVersion: 1, type: change ? 'SET_SETTINGS' : 'GET_SETTINGS', ...(change ? { settings: change } : {}) });
     if (!reply || reply.type !== 'SETTINGS') throw new Error((reply && reply.error) || 'no answer');
-    return reply.settings;
+    return reply.settings; // never contains the key itself, only providerOptions.apiKeySet
   }
   async function renderOnline() {
     try {
       const s = await engine();
-      $('onlineCheck').checked = s.remoteLookups && s.provider === 'phishtank';
+      $('onlineCheck').checked = s.remoteLookups && s.provider === 'safe-browsing';
+      $('sb-key-status').textContent = s.providerOptions.apiKeySet ? 'A key is saved on this computer.' : 'No key saved yet.';
     } catch (e) { $('onlineCheck').checked = false; }
   }
+  $('sb-save').addEventListener('click', async () => {
+    $('online-error').textContent = '';
+    try {
+      const key = $('sb-key').value.trim();
+      await engine({ providerOptions: { apiKey: key } });
+      $('sb-key').value = '';
+      if (!key) await engine({ remoteLookups: false });
+      saved(key ? 'Key saved.' : 'Key removed.');
+    } catch (err) {
+      $('online-error').textContent = err.message;
+    }
+    await renderOnline();
+  });
   $('onlineCheck').addEventListener('change', async e => {
     $('online-error').textContent = '';
     try {
       if (e.target.checked) {
-        if (!await chrome.permissions.request({ origins: PHISHTANK })) throw new Error('Chrome did not allow it, so the online check stays off.');
-        await engine({ remoteLookups: true, provider: 'phishtank', lookupTimeoutMs: 4000 });
+        if (!(await engine()).providerOptions.apiKeySet) throw new Error('Paste your Safe Browsing key above and press "Save key" first.');
+        if (!await chrome.permissions.request({ origins: SAFE_BROWSING })) throw new Error('Chrome did not allow it, so this stays off.');
+        await engine({ remoteLookups: true, provider: 'safe-browsing', lookupTimeoutMs: 4000 });
       } else {
         await engine({ remoteLookups: false });
-        await chrome.permissions.remove({ origins: PHISHTANK }).catch(() => {});
+        await chrome.permissions.remove({ origins: SAFE_BROWSING }).catch(() => {});
       }
       saved();
     } catch (err) {

@@ -37,6 +37,7 @@ importScripts(
   'rules.js',
   // The background itself
   'background/threat-rules.js',
+  'background/safe-browsing.js',
   'background/threat-lookup.js',
   'background/content-scripts.js',
   'background/speech-relay.js',

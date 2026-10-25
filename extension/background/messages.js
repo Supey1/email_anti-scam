@@ -38,8 +38,8 @@
   const DEFAULT_SETTINGS = Object.freeze({
     protectionEnabled: true,  // the person's on/off switch; false: no blocking rules, no page scripts
     remoteLookups: false,     // true sends addresses to a lookup service: see docs/threat-intelligence.md
-    provider: 'none',         // 'none' | 'mock' (development only)
-    providerOptions: {},      // for the mock: { entries, delayMs, fail, trusted }
+    provider: 'none',         // 'none' | 'safe-browsing' (Google, hash prefixes only) | 'mock' (development only)
+    providerOptions: {},      // safe-browsing: { apiKey } (the person's own, never returned to pages); mock: { entries, delayMs, fail, trusted }
     lookupTimeoutMs: 1500,
     allowlist: [],            // website names or addresses removed as false positives
   });
@@ -61,6 +61,7 @@
           break;
         case 'providerOptions':
           if (!value || typeof value !== 'object' || Array.isArray(value)) return { error: 'providerOptions must be an object' };
+          if ('apiKey' in value && (typeof value.apiKey !== 'string' || (value.apiKey && !/^[A-Za-z0-9_-]{20,100}$/.test(value.apiKey)))) return { error: 'that does not look like a Safe Browsing key (letters, numbers, - and _ only)' };
           break;
         case 'lookupTimeoutMs':
           if (!Number.isInteger(value) || value < 100 || value > 10000) return { error: 'lookupTimeoutMs must be between 100 and 10000' };
@@ -101,6 +102,11 @@
     let queue = Promise.resolve(); // rule updates run one at a time, never on top of each other
 
     const reply = (type, body = {}) => ({ type, schemaVersion: SCHEMA_VERSION, ...body });
+    // The key is the person's secret: no reply ever carries it, only whether one is saved.
+    const publicSettings = s => {
+      const { apiKey, ...options } = s.providerOptions || {};
+      return { ...s, providerOptions: { ...options, apiKeySet: !!apiKey } };
+    };
     const fail = error => reply('ERROR', { error });
     const lookup = bg.threatLookup.createLookup({ getEntries: () => bg.threatRules.forEngine(active.entries), getSettings: () => settings, now });
 
@@ -109,6 +115,8 @@
       const engine = asObject(await deps.storage.get('engineSettings'));
       const user = asObject(await deps.storage.get('settings'));
       const known = Object.fromEntries(Object.entries(engine).filter(([key]) => key in DEFAULT_SETTINGS && key !== 'protectionEnabled'));
+      // The first version asked PhishTank about each address. It was replaced by Google Safe Browsing: switch it off.
+      if (known.provider === 'phishtank') Object.assign(known, { provider: 'none', remoteLookups: false });
       settings = { ...DEFAULT_SETTINGS, ...known, protectionEnabled: user.enabled !== false };
     }
     async function store(next) {
@@ -197,7 +205,7 @@
 
       async GET_SETTINGS() {
         await whenReady();
-        return reply('SETTINGS', { settings });
+        return reply('SETTINGS', { settings: publicSettings(settings) });
       },
 
       async SET_SETTINGS(message, sender) {
@@ -209,12 +217,12 @@
         await store(settings);
         lookup.clearCache();
         await refreshRules();
-        return reply('SETTINGS', { settings });
+        return reply('SETTINGS', { settings: publicSettings(settings) });
       },
 
       async GET_STATUS() {
         await ensureActive();
-        return reply('STATUS', { settings, access, rules: (await deps.dnr.getDynamicRules()).length, activeEntries: active.entries.length });
+        return reply('STATUS', { settings: publicSettings(settings), access, rules: (await deps.dnr.getDynamicRules()).length, activeEntries: active.entries.length });
       },
 
       // Chrome said website access changed (chrome.permissions.onAdded / onRemoved).

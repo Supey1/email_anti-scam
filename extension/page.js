@@ -39,7 +39,7 @@
   }
 
   // Asks the service worker whether this page's address is on a known-dangerous list.
-  // It checks the local list, and PhishTank only if the person turned online checks on
+  // It checks the local list, and Google Safe Browsing only if the person turned it on
   // (settings page). Only a match changes anything: no answer, an error, or "not found"
   // leave the other checks exactly as they were.
   async function lookUpPage() {

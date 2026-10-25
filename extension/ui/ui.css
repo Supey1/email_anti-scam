@@ -45,10 +45,10 @@ fieldset { border: 2px solid #cccccc; border-radius: 10px; margin: 0.6rem 0; pad
 legend { font-weight: bold; padding: 0 0.3rem; }
 label { display: block; margin: 0.4rem 0; cursor: pointer; }
 input[type="checkbox"], input[type="radio"] { width: 1.2em; height: 1.2em; margin-right: 0.5rem; vertical-align: -0.15em; }
-input[type="text"], select {
+input[type="text"], input[type="password"], select {
   font: inherit; padding: 0.4rem 0.6rem; border: 2px solid #222222; border-radius: 8px; background: #ffffff; color: #111111;
 }
-input[type="text"] { width: min(24rem, 100%); }
+input[type="text"], input[type="password"] { width: min(24rem, 100%); }
 ul.sites { list-style: none; margin: 0.4rem 0; padding: 0; }
 ul.sites li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; border-bottom: 1px solid #dddddd; padding: 0.2rem 0; }
 .sample { border: 2px dashed #555555; border-radius: 8px; padding: 0.5rem 0.8rem; margin-top: 0.5rem; }
